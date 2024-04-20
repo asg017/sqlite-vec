@@ -612,19 +612,20 @@ def test_smoke():
     assert vchunk["rowid"] == 1
     assert vchunk["vectors"] == bytearray(int(1024 * 4 * 2))
 
-    assert (
+    assert re.match(
+        "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 0:knn:",
+
         explain_query_plan(
             "select * from vec_xyz where a match X'' and k = 10 order by distance"
         )
-        == "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 0:knn:"
     )
-    assert (
+    assert re.match(
+        "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 0:fullscan",
         explain_query_plan("select * from vec_xyz")
-        == "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 0:fullscan"
     )
-    assert (
+    assert re.match(
+        "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 3:point",
         explain_query_plan("select * from vec_xyz where rowid = 4")
-        == "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 3:point"
     )
 
     db.execute("insert into vec_xyz(rowid, a) select 1, X'000000000000803f'")

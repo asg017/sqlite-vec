@@ -45,6 +45,9 @@ jobs:
     runs-on: windows-2019
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - run: ./scripts/vendor.sh
         shell: bash
       - run: ls vendor/
