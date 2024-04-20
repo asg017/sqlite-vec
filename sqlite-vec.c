@@ -12,6 +12,52 @@
 #include "sqlite3ext.h"
 SQLITE_EXTENSION_INIT1
 
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+
+#ifndef UINT32_TYPE
+# ifdef HAVE_UINT32_T
+#  define UINT32_TYPE uint32_t
+# else
+#  define UINT32_TYPE unsigned int
+# endif
+#endif
+#ifndef UINT16_TYPE
+# ifdef HAVE_UINT16_T
+#  define UINT16_TYPE uint16_t
+# else
+#  define UINT16_TYPE unsigned short int
+# endif
+#endif
+#ifndef INT16_TYPE
+# ifdef HAVE_INT16_T
+#  define INT16_TYPE int16_t
+# else
+#  define INT16_TYPE short int
+# endif
+#endif
+#ifndef UINT8_TYPE
+# ifdef HAVE_UINT8_T
+#  define UINT8_TYPE uint8_t
+# else
+#  define UINT8_TYPE unsigned char
+# endif
+#endif
+#ifndef INT8_TYPE
+# ifdef HAVE_INT8_T
+#  define INT8_TYPE int8_t
+# else
+#  define INT8_TYPE signed char
+# endif
+#endif
+#ifndef LONGDOUBLE_TYPE
+# define LONGDOUBLE_TYPE long double
+#endif
+
 typedef u_int8_t uint8_t;
 typedef u_int16_t uint16_t;
 typedef u_int64_t uint64_t;
@@ -4162,7 +4208,6 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
     int rc = vector_from_value(valueVector, &vectorDatas[i], &dimensions,
                                &elementType, &cleanups[i], &pzError);
     todo_assert(rc == SQLITE_OK);
-    printf("%d %d\n", elementType, p->vector_columns[i].element_type);
     assert(elementType == p->vector_columns[i].element_type);
 
     if (dimensions != p->vector_columns[i].dimensions) {

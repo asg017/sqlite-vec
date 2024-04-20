@@ -14,6 +14,7 @@ from math import isclose
 
 EXT_PATH = "./dist/vec0"
 
+SUPPORTS_SUBTYPE = sqlite3.version_info[1] > 38
 
 def bitmap_full(n: int) -> bytearray:
     assert (n % 8) == 0
@@ -136,7 +137,8 @@ def test_vec_bit():
     vec_bit = lambda *args: db.execute("select vec_bit(?)", args).fetchone()[0]
     assert vec_bit(b"\xff") == b"\xff"
 
-    assert db.execute("select subtype(vec_bit(X'FF'))").fetchone()[0] == 224
+    if SUPPORTS_SUBTYPE:
+        assert db.execute("select subtype(vec_bit(X'FF'))").fetchone()[0] == 224
 
     with pytest.raises(
         sqlite3.OperationalError, match="zero-length vectors are not supported."
@@ -165,7 +167,8 @@ def test_vec_f32():
     for test in tests:
         assert vec_f32(json.dumps(test)) == _f32(test)
 
-    assert db.execute("select subtype(vec_f32(X'00000000'))").fetchone()[0] == 223
+    if SUPPORTS_SUBTYPE:
+        assert db.execute("select subtype(vec_f32(X'00000000'))").fetchone()[0] == 223
 
     with pytest.raises(
         sqlite3.OperationalError, match="zero-length vectors are not supported."
@@ -207,7 +210,9 @@ def test_vec_int8():
     vec_int8 = lambda *args: db.execute("select vec_int8(?)", args).fetchone()[0]
     assert vec_int8(b"\x00") == _int8([0])
     assert vec_int8(b"\x00\x0f") == _int8([0, 15])
-    assert db.execute("select subtype(vec_int8(?))", [b"\x00"]).fetchone()[0] == 225
+
+    if SUPPORTS_SUBTYPE:
+        assert db.execute("select subtype(vec_int8(?))", [b"\x00"]).fetchone()[0] == 225
 
 
 def npy_cosine(a, b):
@@ -584,23 +589,19 @@ def test_smoke():
     db.execute("create virtual table vec_xyz using vec0( a float[2] )")
     assert execute_all(
         db,
-        "select name, ncol from pragma_table_list where name like 'vec_xyz%' order by name;",
+        "select name from sqlite_master where name like 'vec_xyz%' order by name;",
     ) == [
         {
             "name": "vec_xyz",
-            "ncol": 4,
         },
         {
             "name": "vec_xyz_chunks",
-            "ncol": 4,
         },
         {
             "name": "vec_xyz_rowids",
-            "ncol": 4,
         },
         {
             "name": "vec_xyz_vector_chunks00",
-            "ncol": 2,
         },
     ]
     chunk = db.execute("select * from vec_xyz_chunks").fetchone()
