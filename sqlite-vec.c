@@ -6,18 +6,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <stdint.h>
+#include <inttypes.h>
 #include "sqlite-vec.h"
 
 #include "sqlite3ext.h"
 SQLITE_EXTENSION_INIT1
 
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
-#ifdef HAVE_INTTYPES_H
-#include <inttypes.h>
-#endif
 
 #ifndef UINT32_TYPE
 # ifdef HAVE_UINT32_T

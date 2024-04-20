@@ -614,7 +614,7 @@ def test_smoke():
 
     assert (
         explain_query_plan(
-            "select * from vec_xyz where a match X'' order by distance limit 10"
+            "select * from vec_xyz where a match X'' and k = 10 order by distance"
         )
         == "SCAN vec_xyz VIRTUAL TABLE INDEX 0:knn:"
     )
