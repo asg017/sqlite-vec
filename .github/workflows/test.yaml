@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@v3
       - run: ./scripts/vendor.sh
       - run: make loadable
-      - run: /opt/homebrew/opt/python3/libexec/bin/python -m pip install pytest numpy; make test-loadable python=/opt/homebrew/opt/python3/libexec/bin/python
+      - run: /opt/homebrew/opt/python3/libexec/bin/python -m pip install pytest numpy --break-system-packages; make test-loadable python=/opt/homebrew/opt/python3/libexec/bin/python
       - uses: actions/upload-artifact@v3
         with:
           name: sqlite-vec-macos-aarch64-extension
