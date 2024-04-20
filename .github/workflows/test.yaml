@@ -1,0 +1,47 @@
+name: "Test"
+on:
+  push:
+    branches:
+      - main
+permissions:
+  contents: read
+jobs:
+  build-linux-x86_64-extension:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - run: make loadable
+      - run: pip install pytest numpy; make test-loadable
+      - uses: actions/upload-artifact@v3
+        with:
+          name: sqlite-vec-linux-x86_64-extension
+          path: dist/*
+  build-macos-x86_64-extension:
+    runs-on: macos-11
+    steps:
+      - uses: actions/checkout@v3
+      - run: make loadable
+      - run: /usr/local/opt/python@3/libexec/bin/python -m pip install pytest numpy; make test-loadable python=/usr/local/opt/python@3/libexec/bin/python
+      - uses: actions/upload-artifact@v3
+        with:
+          name: sqlite-vec-macos-x86_64-extension
+          path: dist/*
+  build-macos-aarch64-extension:
+    runs-on: macos-11
+    steps:
+      - uses: actions/checkout@v3
+      - run: make loadable CFLAGS="-target arm64-apple-macos11"
+      - uses: actions/upload-artifact@v3
+        with:
+          name: sqlite-vec-macos-aarch64-extension
+          path: dist/*
+  build-windows-x86_64-extension:
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v3
+      - run: make loadable
+      - run: pip install pytest numpy; make test-loadable
+      - uses: actions/upload-artifact@v3
+        with:
+          name: sqlite-vec-windows-x86_64-extension
+          path: dist/*
