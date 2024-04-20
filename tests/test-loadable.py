@@ -616,15 +616,15 @@ def test_smoke():
         explain_query_plan(
             "select * from vec_xyz where a match X'' and k = 10 order by distance"
         )
-        == "SCAN vec_xyz VIRTUAL TABLE INDEX 0:knn:"
+        == "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 0:knn:"
     )
     assert (
         explain_query_plan("select * from vec_xyz")
-        == "SCAN vec_xyz VIRTUAL TABLE INDEX 0:fullscan"
+        == "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 0:fullscan"
     )
     assert (
         explain_query_plan("select * from vec_xyz where rowid = 4")
-        == "SCAN vec_xyz VIRTUAL TABLE INDEX 3:point"
+        == "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 3:point"
     )
 
     db.execute("insert into vec_xyz(rowid, a) select 1, X'000000000000803f'")
