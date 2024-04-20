@@ -12,6 +12,10 @@
 #include "sqlite3ext.h"
 SQLITE_EXTENSION_INIT1
 
+typedef u_int8_t uint8_t;
+typedef u_int16_t uint16_t;
+typedef u_int64_t uint64_t;
+
 #ifndef UNUSED_PARAMETER
 #define UNUSED_PARAMETER(X) (void)(X)
 #endif

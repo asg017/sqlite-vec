@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
+      - run: ./scripts/vendor.sh
       - run: make loadable
       - run: pip install pytest numpy; make test-loadable
       - uses: actions/upload-artifact@v3
@@ -20,6 +21,7 @@ jobs:
     runs-on: macos-11
     steps:
       - uses: actions/checkout@v3
+      - run: ./scripts/vendor.sh
       - run: make loadable
       - run: /usr/local/opt/python@3/libexec/bin/python -m pip install pytest numpy; make test-loadable python=/usr/local/opt/python@3/libexec/bin/python
       - uses: actions/upload-artifact@v3
@@ -30,6 +32,7 @@ jobs:
     runs-on: macos-11
     steps:
       - uses: actions/checkout@v3
+      - run: ./scripts/vendor.sh
       - run: make loadable CFLAGS="-target arm64-apple-macos11"
       - uses: actions/upload-artifact@v3
         with:
@@ -39,6 +42,7 @@ jobs:
     runs-on: windows-2019
     steps:
       - uses: actions/checkout@v3
+      - run: ./scripts/vendor.sh
       - run: make loadable
       - run: pip install pytest numpy; make test-loadable
       - uses: actions/upload-artifact@v3
