@@ -1,0 +1,11 @@
+#include "sqlite3ext.h"
+
+#define SQLITE_VEC_VERSION "v${VERSION}"
+#define SQLITE_VEC_DATE "${DATE}"
+#define SQLITE_VEC_SOURCE "${SOURCE}"
+
+
+int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
+                     const sqlite3_api_routines *pApi);
+int sqlite3_vec_fs_read_init(sqlite3 *db, char **pzErrMsg,
+                             const sqlite3_api_routines *pApi);
