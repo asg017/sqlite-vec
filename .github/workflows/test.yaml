@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - run: ./scripts/vendor.sh
       - run: make loadable
       - run: pip install pytest numpy; make test-loadable
@@ -43,6 +46,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: ./scripts/vendor.sh
+        shell: bash
+      - run: ls vendor/
       - run: make loadable
       - run: pip install pytest numpy; make test-loadable
       - uses: actions/upload-artifact@v3
