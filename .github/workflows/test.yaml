@@ -32,11 +32,12 @@ jobs:
           name: sqlite-vec-macos-x86_64-extension
           path: dist/*
   build-macos-aarch64-extension:
-    runs-on: macos-11
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v3
       - run: ./scripts/vendor.sh
-      - run: make loadable CFLAGS="-target arm64-apple-macos11"
+      - run: make loadable
+      - run: /usr/local/opt/python@3/libexec/bin/python -m pip install pytest numpy; make test-loadable python=/usr/local/opt/python@3/libexec/bin/python
       - uses: actions/upload-artifact@v3
         with:
           name: sqlite-vec-macos-aarch64-extension
