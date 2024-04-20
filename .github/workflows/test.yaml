@@ -36,11 +36,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: ./scripts/vendor.sh
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
       - run: make loadable
-      - run: python3 -m pip install pytest numpy; make test-loadable
+      - run: /opt/homebrew/opt/python3/libexec/bin/python -m pip install pytest numpy; make test-loadable python=/opt/homebrew/opt/python3/libexec/bin/python
       - uses: actions/upload-artifact@v3
         with:
           name: sqlite-vec-macos-aarch64-extension
