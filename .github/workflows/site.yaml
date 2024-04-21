@@ -18,6 +18,7 @@ jobs:
       - uses: mymindstorm/setup-emsdk@v12
         with:
           version: "latest"
+      - run: ./scripts/vendor.sh
       - run: make wasm
       - run: make site
       - uses: actions/configure-pages@v2
