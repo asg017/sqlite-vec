@@ -280,7 +280,7 @@ TARGET_SITE=$(prefix)/.site/index.html
 $(WASM_TOOLKIT_NPM_TARGZ):
 	curl -o $@ -q https://registry.npmjs.org/@alex.garcia/sqlite-wasm-toolkit/-/sqlite-wasm-toolkit-0.0.1-alpha.7.tgz
 
-$(SITE_DIR)/slim.js $(SITE_DIR)/slim.css: $(WASM_TOOLKIT_NPM_TARGZ)
+$(SITE_DIR)/slim.js $(SITE_DIR)/slim.css: $(WASM_TOOLKIT_NPM_TARGZ) $(SITE_DIR)
 	tar -xvzf $< -C $(SITE_DIR) --strip-components=2 package/dist/slim.js package/dist/slim.css
 
 
