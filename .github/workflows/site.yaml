@@ -19,6 +19,7 @@ jobs:
         with:
           version: "latest"
       - run: ./scripts/vendor.sh
+      - run: make sqlite-vec.h
       - run: make wasm
       - run: make site
       - uses: actions/configure-pages@v2
