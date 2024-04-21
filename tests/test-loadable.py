@@ -16,6 +16,7 @@ EXT_PATH = "./dist/vec0"
 
 SUPPORTS_SUBTYPE = sqlite3.version_info[1] > 38
 
+
 def bitmap_full(n: int) -> bytearray:
     assert (n % 8) == 0
     return bytes([0xFF] * int(n / 8))
@@ -614,18 +615,17 @@ def test_smoke():
 
     assert re.match(
         "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 0:knn:",
-
         explain_query_plan(
             "select * from vec_xyz where a match X'' and k = 10 order by distance"
-        )
+        ),
     )
     assert re.match(
         "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 0:fullscan",
-        explain_query_plan("select * from vec_xyz")
+        explain_query_plan("select * from vec_xyz"),
     )
     assert re.match(
         "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 3:point",
-        explain_query_plan("select * from vec_xyz where rowid = 4")
+        explain_query_plan("select * from vec_xyz where rowid = 4"),
     )
 
     db.execute("insert into vec_xyz(rowid, a) select 1, X'000000000000803f'")
