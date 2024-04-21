@@ -53,9 +53,11 @@ SQLITE_EXTENSION_INIT1
 #endif
 
 #ifndef _WIN32
+#ifndef __EMSCRIPTEN__
 typedef u_int8_t uint8_t;
 typedef u_int16_t uint16_t;
 typedef u_int64_t uint64_t;
+#endif
 #endif
 
 typedef int8_t i8;
