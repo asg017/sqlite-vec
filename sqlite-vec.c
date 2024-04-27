@@ -1184,7 +1184,14 @@ static void vec_to_json(sqlite3_context *context, int argc,
       sqlite3_str_appendall(str, ",");
     }
     if (elementType == SQLITE_VEC_ELEMENT_TYPE_FLOAT32) {
-      sqlite3_str_appendf(str, "%f", ((f32 *)vector)[i]);
+      f32 value = ((f32 *)vector)[i];
+      if(isnan(value)) {
+        sqlite3_str_appendall(str, "null");
+      }
+      else {
+        sqlite3_str_appendf(str, "%f", value);
+      }
+
     } else if (elementType == SQLITE_VEC_ELEMENT_TYPE_INT8) {
       sqlite3_str_appendf(str, "%d", ((i8 *)vector)[i]);
     } else if (elementType == SQLITE_VEC_ELEMENT_TYPE_BIT) {
@@ -1197,6 +1204,7 @@ static void vec_to_json(sqlite3_context *context, int argc,
   char *s = sqlite3_str_finish(str);
   if (s) {
     sqlite3_result_text(context, s, len, sqlite3_free);
+    sqlite3_result_subtype(context, JSON_SUBTYPE);
   } else {
     sqlite3_result_error_nomem(context);
   }
