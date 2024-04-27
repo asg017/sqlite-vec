@@ -1,6 +1,6 @@
 [package]
 name = "sqlite-vec"
-version = "0.0.1-alpha.0"
+version = "0.0.1-alpha.1"
 license = "MIT OR Apache"
 homepage = "https://alexgarcia.xyz/sqlite-vec"
 repo = "https://github.com/asg017/sqlite-vec"
