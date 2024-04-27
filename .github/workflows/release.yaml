@@ -40,6 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: ./scripts/vendor.sh
+        shell: bash
       - run: make loadable
       - uses: actions/upload-artifact@v4
         with:
