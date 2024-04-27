@@ -9,43 +9,43 @@ jobs:
   build-linux-x86_64-extension:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: ./scripts/vendor.sh
       - run: make loadable
       - run: pip install pytest numpy; make test-loadable
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-linux-x86_64-extension
           path: dist/*
   build-macos-x86_64-extension:
     runs-on: macos-11
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: ./scripts/vendor.sh
       - run: make loadable
       - run: /usr/local/opt/python@3/libexec/bin/python -m pip install pytest numpy; make test-loadable python=/usr/local/opt/python@3/libexec/bin/python
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-macos-x86_64-extension
           path: dist/*
   build-macos-aarch64-extension:
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: ./scripts/vendor.sh
       - run: make loadable
       - run: /opt/homebrew/opt/python3/libexec/bin/python -m pip install pytest numpy --break-system-packages; make test-loadable python=/opt/homebrew/opt/python3/libexec/bin/python
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-macos-aarch64-extension
           path: dist/*
   build-windows-x86_64-extension:
     runs-on: windows-2019
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -53,7 +53,7 @@ jobs:
         shell: bash
       - run: make loadable
       - run: pip install pytest numpy; make test-loadable
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-windows-x86_64-extension
           path: dist/*

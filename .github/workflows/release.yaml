@@ -1,0 +1,119 @@
+name: "Release"
+on:
+  release:
+    types: [published]
+permissions:
+  contents: read
+jobs:
+  build-linux-x86_64-extension:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - run: make loadable
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-linux-x86_64-extension
+          path: dist/*
+  build-macos-x86_64-extension:
+    runs-on: macos-11
+    steps:
+      - uses: actions/checkout@v3
+      - run: make loadable
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-macos-x86_64-extension
+          path: dist/*
+  build-macos-aarch64-extension:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v3
+      - run: make loadable
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-macos-aarch64-extension
+          path: dist/*
+  build-windows-x86_64-extension:
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v3
+      - run: make loadable
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-windows-x86_64-extension
+          path: dist/*
+  dist:
+    runs-on: ubuntu-latest
+    needs:
+      [
+        build-linux-x86_64-extension,
+        build-macos-x86_64-extension,
+        build-macos-aarch64-extension,
+        build-windows-x86_64-extension,
+      ]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-linux-x86_64-extension
+          path: dist/linux-x86_64
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-macos-x86_64-extension
+          path: dist/macos-x86_64
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-macos-aarch64-extension
+          path: dist/macos-aarch64
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-windows-x86_64-extension
+          path: dist/windows-x86_64
+      - run: |
+          curl -L https://github.com/asg017/sqlite-dist/releases/download/v0.0.1-alpha.3/sqlite-dist-x86_64-unknown-linux-gnu.tar.xz \
+            | tar xfJ - --strip-components 1
+      - run: ./sqlite-dist ./sqlite-dist.toml --input dist/ --output distx/
+      - run: |
+          gh release upload ${{ github.ref_name }} \
+            distx/github_releases/* \
+            distx/spm/* \
+            distx/sqlpkg/* \
+            distx/checksums.txt \
+            distx/sqlite-dist-manifest.json \
+            distx/install.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Install node
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+          registry-url: "https://registry.npmjs.org"
+      - run: |
+          npm publish --access public distx/npm/sqlite-vec-darwin-arm64.tar.gz
+          npm publish --access public distx/npm/sqlite-vec-darwin-x64.tar.gz
+          npm publish --access public distx/npm/sqlite-vec-linux-x64.tar.gz
+          npm publish --access public distx/npm/sqlite-vec-windows-x64.tar.gz
+          npm publish --access public distx/npm/sqlite-vec.tar.gz
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2
+      - run: |
+          for file in distx/gem/*; do
+            gem push  "$file"
+          done
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.GEM_HOST_API_KEY }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install twine
+      - run: |
+          twine upload distx/pip/*
+          twine upload distx/datasette/*
+          twine upload distx/sqlite_utils/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}

@@ -151,69 +151,15 @@ lint:
 
 progress:
 	deno run --allow-read=sqlite-vec.c scripts/progress.ts
+
 test:
 	sqlite3 :memory: '.read test.sql'
 
-.PHONY: version loadable static test clean gh-release \
-	ruby
+.PHONY: version loadable static test clean gh-release
 
 publish-release:
-	./scripts/publish_release.sh
+	./scripts/publish-release.sh
 
-TARGET_WHEELS=$(prefix)/wheels
-INTERMEDIATE_PYPACKAGE_EXTENSION=bindings/python/sqlite_vec/
-
-$(TARGET_WHEELS): $(prefix)
-	mkdir -p $(TARGET_WHEELS)
-
-bindings/ruby/lib/version.rb: bindings/ruby/lib/version.rb.tmpl VERSION
-	VERSION=$(VERSION) envsubst < $< > $@
-
-bindings/python/sqlite_vec/version.py: bindings/python/sqlite_vec/version.py.tmpl VERSION
-	VERSION=$(VERSION) envsubst < $< > $@
-	echo "✅ generated $@"
-
-bindings/datasette/datasette_sqlite_vec/version.py: bindings/datasette/datasette_sqlite_vec/version.py.tmpl VERSION
-	VERSION=$(VERSION) envsubst < $< > $@
-	echo "✅ generated $@"
-
-python: $(TARGET_WHEELS) $(TARGET_LOADABLE) bindings/python/setup.py bindings/python/sqlite_vec/__init__.py scripts/rename-wheels.py
-	cp $(TARGET_LOADABLE) $(INTERMEDIATE_PYPACKAGE_EXTENSION)
-	rm $(TARGET_WHEELS)/*.wheel || true
-	pip3 wheel bindings/python/ -w $(TARGET_WHEELS)
-	python3 scripts/rename-wheels.py $(TARGET_WHEELS) $(RENAME_WHEELS_ARGS)
-	echo "✅ generated python wheel"
-
-datasette: $(TARGET_WHEELS) bindings/datasette/setup.py bindings/datasette/datasette_sqlite_vec/__init__.py
-	rm $(TARGET_WHEELS)/datasette* || true
-	pip3 wheel bindings/datasette/ --no-deps -w $(TARGET_WHEELS)
-
-bindings/sqlite-utils/pyproject.toml: bindings/sqlite-utils/pyproject.toml.tmpl VERSION
-	VERSION=$(VERSION) envsubst < $< > $@
-	echo "✅ generated $@"
-
-bindings/sqlite-utils/sqlite_utils_sqlite_vec/version.py: bindings/sqlite-utils/sqlite_utils_sqlite_vec/version.py.tmpl VERSION
-	VERSION=$(VERSION) envsubst < $< > $@
-	echo "✅ generated $@"
-
-sqlite-utils: $(TARGET_WHEELS) bindings/sqlite-utils/pyproject.toml bindings/sqlite-utils/sqlite_utils_sqlite_vec/version.py
-	python3 -m build bindings/sqlite-utils -w -o $(TARGET_WHEELS)
-
-node: VERSION bindings/node/platform-package.README.md.tmpl bindings/node/platform-package.package.json.tmpl bindings/node/sqlite-vec/package.json.tmpl scripts/node_generate_platform_packages.sh
-	scripts/node_generate_platform_packages.sh
-
-deno: VERSION bindings/deno/deno.json.tmpl
-	scripts/deno_generate_package.sh
-
-
-version:
-	make bindings/ruby/lib/version.rb
-	make bindings/python/sqlite_vec/version.py
-	make bindings/datasette/datasette_sqlite_vec/version.py
-	make bindings/datasette/datasette_sqlite_vec/version.py
-	make bindings/sqlite-utils/pyproject.toml bindings/sqlite-utils/sqlite_utils_sqlite_vec/version.py
-	make node
-	make deno
 
 test-loadable: loadable
 	$(PYTHON) -m pytest -vv -s tests/test-loadable.py
