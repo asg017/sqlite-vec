@@ -149,6 +149,8 @@ lint: SHELL:=/bin/bash
 lint:
 	diff -u <(cat $(FORMAT_FILES)) <(clang-format $(FORMAT_FILES))
 
+progress:
+	deno run --allow-read=sqlite-vec.c scripts/progress.ts
 test:
 	sqlite3 :memory: '.read test.sql'
 
@@ -245,10 +247,13 @@ TARGET_WASM=$(TARGET_WASM_MJS) $(TARGET_WASM_WASM)
 
 $(SQLITE_WASM_SRCZIP): $(BUILD_DIR)
 	curl -o $@ https://www.sqlite.org/$(SQLITE_WASM_YEAR)/sqlite-src-$(SQLITE_WASM_VERSION).zip
+	touch $@
 
 $(SQLITE_WASM_COMPILED_SQLITE3C): $(SQLITE_WASM_SRCZIP) $(BUILD_DIR)
+	rm -rf $(BUILD_DIR)/sqlite-src-$(SQLITE_WASM_VERSION)/ || true
 	unzip -q -o $< -d $(BUILD_DIR)
 	(cd $(BUILD_DIR)/sqlite-src-$(SQLITE_WASM_VERSION)/ && ./configure --enable-all && make sqlite3.c)
+	touch $@
 
 $(TARGET_WASM_LIB): examples/wasm/wasm.c sqlite-vec.c $(BUILD_DIR) $(WASM_DIR)
 	emcc -O3  -I./ -Ivendor -DSQLITE_CORE -c examples/wasm/wasm.c -o $(BUILD_DIR)/wasm.wasm.o
@@ -257,7 +262,8 @@ $(TARGET_WASM_LIB): examples/wasm/wasm.c sqlite-vec.c $(BUILD_DIR) $(WASM_DIR)
 
 $(SQLITE_WASM_COMPILED_MJS) $(SQLITE_WASM_COMPILED_WASM): $(SQLITE_WASM_COMPILED_SQLITE3C) $(TARGET_WASM_LIB)
 	(cd $(BUILD_DIR)/sqlite-src-$(SQLITE_WASM_VERSION)/ext/wasm && \
-		make sqlite3_wasm_extra_init.c=../../../../.wasm/libsqlite_vec.wasm.a "emcc.flags=-s EXTRA_EXPORTED_RUNTIME_METHODS=['ENV'] -s FETCH")
+		make sqlite3_wasm_extra_init.c=../../../../.wasm/libsqlite_vec.wasm.a jswasm/sqlite3.mjs jswasm/sqlite3.wasm \
+	)
 
 $(TARGET_WASM_MJS): $(SQLITE_WASM_COMPILED_MJS)
 	cp $< $@
