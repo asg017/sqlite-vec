@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
+      - run: ./scripts/vendor.sh
       - run: make loadable
       - uses: actions/upload-artifact@v4
         with:
@@ -18,6 +19,7 @@ jobs:
     runs-on: macos-11
     steps:
       - uses: actions/checkout@v3
+      - run: ./scripts/vendor.sh
       - run: make loadable
       - uses: actions/upload-artifact@v4
         with:
@@ -27,6 +29,7 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v3
+      - run: ./scripts/vendor.sh
       - run: make loadable
       - uses: actions/upload-artifact@v4
         with:
@@ -36,6 +39,7 @@ jobs:
     runs-on: windows-2019
     steps:
       - uses: actions/checkout@v3
+      - run: ./scripts/vendor.sh
       - run: make loadable
       - uses: actions/upload-artifact@v4
         with:
