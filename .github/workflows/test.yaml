@@ -51,7 +51,6 @@ jobs:
           python-version: "3.12"
       - run: ./scripts/vendor.sh
         shell: bash
-      - run: ls vendor/
       - run: make loadable
       - run: pip install pytest numpy; make test-loadable
       - uses: actions/upload-artifact@v3

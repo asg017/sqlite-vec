@@ -1,0 +1,121 @@
+sections:
+  meta: Meta functions
+  constructor: Vector constructor functions
+  op: Vector operation functions
+  distance: Vector distance functions
+  quantize: Vector quantization functions
+functions:
+  vec_version:
+    params: []
+    section: meta
+    desc: x
+    example: x
+  vec_debug:
+    params: []
+    section: meta
+    desc: x
+    example: x
+
+  vec_bit:
+    params: []
+    section: constructor
+    desc: x
+    example: x
+  vec_f32:
+    params: []
+    section: constructor
+    desc: x
+    example: x
+  vec_int8:
+    params: []
+    section: constructor
+    desc: x
+    example: x
+
+  vec_add:
+    params: []
+    section: op
+    desc: x
+    example: x
+  vec_length:
+    params: []
+    section: op
+    desc: x
+    example: x
+  vec_normalize:
+    params: []
+    section: op
+    desc: x
+    example: x
+  vec_slice:
+    params: []
+    section: op
+    desc: x
+    example: x
+  vec_sub:
+    params: []
+    section: op
+    desc: x
+    example: x
+  vec_to_json:
+    params: []
+    section: op
+    desc: x
+    example: x
+
+  vec_distance_cosine:
+    params: []
+    section: distance
+    desc: x
+    example: x
+  vec_distance_hamming:
+    params: []
+    section: distance
+    desc: x
+    example: x
+  vec_distance_l2:
+    params: []
+    section: distance
+    desc: x
+    example: x
+
+  vec_quantize_binary:
+    params: []
+    section: quantization
+    desc: x
+    example: x
+  vec_quantize_i8:
+    params: []
+    section: quantization
+    desc: x
+    example: x
+  vec_quantize_i8:
+    params: []
+    section: quantization
+    desc: x
+    example: x
+
+table_functions:
+  vec_each:
+    columns: [rowid, value]
+    inputs: ["vector"]
+    desc:
+    example:
+  vec_npy_each:
+    columns: [rowid, vector]
+    inputs: ["input"]
+    desc:
+    example:
+
+virtual_tables:
+  vec0:
+    desc:
+    example:
+
+entrypoints:
+  sqlite3_vec_init: {}
+  sqlite3_vec_fs_read_init: {}
+compile_options:
+  - SQLITE_VEC_ENABLE_AVX
+  - SQLITE_VEC_ENABLE_NEON
+  

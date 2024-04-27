@@ -20,5 +20,6 @@ examples/supabase-dbpedia
 examples/ann-filtering
 examples/dbpedia-openai
 examples/imdb
+examples/sotu
 
 sqlite-vec.h
