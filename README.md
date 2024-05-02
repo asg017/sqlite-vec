@@ -4,7 +4,7 @@ An extremely small, "fast enough" vector search SQLite extension that runs
 anywhere! A successor to [sqlite-vss](https://github.com/asg017/sqlite-vss)
 
 > [!IMPORTANT]
-> *`sqlite-vec` is a work-in-progress and not ready for general usage! I plan to launch a "beta" version in the next month or so. Watch this repo for updates.*
+> *`sqlite-vec` is a work-in-progress and not ready for general usage! I plan to launch a "beta" version in the next month or so. Watch this repo for updates, and read [this blog post](https://alexgarcia.xyz/blog/2024/building-new-vector-search-sqlite/index.html) for more info.*
 
 - Store and query float, int8, and binary vectors in `vec0` virtual tables
 - Pre-filter vectors with `rowid IN (...)` subqueries
