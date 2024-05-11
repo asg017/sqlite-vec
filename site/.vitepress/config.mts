@@ -172,6 +172,17 @@ export default defineConfig({
     "guides/:pkg.md": ":pkg.md",
   },
   markdown: {
-    languages: [JSON.parse(readFileSync("sqlite.tmLanguage.json", "utf8"))],
+    languages: [
+      JSON.parse(
+        readFileSync(
+          join(
+            dirname(fileURLToPath(import.meta.url)),
+            "..",
+            "sqlite.tmlanguage.json"
+          ),
+          "utf8"
+        )
+      ),
+    ],
   },
 });
