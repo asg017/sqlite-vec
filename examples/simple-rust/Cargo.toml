@@ -1,0 +1,12 @@
+[package]
+name = "sqlite-vec-demo"
+edition = "2021"
+
+[dependencies]
+sqlite-vec={path="../../bindings/rust"}
+rusqlite = {version="0.31.0", features=["bundled"]}
+zerocopy = "0.7.33"
+
+[[bin]]
+name="demo"
+path="demo.rs"

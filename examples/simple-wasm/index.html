@@ -1,0 +1,52 @@
+<html>
+  <body>
+    <h1>sqlite-vec demo/simple-wasm</h1>
+
+    <div id="target"></div>
+    <script type="module">
+      import {default as init} from "./sqlite3.mjs";
+      function log(msg) {
+        const pre = document.querySelector('#target').appendChild(document.createElement("pre"));
+        pre.textContent = msg;
+      }
+      const sqlite3 = await init();
+      const db = new sqlite3.oo1.DB(":memory:");
+      window.db = db;
+      const [sqlite_version, vec_version] = db.selectArray('select sqlite_version(), vec_version();')
+      log(`sqlite_version=${sqlite_version}, vec_version=${vec_version}`);
+
+
+      const items = [
+        [1, new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])],
+        [2, new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])]
+      ];
+
+      db.exec('CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[8]);');
+      const stmt = db.prepare("INSERT INTO vec_items(rowid, embedding) VALUES (?, ?)");
+      for(const item of items) {
+        stmt
+        .bind(1, item[0])
+        .bind(2, item[1].buffer)
+        .stepReset();
+      }
+      stmt.finalize();
+
+      const query = new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]);
+      const rows = db
+        .selectArrays(
+          `
+        SELECT
+          rowid,
+          distance
+        FROM vec_items
+        WHERE embedding MATCH ?
+        ORDER BY distance
+        LIMIT 5
+      `, query.buffer
+        );
+
+      log(JSON.stringify(rows));
+    </script>
+  </body>
+</html>
+`

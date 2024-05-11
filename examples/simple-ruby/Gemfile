@@ -1,0 +1,6 @@
+source 'https://rubygems.org'
+
+ruby '>= 3.0'
+
+gem 'sqlite3', '~> 2.0', '>= 2.0.1'
+gem 'sqlite-vec'
