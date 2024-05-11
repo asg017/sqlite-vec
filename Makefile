@@ -170,6 +170,9 @@ test-loadable-snapshot-update: loadable
 test-loadable-watch:
 	watchexec -w sqlite-vec.c -w tests/test-loadable.py -w Makefile --clear -- make test-loadable
 
+site-dev:
+	npm --prefix site run dev
+
 site-build:
 	npm --prefix site run build
 

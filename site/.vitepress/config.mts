@@ -39,7 +39,6 @@ const guides = {
 
 function nav(): DefaultTheme.NavItem[] {
   return [
-    { text: "Home", link: "/" },
     //guides,
     { text: "API Reference", link: "/api-reference" },
     { text: "♥ Sponsor", link: "https://github.com/sponsors/asg017" },
