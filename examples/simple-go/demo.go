@@ -38,15 +38,19 @@ func main() {
 	}
 	fmt.Printf("sqlite_version=%s, vec_version=%s\n", sqliteVersion, vecVersion)
 
-	_, err = db.Exec("CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[8])")
+	_, err = db.Exec("CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[4])")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	items := map[int][]float32{
-		1: {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8},
-		2: {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8},
+		1: {0.1, 0.1, 0.1, 0.1},
+		2: {0.2, 0.2, 0.2, 0.2},
+		3: {0.3, 0.3, 0.3, 0.3},
+		4: {0.4, 0.4, 0.4, 0.4},
+		5: {0.5, 0.5, 0.5, 0.5},
 	}
+	q := []float32{0.3, 0.3, 0.3, 0.3}
 
 	for id, values := range items {
 		v, err := serializeFloat32(values)
@@ -59,7 +63,6 @@ func main() {
 		}
 	}
 
-	q := []float32{0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8}
 	query, err := serializeFloat32(q)
 	if err != nil {
 		log.Fatal(err)
@@ -72,7 +75,7 @@ func main() {
 		FROM vec_items
 		WHERE embedding MATCH ?
 		ORDER BY distance
-		LIMIT 5
+		LIMIT 3
 	`, query)
 
 	if err != nil {

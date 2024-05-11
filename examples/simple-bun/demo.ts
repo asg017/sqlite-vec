@@ -1,5 +1,4 @@
 import { Database } from "bun:sqlite";
-
 Database.setCustomSQLite("/usr/local/opt/sqlite3/lib/libsqlite3.dylib");
 
 const db = new Database(":memory:");
@@ -14,6 +13,15 @@ const { sqlite_version, vec_version } = db
 
 console.log(`sqlite_version=${sqlite_version}, vec_version=${vec_version}`);
 
+const items = [
+  [1, [0.1, 0.1, 0.1, 0.1]],
+  [2, [0.2, 0.2, 0.2, 0.2]],
+  [3, [0.3, 0.3, 0.3, 0.3]],
+  [4, [0.4, 0.4, 0.4, 0.4]],
+  [5, [0.5, 0.5, 0.5, 0.5]],
+];
+const query = [0.3, 0.3, 0.3, 0.3];
+
 db.exec("CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[8])");
 
 const insertStmt = db.prepare(
@@ -22,16 +30,12 @@ const insertStmt = db.prepare(
 
 const insertVectors = db.transaction((items) => {
   for (const [id, vector] of items) {
-    insertStmt.run(BigInt(id), vector);
+    insertStmt.run(BigInt(id), new Float32Array(vector));
   }
 });
 
-insertVectors([
-  [1, new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])],
-  [2, new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])],
-]);
+insertVectors(items);
 
-const query = new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]);
 const rows = db
   .prepare(
     `
@@ -41,7 +45,7 @@ const rows = db
   FROM vec_items
   WHERE embedding MATCH ?
   ORDER BY distance
-  LIMIT 5
+  LIMIT 3
 `
   )
   .all(query);

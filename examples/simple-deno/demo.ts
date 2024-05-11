@@ -1,9 +1,9 @@
 import { Database } from "jsr:@db/sqlite@0.11";
-//import { loadablePath } from "npm:sqlite-vec";
+import * as sqliteVec from "npm:sqlite-vec@0.0.1-alpha.3";
 
 const db = new Database(":memory:");
 db.enableLoadExtension = true;
-db.loadExtension("../../dist/vec0");
+sqliteVec.load(db);
 db.enableLoadExtension = false;
 
 const [sqlite_version, vec_version] = db
@@ -11,24 +11,29 @@ const [sqlite_version, vec_version] = db
   .value<[string]>()!;
 console.log(`sqlite_version=${sqlite_version}, vec_version=${vec_version}`);
 
-db.exec("CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[8])");
+const items = [
+  [1, [0.1, 0.1, 0.1, 0.1]],
+  [2, [0.2, 0.2, 0.2, 0.2]],
+  [3, [0.3, 0.3, 0.3, 0.3]],
+  [4, [0.4, 0.4, 0.4, 0.4]],
+  [5, [0.5, 0.5, 0.5, 0.5]],
+];
+const query = [0.3, 0.3, 0.3, 0.3];
+
+db.exec("CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[4])");
 
 const insertStmt = db.prepare(
-  "INSERT INTO vec_items(rowid, embedding) VALUES (?1, vec_f32(?2))"
+  "INSERT INTO vec_items(rowid, embedding) VALUES (?, ?)"
 );
 
 const insertVectors = db.transaction((items) => {
   for (const [id, vector] of items) {
-    insertStmt.run(BigInt(id), new Uint8Array(vector.buffer));
+    insertStmt.run(BigInt(id), new Uint8Array(new Float32Array(vector).buffer));
   }
 });
 
-insertVectors([
-  [1, new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])],
-  [2, new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])],
-]);
+insertVectors(items);
 
-const query = new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]);
 const rows = db
   .prepare(
     `
@@ -41,7 +46,7 @@ const rows = db
   LIMIT 5
 `
   )
-  .all([new Uint8Array(query.buffer)]);
+  .all([new Uint8Array(new Float32Array(query).buffer)]);
 
 console.log(rows);
 

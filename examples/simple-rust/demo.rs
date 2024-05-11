@@ -19,13 +19,16 @@ fn main() -> Result<()> {
     println!("sqlite_version={sqlite_version}, vec_version={vec_version}");
 
     let items: Vec<(usize, Vec<f32>)> = vec![
-        (1, vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]),
-        (2, vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]),
+        (1, vec![0.1, 0.1, 0.1, 0.1]),
+        (2, vec![0.2, 0.2, 0.2, 0.2]),
+        (3, vec![0.3, 0.3, 0.3, 0.3]),
+        (4, vec![0.4, 0.4, 0.4, 0.4]),
+        (5, vec![0.5, 0.5, 0.5, 0.5]),
     ];
     println!("{x}");
 
     db.execute(
-        "CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[8])",
+        "CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[4])",
         [],
     )?;
     let mut stmt = db.prepare("INSERT INTO vec_items(rowid, embedding) VALUES (?, ?)")?;
@@ -33,7 +36,7 @@ fn main() -> Result<()> {
         stmt.execute(rusqlite::params![item.0, item.1.as_bytes()])?;
     }
 
-    let query: Vec<f32> = vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
+    let query: Vec<f32> = vec![0.3, 0.3, 0.3, 0.3];
     let result: Vec<(i64, f64)> = db
         .prepare(
             r"
@@ -43,7 +46,7 @@ fn main() -> Result<()> {
           FROM vec_items
           WHERE embedding MATCH ?1
           ORDER BY distance
-          LIMIT 5
+          LIMIT 3
         ",
         )?
         .query_map([query.as_bytes()], |r| Ok((r.get(0)?, r.get(1)?)))?

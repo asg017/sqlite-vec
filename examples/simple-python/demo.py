@@ -27,11 +27,14 @@ sqlite_version, vec_version = db.execute(
 print(f"sqlite_version={sqlite_version}, vec_version={vec_version}")
 
 
-db.execute("CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[8])")
+db.execute("CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[4])")
 
 items = [
-    (1, [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]),
-    (2, [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]),
+    (1, [0.1, 0.1, 0.1, 0.1]),
+    (2, [0.2, 0.2, 0.2, 0.2]),
+    (3, [0.3, 0.3, 0.3, 0.3]),
+    (4, [0.4, 0.4, 0.4, 0.4]),
+    (5, [0.5, 0.5, 0.5, 0.5]),
 ]
 with db:
     for item in items:
@@ -40,7 +43,7 @@ with db:
             [item[0], serialize_f32(item[1])],
         )
 
-query = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+query = [0.3, 0.3, 0.3, 0.3]
 rows = db.execute(
     """
       SELECT
@@ -49,7 +52,7 @@ rows = db.execute(
       FROM vec_items
       WHERE embedding MATCH ?
       ORDER BY distance
-      LIMIT 5
+      LIMIT 3
     """,
     [serialize_f32(query)],
 ).fetchall()
