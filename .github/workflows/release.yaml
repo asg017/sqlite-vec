@@ -133,8 +133,8 @@ jobs:
         with:
           toolchain: stable
       - run: make sqlite-vec.h
-      - run: cp sqlite-vec.c bindings/rust
-      - run: cp sqlite-vec.h bindings/rust
+      - run: make deps
+        working-directory: ./bindings/rust
       - run: cargo publish --no-verify
         working-directory: ./bindings/rust
         env:

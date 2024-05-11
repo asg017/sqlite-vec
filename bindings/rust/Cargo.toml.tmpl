@@ -1,0 +1,19 @@
+[package]
+name = "sqlite-vec"
+version = "${VERSION}"
+edition = "2021"
+authors = ["Alex Garcia <alexsebastian.garcia@gmail.com>"]
+description = "FFI bindings to the sqlite-vec SQLite extension"
+homepage = "https://github.com/asg017/sqlite-vec"
+repository = "https://github.com/asg017/sqlite-vec"
+keywords = ["sqlite", "sqlite-extension"]
+license = "MIT/Apache-2.0"
+
+
+[dependencies]
+
+[build-dependencies]
+cc = "1.0"
+
+[dev-dependencies]
+rusqlite = "0.31.0"
