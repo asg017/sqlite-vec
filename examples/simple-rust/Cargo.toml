@@ -3,7 +3,7 @@ name = "sqlite-vec-demo"
 edition = "2021"
 
 [dependencies]
-sqlite-vec={path="../../bindings/rust"}
+sqlite-vec={version="0.0.1-alpha.7"}
 rusqlite = {version="0.31.0", features=["bundled"]}
 zerocopy = "0.7.33"
 

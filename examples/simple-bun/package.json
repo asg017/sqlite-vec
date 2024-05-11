@@ -1,0 +1,8 @@
+{
+  "name": "simple-bun",
+  "module": "index.ts",
+  "type": "module",
+  "dependencies": {
+    "sqlite-vec": "latest"
+  }
+}

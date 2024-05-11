@@ -2,8 +2,7 @@ import * as sqliteVec from "sqlite-vec";
 import Database from "better-sqlite3";
 
 const db = new Database(":memory:");
-//sqliteVec.load(db);
-db.loadExtension("../../dist/vec0");
+sqliteVec.load(db);
 
 const { sqlite_version, vec_version } = db
   .prepare(
