@@ -1,0 +1,3 @@
+target/
+sqlite-vec.c
+sqlite-vec.h
