@@ -1,0 +1,14 @@
+{
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vue": "^3.4.26"
+  },
+  "dependencies": {
+    "@types/node": "^20.12.8",
+    "vitepress": "^1.1.4"
+  }
+}

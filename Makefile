@@ -170,7 +170,8 @@ test-loadable-snapshot-update: loadable
 test-loadable-watch:
 	watchexec -w sqlite-vec.c -w tests/test-loadable.py -w Makefile --clear -- make test-loadable
 
-
+site-build:
+	npm --prefix site run build
 
 # ███████████████████████████████ WASM SECTION ███████████████████████████████
 
@@ -220,29 +221,3 @@ $(TARGET_WASM_WASM): $(SQLITE_WASM_COMPILED_WASM)
 wasm: $(TARGET_WASM)
 
 # ███████████████████████████████   END WASM   ███████████████████████████████
-
-
-# ███████████████████████████████ SITE SECTION ███████████████████████████████
-
-WASM_TOOLKIT_NPM_TARGZ=$(BUILD_DIR)/sqlite-wasm-toolkit-npm.tar.gz
-
-SITE_DIR=$(prefix)/.site
-TARGET_SITE=$(prefix)/.site/index.html
-
-$(WASM_TOOLKIT_NPM_TARGZ):
-	curl -o $@ -q https://registry.npmjs.org/@alex.garcia/sqlite-wasm-toolkit/-/sqlite-wasm-toolkit-0.0.1-alpha.7.tgz
-
-$(SITE_DIR)/slim.js $(SITE_DIR)/slim.css: $(WASM_TOOLKIT_NPM_TARGZ) $(SITE_DIR)
-	tar -xvzf $< -C $(SITE_DIR) --strip-components=2 package/dist/slim.js package/dist/slim.css
-
-
-$(SITE_DIR):
-	mkdir -p $(SITE_DIR)
-
-# $(TARGET_WASM_MJS) $(TARGET_WASM_WASM)
-$(TARGET_SITE): site/index.html $(SITE_DIR)/slim.js $(SITE_DIR)/slim.css
-	cp $(TARGET_WASM_MJS) $(SITE_DIR)
-	cp $(TARGET_WASM_WASM) $(SITE_DIR)
-	cp $< $@
-site: $(TARGET_SITE)
-# ███████████████████████████████   END SITE   ███████████████████████████████
