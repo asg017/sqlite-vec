@@ -58,7 +58,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: sqlite-vec-linux-x86_64-extension
@@ -76,11 +76,13 @@ jobs:
           name: sqlite-vec-windows-x86_64-extension
           path: dist/windows-x86_64
       - run: |
-          curl -L https://github.com/asg017/sqlite-dist/releases/download/v0.0.1-alpha.3/sqlite-dist-x86_64-unknown-linux-gnu.tar.xz \
+          curl -L https://github.com/asg017/sqlite-dist/releases/download/v0.0.1-alpha.4/sqlite-dist-x86_64-unknown-linux-gnu.tar.xz \
             | tar xfJ - --strip-components 1
-      - run: ./sqlite-dist ./sqlite-dist.toml --input dist/ --output distx/
+      - run: make sqlite-vec.h
+      - run: ./sqlite-dist ./sqlite-dist.toml --input dist/ --output distx/ --version $(cat VERSION)
       - run: |
           gh release upload ${{ github.ref_name }} \
+            distx/amalgamation/* \
             distx/github_releases/* \
             distx/spm/* \
             distx/sqlpkg/* \
@@ -99,6 +101,7 @@ jobs:
           npm publish --access public distx/npm/sqlite-vec-darwin-x64.tar.gz
           npm publish --access public distx/npm/sqlite-vec-linux-x64.tar.gz
           npm publish --access public distx/npm/sqlite-vec-windows-x64.tar.gz
+          npm publish --access public distx/npm/sqlite-vec-wasm-demo.tar.gz
           npm publish --access public distx/npm/sqlite-vec.tar.gz
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -122,3 +125,17 @@ jobs:
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+  upload-crate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - run: make sqlite-vec.h
+      - run: cp sqlite-vec.c bindings/rust
+      - run: cp sqlite-vec.h bindings/rust
+      - run: cargo publish --no-verify
+        working-directory: ./bindings/rust
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

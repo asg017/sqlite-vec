@@ -1,6 +1,5 @@
 [package]
 name = "sqlite-vec"
-version = "0.0.1-alpha.3"
 license = "MIT OR Apache"
 homepage = "https://alexgarcia.xyz/sqlite-vec"
 repo = "https://github.com/asg017/sqlite-vec"
@@ -11,6 +10,7 @@ authors = ["Alex Garcia"]
 github_releases = {}
 sqlpkg = {}
 spm = {}
+amalgamation = {include=["sqlite-vec.c", "sqlite-vec.h"]}
 
 pip = {}
 datasette = {}
