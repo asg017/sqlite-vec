@@ -22,7 +22,7 @@ const items = [
 ];
 const query = [0.3, 0.3, 0.3, 0.3];
 
-db.exec("CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[8])");
+db.exec("CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[4])");
 
 const insertStmt = db.prepare(
   "INSERT INTO vec_items(rowid, embedding) VALUES (?, vec_f32(?))"
@@ -48,6 +48,6 @@ const rows = db
   LIMIT 3
 `
   )
-  .all(query);
+  .all(new Float32Array(query));
 
 console.log(rows);

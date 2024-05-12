@@ -1,5 +1,5 @@
 import { Database } from "jsr:@db/sqlite@0.11";
-import * as sqliteVec from "npm:sqlite-vec@0.0.1-alpha.3";
+import * as sqliteVec from "npm:sqlite-vec@0.0.1-alpha.9";
 
 const db = new Database(":memory:");
 db.enableLoadExtension = true;
@@ -8,7 +8,7 @@ db.enableLoadExtension = false;
 
 const [sqlite_version, vec_version] = db
   .prepare("select sqlite_version(), vec_version()")
-  .value<[string]>()!;
+  .value<[string, string]>()!;
 console.log(`sqlite_version=${sqlite_version}, vec_version=${vec_version}`);
 
 const items = [
