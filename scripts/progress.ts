@@ -25,7 +25,7 @@ const width = 60;
 console.log(
   "▓".repeat(progress * width) +
     "░".repeat((1 - progress) * width) +
-    ` (${numTotal - TOTAL}/${TOTAL})`
+    ` (${TOTAL - numTotal}/${TOTAL})`
 );
 console.log();
-console.log(`${progress * 100.0}% complete to sqlite-vec v0`);
+console.log(`${(progress * 100.0).toPrecision(2)}% complete to sqlite-vec v0`);
