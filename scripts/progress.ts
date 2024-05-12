@@ -28,4 +28,6 @@ console.log(
     ` (${TOTAL - numTotal}/${TOTAL})`
 );
 console.log();
-console.log(`${(progress * 100.0).toPrecision(2)}% complete to sqlite-vec v0`);
+console.log(
+  `${(progress * 100.0).toPrecision(2)}% complete to sqlite-vec v0.1.0`
+);
