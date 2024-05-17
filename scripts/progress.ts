@@ -23,7 +23,7 @@ const progress = (TOTAL - numTotal) / TOTAL;
 const width = 60;
 
 console.log(
-  "▓".repeat(progress * width) +
+  "▓".repeat((progress < 0 ? 0 : progress) * width) +
     "░".repeat((1 - progress) * width) +
     ` (${TOTAL - numTotal}/${TOTAL})`
 );

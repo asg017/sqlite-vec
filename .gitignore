@@ -23,3 +23,4 @@ examples/imdb
 examples/sotu
 
 sqlite-vec.h
+tmp/

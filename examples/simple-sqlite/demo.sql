@@ -1,5 +1,5 @@
 .load ../../dist/vec0
-.mode box
+.mode table
 .header on
 
 select sqlite_version(), vec_version();

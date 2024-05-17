@@ -2863,9 +2863,9 @@ int vec0_query_fullscan_data_clear(
 
 struct vec0_query_knn_data {
   i64 k;
-  // Array of rowids of size k. Must be freed with sqlite3_freee().
+  // Array of rowids of size k. Must be freed with sqlite3_free().
   i64 *rowids;
-  // Array of distances of size k. Must be freed with sqlite3_freee().
+  // Array of distances of size k. Must be freed with sqlite3_free().
   f32 *distances;
   i64 current_idx;
 };
@@ -4481,6 +4481,542 @@ static sqlite3_module vec0Module = {
 };
 #pragma endregion
 
+#ifdef SQLITE_VEC_ENABLE_EXPERIMENTAL
+static char * POINTER_NAME_STATIC_BLOB_DEF = "vec0-static_blob_def";
+struct static_blob_definition {
+  void * p;
+  size_t dimensions;
+  size_t nvectors;
+  enum VectorElementType element_type;
+};
+static void vec_static_blob_from_raw(sqlite3_context *context, int argc, sqlite3_value **argv) {
+  struct static_blob_definition * p;
+  p = sqlite3_malloc(sizeof(*p));
+  todo_assert(p);
+  p->p = sqlite3_value_int64(argv[0]);
+  p->element_type = SQLITE_VEC_ELEMENT_TYPE_FLOAT32;
+  p->dimensions = sqlite3_value_int64(argv[2]);
+  p->nvectors = sqlite3_value_int64(argv[3]);
+  sqlite3_result_pointer(context, p, POINTER_NAME_STATIC_BLOB_DEF, sqlite3_free);
+}
+#pragma region vec_static_blobs() table function
+
+#define MAX_STATIC_BLOBS 16
+
+typedef struct static_blob static_blob;
+struct static_blob {
+  char * name;
+  void * p;
+  size_t dimensions;
+  size_t nvectors;
+  enum VectorElementType element_type;
+};
+
+typedef struct vec_static_blob_data vec_static_blob_data;
+struct vec_static_blob_data {
+  static_blob static_blobs[MAX_STATIC_BLOBS];
+};
+
+typedef struct vec_static_blobs_vtab vec_static_blobs_vtab;
+struct vec_static_blobs_vtab {
+  sqlite3_vtab base;
+  vec_static_blob_data * data;
+};
+
+typedef struct vec_static_blobs_cursor vec_static_blobs_cursor;
+struct vec_static_blobs_cursor {
+  sqlite3_vtab_cursor base;
+  sqlite3_int64 iRowid;
+};
+
+static int vec_static_blobsConnect(sqlite3 *db, void *pAux, int argc,
+                          const char *const *argv, sqlite3_vtab **ppVtab,
+                          char **pzErr) {
+  vec_static_blobs_vtab *pNew;
+#define VEC_STATIC_BLOBS_NAME         0
+#define VEC_STATIC_BLOBS_DATA         1
+#define VEC_STATIC_BLOBS_DIMENSIONS   2
+#define VEC_STATIC_BLOBS_COUNT        3
+  int rc = sqlite3_declare_vtab(
+      db, "CREATE TABLE x(name, data, dimensions hidden, count hidden)");
+  if (rc == SQLITE_OK) {
+    pNew = sqlite3_malloc(sizeof(*pNew));
+    *ppVtab = (sqlite3_vtab *)pNew;
+    if (pNew == 0)
+      return SQLITE_NOMEM;
+    memset(pNew, 0, sizeof(*pNew));
+    pNew->data = pAux;
+  }
+  return rc;
+}
+
+static int vec_static_blobsDisconnect(sqlite3_vtab *pVtab) {
+  vec_static_blobs_vtab *p = (vec_static_blobs_vtab *)pVtab;
+  sqlite3_free(p);
+  return SQLITE_OK;
+}
+
+static int vec_static_blobsUpdate(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
+                      sqlite_int64 *pRowid) {
+  vec_static_blobs_vtab* p  = (vec_static_blobs_vtab*) pVTab;
+  // DELETE operation
+  if (argc == 1 && sqlite3_value_type(argv[0]) != SQLITE_NULL) {
+    return SQLITE_ERROR;
+  }
+  // INSERT operation
+  else if (argc > 1 && sqlite3_value_type(argv[0]) == SQLITE_NULL) {
+    const char * key = sqlite3_value_text(argv[2 + VEC_STATIC_BLOBS_NAME]);
+    int idx = -1;
+    for(int i = 0; i < MAX_STATIC_BLOBS; i++) {
+      if(!p->data->static_blobs[i].name) {
+        p->data->static_blobs[i].name = sqlite3_mprintf("%s", key);
+        idx = i;
+        break;
+      }
+    }
+    if(idx < 0) abort();
+    struct static_blob_definition * def = sqlite3_value_pointer(argv[2 + VEC_STATIC_BLOBS_DATA], POINTER_NAME_STATIC_BLOB_DEF);
+    p->data->static_blobs[idx].p = def->p;
+    p->data->static_blobs[idx].dimensions = def->dimensions;
+    p->data->static_blobs[idx].nvectors = def->nvectors;
+    p->data->static_blobs[idx].element_type = def->element_type;
+
+    return SQLITE_OK;
+  }
+  // UPDATE operation
+  else if (argc > 1 && sqlite3_value_type(argv[0]) != SQLITE_NULL) {
+    return SQLITE_ERROR;
+  }
+  return SQLITE_ERROR;
+}
+
+static int vec_static_blobsOpen(sqlite3_vtab *p, sqlite3_vtab_cursor **ppCursor) {
+  vec_static_blobs_cursor *pCur;
+  pCur = sqlite3_malloc(sizeof(*pCur));
+  if (pCur == 0)
+    return SQLITE_NOMEM;
+  memset(pCur, 0, sizeof(*pCur));
+  *ppCursor = &pCur->base;
+  return SQLITE_OK;
+}
+
+static int vec_static_blobsClose(sqlite3_vtab_cursor *cur) {
+  vec_static_blobs_cursor *pCur = (vec_static_blobs_cursor *)cur;
+  sqlite3_free(pCur);
+  return SQLITE_OK;
+}
+
+static int vec_static_blobsBestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
+  pIdxInfo->idxNum = 1;
+  pIdxInfo->estimatedCost = (double)10;
+  pIdxInfo->estimatedRows = 10;
+  return SQLITE_OK;
+}
+
+static int vec_static_blobsNext(sqlite3_vtab_cursor *cur);
+static int vec_static_blobsFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
+                         const char *idxStr, int argc, sqlite3_value **argv) {
+  vec_static_blobs_cursor *pCur = (vec_static_blobs_cursor *)pVtabCursor;
+  pCur->iRowid = -1;
+  vec_static_blobsNext(pVtabCursor);
+  return SQLITE_OK;
+}
+
+static int vec_static_blobsRowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid) {
+  vec_static_blobs_cursor *pCur = (vec_static_blobs_cursor *)cur;
+  *pRowid = pCur->iRowid;
+  return SQLITE_OK;
+}
+
+static int vec_static_blobsNext(sqlite3_vtab_cursor *cur) {
+  vec_static_blobs_cursor *pCur = (vec_static_blobs_cursor *)cur;
+  vec_static_blobs_vtab * p = (vec_static_blobs_vtab *) pCur->base.pVtab;
+  pCur->iRowid++;
+  while(pCur->iRowid < MAX_STATIC_BLOBS) {
+    if(p->data->static_blobs[pCur->iRowid].name) {
+      return SQLITE_OK;
+    }
+    pCur->iRowid++;
+  }
+  return SQLITE_OK;
+}
+
+static int vec_static_blobsEof(sqlite3_vtab_cursor *cur) {
+  vec_static_blobs_cursor *pCur = (vec_static_blobs_cursor *)cur;
+  return pCur->iRowid >= MAX_STATIC_BLOBS;
+}
+
+static int vec_static_blobsColumn(sqlite3_vtab_cursor *cur, sqlite3_context *context,
+                         int i) {
+  vec_static_blobs_cursor *pCur = (vec_static_blobs_cursor *)cur;
+  vec_static_blobs_vtab *p = (vec_static_blobs_vtab *)cur->pVtab;
+  switch (i) {
+  case VEC_STATIC_BLOBS_NAME:
+    sqlite3_result_text(context, p->data->static_blobs[pCur->iRowid].name, -1, SQLITE_TRANSIENT);
+    break;
+  case VEC_STATIC_BLOBS_DATA:
+    sqlite3_result_null(context);
+    break;
+  case VEC_STATIC_BLOBS_DIMENSIONS:
+    sqlite3_result_int64(context,  p->data->static_blobs[pCur->iRowid].dimensions);
+    break;
+  case VEC_STATIC_BLOBS_COUNT:
+    sqlite3_result_int64(context,  p->data->static_blobs[pCur->iRowid].nvectors);
+    break;
+  }
+  return SQLITE_OK;
+}
+
+
+static sqlite3_module vec_static_blobsModule = {
+    /* iVersion    */ 3,
+    /* xCreate     */ 0,
+    /* xConnect    */ vec_static_blobsConnect,
+    /* xBestIndex  */ vec_static_blobsBestIndex,
+    /* xDisconnect */ vec_static_blobsDisconnect,
+    /* xDestroy    */ 0,
+    /* xOpen       */ vec_static_blobsOpen,
+    /* xClose      */ vec_static_blobsClose,
+    /* xFilter     */ vec_static_blobsFilter,
+    /* xNext       */ vec_static_blobsNext,
+    /* xEof        */ vec_static_blobsEof,
+    /* xColumn     */ vec_static_blobsColumn,
+    /* xRowid      */ vec_static_blobsRowid,
+    /* xUpdate     */ vec_static_blobsUpdate,
+    /* xBegin      */ 0,
+    /* xSync       */ 0,
+    /* xCommit     */ 0,
+    /* xRollback   */ 0,
+    /* xFindMethod */ 0,
+    /* xRename     */ 0,
+    /* xSavepoint  */ 0,
+    /* xRelease    */ 0,
+    /* xRollbackTo */ 0,
+    /* xShadowName */ 0};
+#pragma endregion
+
+
+#pragma region vec_static_blob_entries() table function
+
+typedef struct vec_static_blob_entries_vtab vec_static_blob_entries_vtab;
+struct vec_static_blob_entries_vtab {
+  sqlite3_vtab base;
+  static_blob * blob;
+};
+typedef enum {
+  VEC_SBE__QUERYPLAN_FULLSCAN = 1,
+  VEC_SBE__QUERYPLAN_KNN = 2
+} vec_sbe_query_plan;
+
+typedef struct vec_static_blob_entries_cursor vec_static_blob_entries_cursor;
+struct vec_static_blob_entries_cursor {
+  sqlite3_vtab_cursor base;
+  sqlite3_int64 iRowid;
+  vec_sbe_query_plan query_plan;
+  struct vec0_query_knn_data * knn_data;
+};
+
+
+static int vec_static_blob_entriesConnect(sqlite3 *db, void *pAux, int argc,
+                          const char *const *argv, sqlite3_vtab **ppVtab,
+                          char **pzErr) {
+  vec_static_blob_data * blob_data = pAux;
+  int idx = -1;
+  for(int i = 0; i < MAX_STATIC_BLOBS; i++) {
+    if(!blob_data->static_blobs[i].name) continue;
+    if(strncmp(blob_data->static_blobs[i].name, argv[3], strlen(blob_data->static_blobs[i].name))==0) {
+      idx = i;
+      break;
+    }
+  }
+  if(idx < 0) abort();
+  vec_static_blob_entries_vtab *pNew;
+#define VEC_STATIC_BLOB_ENTRIES_VECTOR   0
+#define VEC_STATIC_BLOB_ENTRIES_DISTANCE 1
+#define VEC_STATIC_BLOB_ENTRIES_K        2
+  int rc = sqlite3_declare_vtab(
+      db, "CREATE TABLE x(vector, distance hidden, k hidden)");
+  if (rc == SQLITE_OK) {
+    pNew = sqlite3_malloc(sizeof(*pNew));
+    *ppVtab = (sqlite3_vtab *)pNew;
+    if (pNew == 0)
+      return SQLITE_NOMEM;
+    memset(pNew, 0, sizeof(*pNew));
+    pNew->blob = &blob_data->static_blobs[idx];
+  }
+  return rc;
+}
+
+static int vec_static_blob_entriesCreate(sqlite3 *db, void *pAux, int argc,
+                          const char *const *argv, sqlite3_vtab **ppVtab,
+                          char **pzErr) {
+                            vec_static_blob_entriesConnect(db, pAux, argc, argv, ppVtab, pzErr);
+                          }
+
+static int vec_static_blob_entriesDisconnect(sqlite3_vtab *pVtab) {
+  vec_static_blob_entries_vtab *p = (vec_static_blob_entries_vtab *)pVtab;
+  sqlite3_free(p);
+  return SQLITE_OK;
+}
+
+static int vec_static_blob_entriesOpen(sqlite3_vtab *p, sqlite3_vtab_cursor **ppCursor) {
+  vec_static_blob_entries_cursor *pCur;
+  pCur = sqlite3_malloc(sizeof(*pCur));
+  if (pCur == 0)
+    return SQLITE_NOMEM;
+  memset(pCur, 0, sizeof(*pCur));
+  *ppCursor = &pCur->base;
+  return SQLITE_OK;
+}
+
+static int vec_static_blob_entriesClose(sqlite3_vtab_cursor *cur) {
+  vec_static_blob_entries_cursor *pCur = (vec_static_blob_entries_cursor *)cur;
+  sqlite3_free(pCur);
+  return SQLITE_OK;
+}
+
+static int vec_static_blob_entriesBestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
+  vec_static_blob_entries_vtab *p = (vec_static_blob_entries_vtab *)pVTab;
+  int iMatchTerm = -1;
+  int iLimitTerm = -1;
+  int iRowidTerm = -1; // TODO point query
+  int iKTerm = -1;
+
+  for (int i = 0; i < pIdxInfo->nConstraint; i++) {
+    if (!pIdxInfo->aConstraint[i].usable)
+      continue;
+
+    int iColumn = pIdxInfo->aConstraint[i].iColumn;
+    int op = pIdxInfo->aConstraint[i].op;
+    if (op == SQLITE_INDEX_CONSTRAINT_MATCH && iColumn == VEC_STATIC_BLOB_ENTRIES_VECTOR) {
+      if (iMatchTerm > -1) {
+        // TODO only 1 match operator at a time
+        return SQLITE_ERROR;
+      }
+      iMatchTerm = i;
+    }
+    if (op == SQLITE_INDEX_CONSTRAINT_LIMIT) {
+      iLimitTerm = i;
+    }
+    if (op == SQLITE_INDEX_CONSTRAINT_EQ && iColumn == VEC_STATIC_BLOB_ENTRIES_K) {
+      iKTerm = i;
+    }
+  }
+  if(iMatchTerm >= 0) {
+    if (iLimitTerm < 0 && iKTerm < 0) {
+      // TODO: error, match on vector1 should require a limit for KNN
+      return SQLITE_ERROR;
+    }
+    if (iLimitTerm >= 0 && iKTerm >= 0) {
+      return SQLITE_ERROR; // limit or k, not both
+    }
+    if (pIdxInfo->nOrderBy < 1) {
+      SET_VTAB_ERROR("ORDER BY distance required");
+      return SQLITE_CONSTRAINT;
+    }
+    if (pIdxInfo->nOrderBy > 1) {
+      // TODO error, orderByConsumed is all or nothing, only 1 order by allowed
+      SET_VTAB_ERROR("more than 1 ORDER BY clause provided");
+      return SQLITE_CONSTRAINT;
+    }
+    if (pIdxInfo->aOrderBy[0].iColumn != VEC_STATIC_BLOB_ENTRIES_DISTANCE) {
+      SET_VTAB_ERROR("ORDER BY must be on the distance column");
+      return SQLITE_CONSTRAINT;
+    }
+    if (pIdxInfo->aOrderBy[0].desc) {
+      SET_VTAB_ERROR("Only ascending in ORDER BY distance clause is supported, "
+                     "DESC is not supported yet.");
+      return SQLITE_CONSTRAINT;
+    }
+
+    pIdxInfo->idxNum = VEC_SBE__QUERYPLAN_KNN;
+    pIdxInfo->estimatedCost = (double)10; // TODO vtab_value(?) as hint?
+    pIdxInfo->estimatedRows = 10;// TODO vtab_value(?) as hint?
+
+    pIdxInfo->orderByConsumed = 1;
+    pIdxInfo->aConstraintUsage[iMatchTerm].argvIndex = 1;
+    pIdxInfo->aConstraintUsage[iMatchTerm].omit = 1;
+    if (iLimitTerm >= 0) {
+      pIdxInfo->aConstraintUsage[iLimitTerm].argvIndex = 2;
+      pIdxInfo->aConstraintUsage[iLimitTerm].omit = 1;
+    } else {
+      pIdxInfo->aConstraintUsage[iKTerm].argvIndex = 2;
+      pIdxInfo->aConstraintUsage[iKTerm].omit = 1;
+    }
+
+  }
+  else {
+    pIdxInfo->idxNum = VEC_SBE__QUERYPLAN_FULLSCAN;
+    pIdxInfo->estimatedCost = (double)p->blob->nvectors;
+    pIdxInfo->estimatedRows = p->blob->nvectors;
+  }
+  return SQLITE_OK;
+}
+
+static int vec_static_blob_entriesFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
+                         const char *idxStr, int argc, sqlite3_value **argv) {
+  vec_static_blob_entries_cursor *pCur = (vec_static_blob_entries_cursor *)pVtabCursor;
+  vec_static_blob_entries_vtab *p = (vec_static_blob_entries_vtab *)pCur->base.pVtab;
+
+  if(idxNum == VEC_SBE__QUERYPLAN_KNN) {
+    pCur->query_plan = VEC_SBE__QUERYPLAN_KNN;
+    struct vec0_query_knn_data *knn_data =
+        sqlite3_malloc(sizeof(struct vec0_query_knn_data));
+    if (!knn_data) {
+      return SQLITE_NOMEM;
+    }
+    memset(knn_data, 0, sizeof(struct vec0_query_knn_data));
+
+    void *queryVector;
+    size_t dimensions;
+    enum VectorElementType elementType;
+    vector_cleanup cleanup;
+    char *err;
+    int rc = vector_from_value(argv[0], &queryVector, &dimensions, &elementType, &cleanup, &err);
+    todo_assert(elementType == p->blob->element_type);
+    todo_assert(dimensions == p->blob->dimensions);
+
+    #define min(a, b) (((a) < (b)) ? (a) : (b))
+
+    i64 k = min(sqlite3_value_int64(argv[1]), p->blob->nvectors);
+    todo_assert(k >= 0);
+    if (k == 0) {
+      knn_data->k = 0;
+      pCur->knn_data = knn_data;
+      return SQLITE_OK;
+    }
+
+    i32 *topk_rowids = sqlite3_malloc(k * sizeof(i32));
+    todo_assert(topk_rowids);
+    f32 *distances = sqlite3_malloc(p->blob->nvectors * sizeof(f32));
+    todo_assert(distances);
+
+    for(size_t i = 0; i < p->blob->nvectors; i++) {
+      float * v = ((float *) p->blob->p) + (i * p->blob->dimensions);
+      distances[i] = distance_l2_sqr_float(v,  (float *) queryVector, &p->blob->dimensions);
+    }
+    min_idx(distances, k, topk_rowids, k);
+    knn_data->current_idx = 0;
+    knn_data->distances = distances;
+    knn_data->k = k;
+    knn_data->rowids = topk_rowids;
+
+    pCur->knn_data = knn_data;
+  }
+  else {
+    pCur->query_plan = VEC_SBE__QUERYPLAN_FULLSCAN;
+    pCur->iRowid = 0;
+  }
+
+  return SQLITE_OK;
+}
+
+static int vec_static_blob_entriesRowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid) {
+  vec_static_blob_entries_cursor *pCur = (vec_static_blob_entries_cursor *)cur;
+  *pRowid = pCur->iRowid;
+  return SQLITE_OK;
+}
+
+static int vec_static_blob_entriesNext(sqlite3_vtab_cursor *cur) {
+  vec_static_blob_entries_cursor *pCur = (vec_static_blob_entries_cursor *)cur;
+  switch(pCur->query_plan) {
+    case VEC_SBE__QUERYPLAN_FULLSCAN: {
+      pCur->iRowid++;
+      return SQLITE_OK;
+    }
+    case VEC_SBE__QUERYPLAN_KNN: {
+      pCur->knn_data->current_idx++;
+      return SQLITE_OK;
+    }
+  }
+
+}
+
+static int vec_static_blob_entriesEof(sqlite3_vtab_cursor *cur) {
+  vec_static_blob_entries_cursor *pCur = (vec_static_blob_entries_cursor *)cur;
+  vec_static_blob_entries_vtab * p = (vec_static_blob_entries_vtab *) pCur->base.pVtab;
+  switch(pCur->query_plan) {
+    case VEC_SBE__QUERYPLAN_FULLSCAN: {
+      return (size_t) pCur->iRowid >= p->blob->nvectors;
+    }
+    case VEC_SBE__QUERYPLAN_KNN: {
+      return pCur->knn_data->current_idx >= pCur->knn_data->k;
+    }
+  }
+
+}
+
+static int vec_static_blob_entriesColumn(sqlite3_vtab_cursor *cur, sqlite3_context *context,
+                         int i) {
+  vec_static_blob_entries_cursor *pCur = (vec_static_blob_entries_cursor *)cur;
+  vec_static_blob_entries_vtab *p = (vec_static_blob_entries_vtab *)cur->pVtab;
+
+  switch(pCur->query_plan) {
+    case VEC_SBE__QUERYPLAN_FULLSCAN: {
+      switch (i) {
+      case VEC_STATIC_BLOB_ENTRIES_VECTOR:
+
+        sqlite3_result_blob(
+          context,
+          p->blob->p + (pCur->iRowid * p->blob->dimensions * sizeof(float)),
+          p->blob->dimensions * sizeof(float),
+          SQLITE_STATIC
+        );
+        sqlite3_result_subtype(context,p->blob->element_type);
+        break;
+      }
+      return SQLITE_OK;
+    }
+    case VEC_SBE__QUERYPLAN_KNN: {
+      switch (i) {
+      case VEC_STATIC_BLOB_ENTRIES_VECTOR: {
+        i32 rowid = ((i32 *) pCur->knn_data->rowids)[pCur->knn_data->current_idx];
+
+        sqlite3_result_blob(
+          context,
+          p->blob->p + (rowid* p->blob->dimensions * sizeof(float)),
+          p->blob->dimensions * sizeof(float),
+          SQLITE_STATIC
+          );
+        sqlite3_result_subtype(context,p->blob->element_type);
+        break;
+      }
+      }
+      return SQLITE_OK;
+    }
+  }
+}
+
+
+static sqlite3_module vec_static_blob_entriesModule = {
+    /* iVersion    */ 3,
+    /* xCreate     */ vec_static_blob_entriesCreate,
+    /* xConnect    */ vec_static_blob_entriesConnect,
+    /* xBestIndex  */ vec_static_blob_entriesBestIndex,
+    /* xDisconnect */ vec_static_blob_entriesDisconnect,
+    /* xDestroy    */ vec_static_blob_entriesDisconnect,
+    /* xOpen       */ vec_static_blob_entriesOpen,
+    /* xClose      */ vec_static_blob_entriesClose,
+    /* xFilter     */ vec_static_blob_entriesFilter,
+    /* xNext       */ vec_static_blob_entriesNext,
+    /* xEof        */ vec_static_blob_entriesEof,
+    /* xColumn     */ vec_static_blob_entriesColumn,
+    /* xRowid      */ vec_static_blob_entriesRowid,
+    /* xUpdate     */ 0,
+    /* xBegin      */ 0,
+    /* xSync       */ 0,
+    /* xCommit     */ 0,
+    /* xRollback   */ 0,
+    /* xFindMethod */ 0,
+    /* xRename     */ 0,
+    /* xSavepoint  */ 0,
+    /* xRelease    */ 0,
+    /* xRollbackTo */ 0,
+    /* xShadowName */ 0};
+#pragma endregion
+
+#endif
+
 int sqlite3_mmap_warm(sqlite3 *db, const char *zDb) {
   int rc = SQLITE_OK;
   char *zSql = 0;
@@ -4629,17 +5165,29 @@ __declspec(dllexport)
     {"vec_quantize_i8",     vec_quantize_i8,      2, DEFAULT_FLAGS | SQLITE_SUBTYPE | SQLITE_RESULT_SUBTYPE, NULL },
     {"vec_quantize_i8",     vec_quantize_i8,      3, DEFAULT_FLAGS | SQLITE_SUBTYPE | SQLITE_RESULT_SUBTYPE, NULL },
     {"vec_quantize_binary", vec_quantize_binary,  1, DEFAULT_FLAGS | SQLITE_SUBTYPE | SQLITE_RESULT_SUBTYPE, NULL },
+    #ifdef SQLITE_VEC_ENABLE_EXPERIMENTAL
+    {"vec_static_blob_from_raw", vec_static_blob_from_raw,  4, DEFAULT_FLAGS | SQLITE_SUBTYPE | SQLITE_RESULT_SUBTYPE, NULL },
+    #endif
       // clang-format on
   };
+
+  #ifdef SQLITE_VEC_ENABLE_EXPERIMENTAL
+  vec_static_blob_data * static_blob_data;
+  static_blob_data = sqlite3_malloc(sizeof(*static_blob_data));
+  todo_assert(static_blob_data);
+  memset(static_blob_data, 0, sizeof(*static_blob_data));
+  #endif
 
   static const struct {
     char *name;
     const sqlite3_module *module;
+    void * p;
+    void(*xDestroy)(void*);
   } aMod[] = {
       // clang-format off
-    {"vec0",          &vec0Module},
-    {"vec_each",      &vec_eachModule},
-    {"vec_npy_each",  &vec_npy_eachModule},
+    {"vec0",          &vec0Module,          NULL, NULL},
+    {"vec_each",      &vec_eachModule,      NULL, NULL},
+    {"vec_npy_each",  &vec_npy_eachModule,  NULL, NULL},
       // clang-format on
   };
 
@@ -4663,6 +5211,12 @@ __declspec(dllexport)
       return rc;
     }
   }
+  #ifdef SQLITE_VEC_ENABLE_EXPERIMENTAL
+  rc = sqlite3_create_module_v2(db, "vec_static_blobs", &vec_static_blobsModule, static_blob_data, sqlite3_free);
+  assert(rc == SQLITE_OK);
+  rc = sqlite3_create_module_v2(db, "vec_static_blob_entries", &vec_static_blob_entriesModule, static_blob_data, NULL);
+  assert(rc == SQLITE_OK);
+  #endif
 
   return SQLITE_OK;
 }
