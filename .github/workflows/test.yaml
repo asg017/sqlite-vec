@@ -72,7 +72,7 @@ jobs:
           name: sqlite-vec-wasm32-emscripten
           path: dist/*
   build-cosmopolitan:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - run: |
