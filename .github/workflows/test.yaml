@@ -51,7 +51,7 @@ jobs:
           python-version: "3.12"
       - run: ./scripts/vendor.sh
         shell: bash
-      - run: make loadable
+      - run: make loadable CC=gcc
       - run: pip install pytest numpy; make test-loadable
       - uses: actions/upload-artifact@v4
         with:
@@ -79,9 +79,8 @@ jobs:
           mkdir $HOME/cosmo
           curl -L -o cosmocc-3.3.6.zip https://github.com/jart/cosmopolitan/releases/download/3.3.6/cosmocc-3.3.6.zip
           unzip cosmocc-3.3.6.zip -d $HOME/cosmo
-          echo "$HOME/cosmo/bin" >> $GITHUB_PATH
       - run: ./scripts/vendor.sh
-      - run: make cli CC=cosmocc AR=cosmoar OMIT_SIMD=1
+      - run: make cli CC=$HOME/cosmo/bin/cosmocc AR=$HOME/cosmo/bin/cosmoar OMIT_SIMD=1
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-cosmopolitan
