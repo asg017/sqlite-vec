@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           mkdir $HOME/cosmo
-          curl -o cosmocc-3.3.6.zip https://github.com/jart/cosmopolitan/releases/download/3.3.6/cosmocc-3.3.6.zip
+          curl -L -o cosmocc-3.3.6.zip https://github.com/jart/cosmopolitan/releases/download/3.3.6/cosmocc-3.3.6.zip
           unzip cosmocc-3.3.6.zip -d $HOME/cosmo
           echo "$HOME/cosmo/bin" >> $GITHUB_PATH
       - run: ./scripts/vendor.sh
