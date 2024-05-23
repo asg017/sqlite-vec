@@ -3,6 +3,8 @@ COMMIT=$(shell git rev-parse HEAD)
 VERSION=$(shell cat VERSION)
 DATE=$(shell date +'%FT%TZ%z')
 
+CC ?= gcc
+AR ?= ar
 
 ifeq ($(shell uname -s),Darwin)
 CONFIG_DARWIN=y
@@ -62,7 +64,7 @@ cli: $(TARGET_CLI)
 all: loadable static cli
 
 $(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(prefix)
-	gcc \
+	$(CC) \
 		-fPIC -shared \
 		-Wall -Wextra \
 		-Ivendor/ \
@@ -71,9 +73,9 @@ $(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(prefix)
 		$< -o $@
 
 $(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(prefix)
-	gcc -Ivendor/sqlite -Ivendor/vec $(CFLAGS) -DSQLITE_CORE \
+	$(CC) -Ivendor/ -Ivendor/vec $(CFLAGS) -DSQLITE_CORE \
 	-O3 -c  $< -o $(prefix)/.objs/vec.o
-	ar rcs $@ $(prefix)/.objs/vec.o
+	$(AR) rcs $@ $(prefix)/.objs/vec.o
 
 $(TARGET_STATIC_H): sqlite-vec.h $(prefix)
 	cp $< $@
@@ -93,41 +95,41 @@ $(BUILD_DIR): $(prefix)
 	mkdir -p $@
 
 $(OBJS_DIR)/sqlite3.o: vendor/sqlite3.c $(OBJS_DIR)
-	gcc -c -g3 -O3 -DSQLITE_EXTRA_INIT=core_init -DSQLITE_CORE -DSQLITE_ENABLE_STMT_SCANSTATUS -DSQLITE_ENABLE_BYTECODE_VTAB -DSQLITE_ENABLE_EXPLAIN_COMMENTS -I./vendor $< -o $@
+	$(CC) -c -g3 -O3 -DSQLITE_EXTRA_INIT=core_init -DSQLITE_CORE -DSQLITE_ENABLE_STMT_SCANSTATUS -DSQLITE_ENABLE_BYTECODE_VTAB -DSQLITE_ENABLE_EXPLAIN_COMMENTS -I./vendor $< -o $@
 
 $(LIBS_DIR)/sqlite3.a: $(OBJS_DIR)/sqlite3.o $(LIBS_DIR)
-	ar rcs $@ $<
+	$(AR) rcs $@ $<
 
 $(BUILD_DIR)/shell-new.c: vendor/shell.c $(BUILD_DIR)
 	sed 's/\/\*extra-version-info\*\//EXTRA_TODO/g' $< > $@
 
 $(OBJS_DIR)/shell.o: $(BUILD_DIR)/shell-new.c $(OBJS_DIR)
-	gcc -c -g3 -O3 \
-		-DHAVE_EDITLINE=1 -I./vendor \
+	$(CC) -c -g3 -O3 \
+		-I./vendor \
 		-DSQLITE_ENABLE_STMT_SCANSTATUS -DSQLITE_ENABLE_BYTECODE_VTAB -DSQLITE_ENABLE_EXPLAIN_COMMENTS \
-		-DEXTRA_TODO="\"CUSTOM BUILD: sqlite-vec\n\"" \
+		-DEXTRA_TODO="\"CUSTOMBUILD:sqlite-vec\n\"" \
 		$< -o $@
 
 $(LIBS_DIR)/shell.a: $(OBJS_DIR)/shell.o $(LIBS_DIR)
-	ar rcs $@ $<
+	$(AR) rcs $@ $<
 
 $(OBJS_DIR)/sqlite-vec.o: sqlite-vec.c $(OBJS_DIR)
-	gcc -c -g3 -I./vendor $(CFLAGS) $< -o $@
+	$(CC) -c -g3 -Ivendor/ -I./ $(CFLAGS) $< -o $@
 
 $(LIBS_DIR)/sqlite-vec.a: $(OBJS_DIR)/sqlite-vec.o $(LIBS_DIR)
-	ar rcs $@ $<
+	$(AR) rcs $@ $<
+
 
 $(TARGET_CLI): $(LIBS_DIR)/sqlite-vec.a $(LIBS_DIR)/shell.a $(LIBS_DIR)/sqlite3.a examples/sqlite3-cli/core_init.c $(prefix)
-	gcc -g3  \
-	-Ivendor/sqlite -I./ \
+	$(CC) -g3  \
+	-Ivendor/ -I./ \
 	-DSQLITE_CORE \
 	-DSQLITE_THREADSAFE=0 -DSQLITE_ENABLE_FTS4 \
 	-DSQLITE_ENABLE_STMT_SCANSTATUS -DSQLITE_ENABLE_BYTECODE_VTAB -DSQLITE_ENABLE_EXPLAIN_COMMENTS \
 	-DSQLITE_EXTRA_INIT=core_init \
 	$(CFLAGS) \
-	-lreadline -DHAVE_EDITLINE=1 \
-	-ldl -lm -lreadline \
-	$(LIBS_DIR)/shell.a $(LIBS_DIR)/sqlite3.a $(LIBS_DIR)/sqlite-vec.a examples/sqlite3-cli/core_init.c -o $@
+	-ldl -lm \
+	examples/sqlite3-cli/core_init.c $(LIBS_DIR)/shell.a $(LIBS_DIR)/sqlite3.a $(LIBS_DIR)/sqlite-vec.a -o $@
 
 
 sqlite-vec.h: sqlite-vec.h.tmpl VERSION

@@ -71,3 +71,18 @@ jobs:
         with:
           name: sqlite-vec-wasm32-emscripten
           path: dist/*
+  build-cosmopolitan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir $HOME/cosmo
+          curl -o cosmocc-3.3.6.zip https://github.com/jart/cosmopolitan/releases/download/3.3.6/cosmocc-3.3.6.zip
+          unzip cosmocc-3.3.6.zip -d $HOME/cosmo
+          echo "$HOME/cosmo/bin" >> $GITHUB_PATH
+      - run: ./scripts/vendor.sh
+      - run: make cli CC=cosmocc AR=cosmoar OMIT_SIMD=1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-cosmopolitan
+          path: dist/*
