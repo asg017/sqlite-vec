@@ -3,8 +3,12 @@ COMMIT=$(shell git rev-parse HEAD)
 VERSION=$(shell cat VERSION)
 DATE=$(shell date +'%FT%TZ%z')
 
-CC ?= gcc
-AR ?= ar
+ifndef CC
+CC=gcc
+endif
+ifndef AR
+AR=ar
+endif
 
 ifeq ($(shell uname -s),Darwin)
 CONFIG_DARWIN=y
