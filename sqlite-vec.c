@@ -304,9 +304,16 @@ static f32 distance_hamming_u64(u64 *a, u64 *b, size_t n) {
   return (f32)same;
 }
 
+/**
+ * @brief Calculate the hamming distance between two bitvectors.
+ *
+ * @param a - first bitvector, MUST have d dimensions
+ * @param b - second bitvector, MUST have d dimensions
+ * @param d - pointer to size_t, MUST be divisible by CHAR_BIT
+ * @return f32
+ */
 static f32 distance_hamming(const void *a, const void *b, const void *d) {
   size_t dimensions = *((size_t *)d);
-  todo_assert((dimensions % CHAR_BIT) == 0);
 
   if ((dimensions % 64) == 0) {
     return distance_hamming_u64((u64 *)a, (u64 *)b, dimensions / 8 / CHAR_BIT);
