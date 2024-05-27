@@ -161,6 +161,7 @@ export default defineConfig({
     },
     socialLinks: [
       { icon: "github", link: `https://github.com/asg017/${PROJECT}` },
+      { icon: "discord", link: `https://discord.gg/jAeUUhVG2D` },
     ],
     editLink: {
       pattern: `https://github.com/asg017/${PROJECT}/edit/main/site/:path`,
