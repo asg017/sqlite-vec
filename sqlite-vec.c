@@ -842,6 +842,50 @@ finish:
   bCleanup(b);
   return;
 }
+
+static void vec_distance_l1(sqlite3_context *context, int argc,
+                            sqlite3_value **argv) {
+  todo_assert(argc == 2);
+  int rc;
+  void *a, *b;
+  size_t dimensions;
+  vector_cleanup aCleanup, bCleanup;
+  char *error;
+  enum VectorElementType elementType;
+  rc = ensure_vector_match(argv[0], argv[1], &a, &b, &elementType, &dimensions,
+                           &aCleanup, &bCleanup, &error);
+  if (rc != SQLITE_OK) {
+    sqlite3_result_error(context, error, -1);
+    sqlite3_free(error);
+    return;
+  }
+
+  switch (elementType) {
+  case SQLITE_VEC_ELEMENT_TYPE_BIT: {
+    sqlite3_result_error(
+        context, "Cannot calculate L1 distance between two bitvectors.", -1);
+    goto finish;
+  }
+  case SQLITE_VEC_ELEMENT_TYPE_FLOAT32: {
+    // TODO: implement distance_l1_float
+    f32 result = distance_l1_float(a, b, &dimensions);
+    sqlite3_result_double(context, result);
+    goto finish;
+  }
+  case SQLITE_VEC_ELEMENT_TYPE_INT8: {
+    // TODO: implement distance_l1_int8
+    f32 result = distance_l1_int8(a, b, &dimensions);
+    sqlite3_result_double(context, result);
+    goto finish;
+  }
+  }
+
+finish:
+  aCleanup(a);
+  bCleanup(b);
+  return;
+}
+
 static void vec_distance_hamming(sqlite3_context *context, int argc,
                                  sqlite3_value **argv) {
   todo_assert(argc == 2);
