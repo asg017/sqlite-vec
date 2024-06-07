@@ -189,7 +189,6 @@ static f32 l2_sqr_float_neon(const void *pVect1v, const void *pVect2v,
       vaddvq_f32(vaddq_f32(vaddq_f32(sum0, sum1), vaddq_f32(sum2, sum3))));
 }
 
-// TODO: test this!!!
 static f32 l2_sqr_int8_neon(const void *pVect1v, const void *pVect2v,
                             const void *qty_ptr) {
   i8 *pVect1 = (i8 *)pVect1v;
