@@ -211,6 +211,8 @@ def test_vec_int8():
     vec_int8 = lambda *args: db.execute("select vec_int8(?)", args).fetchone()[0]
     assert vec_int8(b"\x00") == _int8([0])
     assert vec_int8(b"\x00\x0f") == _int8([0, 15])
+    assert vec_int8("[0]") == _int8([0])
+    assert vec_int8("[1, 2, 3]") == _int8([1, 2, 3])
 
     if SUPPORTS_SUBTYPE:
         assert db.execute("select subtype(vec_int8(?))", [b"\x00"]).fetchone()[0] == 225
