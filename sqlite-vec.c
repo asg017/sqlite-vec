@@ -436,7 +436,7 @@ int array_append(struct Array *array, const void *element) {
       return SQLITE_NOMEM;
     }
   }
-  memcpy((char *)(&array->z)[array->length * array->element_size], element,
+  memcpy(&array->z[array->length * array->element_size], element,
          array->element_size);
   array->length++;
   return SQLITE_OK;
@@ -650,9 +650,9 @@ static int int8_vec_from_value(sqlite3_value *value, i8 **vector,
 
       errno = 0;
       long result = strtol(ptr, &endptr, 10);
-      if ((errno != 0 && result == 0) 
+      if ((errno != 0 && result == 0)
           || (errno == ERANGE &&
-              (result == LONG_MAX || result == LONG_MIN)) 
+              (result == LONG_MAX || result == LONG_MIN))
       ) {
         sqlite3_free(x.z);
         *pzErr = sqlite3_mprintf("JSON parsing error");
@@ -2517,7 +2517,7 @@ static int vec_npy_eachColumn(sqlite3_vtab_cursor *cur,
       case SQLITE_VEC_ELEMENT_TYPE_FLOAT32: {
         sqlite3_result_blob(
             context,
-            (f32 *)(&pCur->vector)[pCur->iRowid * pCur->nDimensions * sizeof(f32)],
+            &pCur->vector[pCur->iRowid * pCur->nDimensions * sizeof(f32)],
             pCur->nDimensions * sizeof(f32), SQLITE_STATIC);
         break;
       }
@@ -2531,7 +2531,7 @@ static int vec_npy_eachColumn(sqlite3_vtab_cursor *cur,
       switch (pCur->elementType) {
       case SQLITE_VEC_ELEMENT_TYPE_FLOAT32: {
         sqlite3_result_blob(context,
-                            (f32 *)(&pCur->fileBuffer)[pCur->bufferIndex *
+                            &pCur->fileBuffer[pCur->bufferIndex *
                                               pCur->nDimensions * sizeof(f32)],
                             pCur->nDimensions * sizeof(f32), SQLITE_TRANSIENT);
         break;
@@ -5688,7 +5688,7 @@ __declspec(dllexport)
   const int DEFAULT_FLAGS =
       SQLITE_UTF8 | SQLITE_INNOCUOUS | SQLITE_DETERMINISTIC;
 
-  const struct {
+  static const struct {
     char *zFName;
     void (*xFunc)(sqlite3_context *, int, sqlite3_value **);
     int nArg;
