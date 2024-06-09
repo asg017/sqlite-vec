@@ -57,6 +57,21 @@ jobs:
         with:
           name: sqlite-vec-windows-x86_64-extension
           path: dist/*
+  build-windows-x86_64-extension-msvc:
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: ./scripts/vendor.sh
+        shell: bash
+      - run: make loadable CC=cl.exe
+      - run: pip install pytest numpy; make test-loadable
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-windows-x86_64-extension
+          path: dist/*
   build-wasm32-emscripten:
     runs-on: ubuntu-latest
     steps:
