@@ -61,6 +61,7 @@ jobs:
     runs-on: windows-2019
     steps:
       - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
