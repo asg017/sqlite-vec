@@ -67,7 +67,14 @@ jobs:
           python-version: "3.12"
       - run: ./scripts/vendor.sh
         shell: bash
-      - run: make loadable CC=cl.exe
+      - run: make sqlite-vec.h
+      - run: cl.exe \
+          /fPIC -shared \
+          /W4 \
+          /Ivendor/ \
+          /O2 \
+          \
+          sqlite-vec.c -o dist/vec0.dll
       - run: pip install pytest numpy; make test-loadable
       - uses: actions/upload-artifact@v4
         with:
