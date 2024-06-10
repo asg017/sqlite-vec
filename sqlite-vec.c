@@ -272,7 +272,6 @@ static f32 l2_sqr_int8(const void *pA, const void *pB, const void *pD) {
 static f32 distance_l2_sqr_float(const void *a, const void *b, const void *d) {
 #ifdef SQLITE_VEC_ENABLE_NEON
   if ((*(const size_t *)d) > 16) {
-  // if (((*(const size_t *)d) % 16 == 0)) {
     return l2_sqr_float_neon(a, b, d);
   }
 #endif
