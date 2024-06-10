@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <float.h>
 
 #include "sqlite3ext.h"
 SQLITE_EXTENSION_INIT1
@@ -64,6 +65,7 @@ typedef u_int64_t uint64_t;
 
 typedef int8_t i8;
 typedef uint8_t u8;
+typedef int16_t i16;
 typedef int32_t i32;
 typedef sqlite3_int64 i64;
 typedef uint32_t u32;
@@ -195,6 +197,45 @@ static f32 l2_sqr_float_neon(const void *pVect1v, const void *pVect2v,
 
   return sqrt(sum_scalar);
 }
+
+static f32 l2_sqr_int8_neon(const void *pVect1v, const void *pVect2v,
+                            const void *qty_ptr) {
+  i8 *pVect1 = (i8 *)pVect1v;
+  i8 *pVect2 = (i8 *)pVect2v;
+  size_t qty = *((size_t *)qty_ptr);
+
+  const i8 *pEnd1 = pVect1 + qty;
+  i32 sum_scalar = 0;
+
+  while (pVect1 < pEnd1 - 7) {
+    // loading 8 at a time
+    int8x8_t v1 = vld1_s8(pVect1);
+    int8x8_t v2 = vld1_s8(pVect2);
+    pVect1 += 8;
+    pVect2 += 8;
+
+    // widen to protect against overflow
+    int16x8_t v1_wide = vmovl_s8(v1);
+    int16x8_t v2_wide = vmovl_s8(v2);
+
+    int16x8_t diff = vsubq_s16(v1_wide, v2_wide);
+    int16x8_t squared_diff = vmulq_s16(diff, diff);
+    int32x4_t sum = vpaddlq_s16(squared_diff);
+
+    sum_scalar += vgetq_lane_s32(sum, 0) + vgetq_lane_s32(sum, 1) +
+              vgetq_lane_s32(sum, 2) + vgetq_lane_s32(sum, 3);
+  }
+
+  // handle leftovers
+  while (pVect1 < pEnd1) {
+    i16 diff = (i16)*pVect1 - (i16)*pVect2;
+    sum_scalar += diff * diff;
+    pVect1++;
+    pVect2++;
+  }
+
+  return sqrtf(sum_scalar);
+}
 #endif
 
 static f32 l2_sqr_float(const void *pVect1v, const void *pVect2v,
@@ -244,6 +285,11 @@ static f32 distance_l2_sqr_float(const void *a, const void *b, const void *d) {
 }
 
 static f32 distance_l2_sqr_int8(const void *a, const void *b, const void *d) {
+  #ifdef SQLITE_VEC_ENABLE_NEON
+  if ((*(const size_t *)d) > 7) {
+    return l2_sqr_int8_neon(a, b, d);
+  }
+  #endif
   return l2_sqr_int8(a, b, d);
 }
 
@@ -305,6 +351,12 @@ static f32 distance_hamming_u8(u8 *a, u8 *b, size_t n) {
   }
   return (f32)same;
 }
+
+#ifdef _MSC_VER
+#  include <intrin.h>
+#  define __builtin_popcountl __popcnt64
+#endif
+
 static f32 distance_hamming_u64(u64 *a, u64 *b, size_t n) {
   int same = 0;
   for (unsigned long i = 0; i < n; i++) {
@@ -566,6 +618,103 @@ static int int8_vec_from_value(sqlite3_value *value, i8 **vector,
     *cleanup = vector_cleanup_noop;
     return SQLITE_OK;
   }
+
+ if (value_type == SQLITE_TEXT) {
+    const char *source = (const char *)sqlite3_value_text(value);
+    int source_len = sqlite3_value_bytes(value);
+    int i = 0;
+
+    struct Array x;
+    int rc = array_init(&x, sizeof(i8), ceil(source_len / 2.0));
+    if (rc != SQLITE_OK) {
+      return rc;
+    }
+
+    // advance leading whitespace to first '['
+    while (i < source_len) {
+      if (jsonIsspace(source[i])) {
+        i++;
+        continue;
+      }
+      if (source[i] == '[') {
+        break;
+      }
+
+      *pzErr = sqlite3_mprintf(
+          "JSON array parsing error: Input does not start with '['");
+      array_cleanup(&x);
+      return SQLITE_ERROR;
+    }
+    if (source[i] != '[') {
+      *pzErr = sqlite3_mprintf(
+          "JSON array parsing error: Input does not start with '['");
+      array_cleanup(&x);
+      return SQLITE_ERROR;
+    }
+    int offset = i + 1;
+
+    while (offset < source_len) {
+      char *ptr = (char *)&source[offset];
+      char *endptr;
+
+      errno = 0;
+      long result = strtol(ptr, &endptr, 10);
+      if ((errno != 0 && result == 0)
+          || (errno == ERANGE &&
+              (result == LONG_MAX || result == LONG_MIN))
+      ) {
+        sqlite3_free(x.z);
+        *pzErr = sqlite3_mprintf("JSON parsing error");
+        return SQLITE_ERROR;
+      }
+
+      if (endptr == ptr) {
+        if (*ptr != ']') {
+          sqlite3_free(x.z);
+          *pzErr = sqlite3_mprintf("JSON parsing error");
+          return SQLITE_ERROR;
+        }
+        goto done;
+      }
+
+      if (result < INT8_MIN || result > INT8_MAX) {
+        sqlite3_free(x.z);
+        *pzErr = sqlite3_mprintf("JSON parsing error: value out of range for int8");
+        return SQLITE_ERROR;
+      }
+
+      i8 res = (i8)result;
+      array_append(&x, (const void *)&res);
+
+      offset += (endptr - ptr);
+      while (offset < source_len) {
+        if (jsonIsspace(source[offset])) {
+          offset++;
+          continue;
+        }
+        if (source[offset] == ',') {
+          offset++;
+          continue;
+        }
+        if (source[offset] == ']')
+          goto done;
+        break;
+      }
+    }
+
+  done:
+
+    if (x.length > 0) {
+      *vector = (i8 *)x.z;
+      *dimensions = x.length;
+      *cleanup = (vector_cleanup)sqlite3_free;
+      return SQLITE_OK;
+    }
+    sqlite3_free(x.z);
+    *pzErr = sqlite3_mprintf("zero-length vectors are not supported.");
+    return SQLITE_ERROR;
+  }
+
   *pzErr = sqlite3_mprintf("Unknown type for int8 vector.");
   return SQLITE_ERROR;
 }
@@ -3545,7 +3694,7 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
   f32 *topk_distances = sqlite3_malloc(k * sizeof(f32));
   todo_assert(topk_distances);
   for (int i = 0; i < k; i++) {
-    topk_distances[i] = __FLT_MAX__;
+    topk_distances[i] = FLT_MAX;
   }
 
   // for each chunk, get top min(k, chunk_size) rowid + distances to query vec.
@@ -3613,7 +3762,7 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
         // Ensure the current vector is "valid" in the validity bitmap.
         // If not, skip and continue on
         if (!(((chunkValidity[i / CHAR_BIT]) >> (i % CHAR_BIT)) & 1)) {
-          chunk_distances[i] = __FLT_MAX__;
+          chunk_distances[i] = FLT_MAX;
           continue;
         };
         // If pre-filtering, make sure the rowid appears in the `rowid in (...)`
@@ -3623,7 +3772,7 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
           void *in = bsearch(&rowid, arrayRowidsIn->z, arrayRowidsIn->length,
                              sizeof(i64), _cmp);
           if (!in) {
-            chunk_distances[i] = __FLT_MAX__;
+            chunk_distances[i] = FLT_MAX;
             continue;
           }
         }
@@ -3855,7 +4004,7 @@ static int vec0Eof(sqlite3_vtab_cursor *cur) {
     todo_assert(pCur->knn_data);
     return (pCur->knn_data->current_idx >= pCur->knn_data->k) ||
            (pCur->knn_data->distances[pCur->knn_data->current_idx] ==
-            __FLT_MAX__);
+            FLT_MAX);
   }
   case SQLITE_VEC0_QUERYPLAN_POINT: {
     todo_assert(pCur->point_data);
@@ -5259,7 +5408,7 @@ static int vec_expoFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
     f32 *chunk_distances = sqlite3_malloc(chunk_size * sizeof(f32));
     todo_assert(chunk_distances);
     for (int i = 0; i < k; i++) {
-      topk_distances[i] = __FLT_MAX__;
+      topk_distances[i] = FLT_MAX;
     }
     i64 *chunk_rowids = sqlite3_malloc(chunk_size * sizeof(i64));
     todo_assert(chunk_rowids);
@@ -5541,9 +5690,6 @@ __declspec(dllexport)
 #define SQLITE_RESULT_SUBTYPE 0x001000000
 #endif
 
-#ifdef _WIN32
-__declspec(dllexport)
-#endif
     int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
                          const sqlite3_api_routines *pApi) {
   SQLITE_EXTENSION_INIT2(pApi);
@@ -5634,9 +5780,6 @@ __declspec(dllexport)
   return SQLITE_OK;
 }
 
-#ifdef _WIN32
-__declspec(dllexport)
-#endif
     int sqlite3_vec_fs_read_init(sqlite3 *db, char **pzErrMsg,
                                  const sqlite3_api_routines *pApi) {
   UNUSED_PARAMETER(pzErrMsg);
