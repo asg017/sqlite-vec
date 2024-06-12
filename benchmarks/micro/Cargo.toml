@@ -5,3 +5,15 @@ edition = "2021"
 
 [dependencies]
 rusqlite = {version="0.31.0", features=["bundled"]}
+
+[dev-dependencies]
+criterion = "0.3"
+rand = "0.8.5"
+zerocopy = "0.7.34"
+
+[build-dependencies]
+cc = "1.0.99"
+
+[[bench]]
+name = "my_benchmark"
+harness = false
