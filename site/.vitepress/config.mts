@@ -34,12 +34,24 @@ function head(): HeadConfig[] {
 
 const guides = {
   text: "Guides",
-  items: [],
+  collapsed: true,
+  items: [
+    { text: "Binary Quantization", link: "/guides/binary-quant" },
+    { text: "Scalar Quantization", link: "/guides/scalar-quant" },
+    {
+      text: "Matryosha/Adaptive Length Embeddings",
+      link: "/guides/matryoshka",
+    },
+    { text: "Semantic Search", link: "/guides/semantic-search" },
+    { text: "Hybrid Search", link: "/guides/hybrid-search" },
+    { text: "Classifiers", link: "/guides/classifiers" },
+    { text: "Improving Performance", link: "/guides/improving-perf" },
+  ],
 };
 
 function nav(): DefaultTheme.NavItem[] {
   return [
-    //guides,
+    guides,
     { text: "API Reference", link: "/api-reference" },
     { text: "♥ Sponsor", link: "https://github.com/sponsors/asg017" },
     {
@@ -104,26 +116,22 @@ function sidebar(): DefaultTheme.SidebarItem[] {
       collapsed: false,
       items: [
         { text: "Python", link: "/python" },
-        { text: "JavaScript (Server-side)", link: "/js" },
-        { text: "JavaScript+WASM (Browser)", link: "/wasm-browser" },
+        { text: "JavaScript", link: "/js" },
         { text: "Ruby", link: "/ruby" },
         { text: "Rust", link: "/rust" },
         { text: "Go", link: "/go" },
         { text: "C/C++", link: "/c" },
+        { text: "WebAssembly (Browser)", link: "/wasm" },
         { text: "Datasette", link: "/datasette" },
         { text: "sqlite-utils", link: "/sqlite-utils" },
         { text: "Loadable Extension", link: "/loadable" },
       ],
     },
-    //guides,
-    {
-      text: "Comparisons with...",
-      link: "/compare",
-    },
+    guides,
     {
       text: "Documentation",
       items: [
-        { text: "Building from Source", link: "/building-source" },
+        { text: "Compiling", link: "/compiling" },
         { text: "API Reference", link: "/api-reference" },
       ],
     },
@@ -134,6 +142,14 @@ function sidebar(): DefaultTheme.SidebarItem[] {
           text: "sqlite-ecosystem",
           link: "https://github.com/asg017/sqlite-ecosystem",
         },
+        {
+          text: "sqlite-lembed",
+          link: "https://github.com/asg017/sqlite-lembed",
+        },
+        {
+          text: "sqlite-rembed",
+          link: "https://github.com/asg017/sqlite-rembed",
+        },
       ],
     },
   ];
@@ -141,7 +157,7 @@ function sidebar(): DefaultTheme.SidebarItem[] {
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title: PROJECT,
+  title: `${PROJECT}`,
   description,
   lastUpdated: true,
   head: head(),
