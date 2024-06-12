@@ -1,16 +1,33 @@
 # `sqlite-vec`
 
+[![](https://dcbadge.vercel.app/api/server/VCtQ8cGhUs)](https://discord.gg/VCtQ8cGhUs)
+
 An extremely small, "fast enough" vector search SQLite extension that runs
 anywhere! A successor to [sqlite-vss](https://github.com/asg017/sqlite-vss)
 
-> [!IMPORTANT]
-> *`sqlite-vec` is a work-in-progress and not ready for general usage! I plan to launch a "beta" version in the next month or so. Watch this repo for updates, and read [this blog post](https://alexgarcia.xyz/blog/2024/building-new-vector-search-sqlite/index.html) for more info.*
+> [!IMPORTANT] > _`sqlite-vec` is a work-in-progress and not ready for general usage! I plan to launch a "beta" version in the next month or so. Watch this repo for updates, and read [this blog post](https://alexgarcia.xyz/blog/2024/building-new-vector-search-sqlite/index.html) for more info._
 
 - Store and query float, int8, and binary vectors in `vec0` virtual tables
 - Pre-filter vectors with `rowid IN (...)` subqueries
 - Written in pure C, no dependencies,
   runs anywhere SQLite runs (Linux/MacOS/Windows, in the browser with WASM,
   Raspberry Pis, etc.)
+
+<p align="center">
+<img src="./.github/logos/mozilla.svg" width=400 />
+</p>
+
+<p align="center">
+<i>
+<code>sqlite-vec</code> is a
+<a href="#">Mozilla Builders project</a>,
+with additional sponsorship from
+<a href="https://fly.io/"><img width=14px src="./.github/logos/flyio.small.ico"/> Fly.io </a>,
+<a href="https://turso.tech/"><img width=14px src="./.github/logos/turso.small.ico"/> Turso</a>, and
+<a href="https://sqlitecloud.io/"><img width=14px src="./.github/logos/sqlitecloud.small.svg"/> SQLite Cloud</a>.
+See <a href="#sponsors">the Sponsors section</a> for more details.
+</i>
+</p>
 
 ## Sample usage
 
@@ -50,9 +67,9 @@ limit 2;
 
 ## Roadmap
 
-Not currently implemented, but planned in the future (after initial beta version):
+Not currently implemented, but planned in the future (after initial `v0.1.0` version):
 
-- Approximate nearest neighbors search (IVF and HNSW)
+- Approximate nearest neighbors search (DiskANN, IVF, maybe HNSW?)
 - Metadata filtering + custom internal partitioning
 - More vector types (float16, int16, sparse, etc.) and distance functions
 
@@ -67,7 +84,24 @@ Additionally, there will be pre-compiled and pre-packaged packages of `sqlite-ve
 - Datasette and sqlite-utils plugins
 - Pre-compiled loadable extensions on Github releases
 
+## Sponors
 
-## Support
+Development of `sqlite-vec` is supported by multiple generous sponsors! Mozilla is the main sponsor through the new Builders project.
 
-Is your company interested in sponsoring `sqlite-vec` development? Send me an email to get more info: https://alexgarcia.xyz
+<p align="center">
+<img src="./.github/logos/mozilla.svg" width=400 />
+</p>
+
+`sqlite-vec` is also sponsored by the following companies:
+
+<a href="https://fly.io/"><img src="./.github/logos/flyio.svg" width=33%/></a> <a href="https://turso.tech/"><img src="./.github/logos/turso.svg" width=33%/> </a> <a href="https://sqlitecloud.io/"><img src="./.github/logos/sqlitecloud.svg" width=33%/></a>
+
+As well as multiple individual supporters on [Github sponsors](https://github.com/sponsors/asg017/)!
+
+If your company interested in sponsoring `sqlite-vec` development, send me an email to get more info: https://alexgarcia.xyz
+
+## See Also
+
+- [**`sqlite-ecosystem`**](https://github.com/asg017/sqlite-ecosystem), Maybe more 3rd party SQLite extensions I've developed
+- [**`sqlite-rembed`**](https://github.com/asg017/sqlite-rembed), Generate text embeddings from remote APIs like OpenAI/Nomic/Ollama, meant for testing and SQL scripts
+- [**`sqlite-lembed`**](https://github.com/asg017/sqlite-lembed), Generate text embeddings locally from embedding models in the `.gguf` format
