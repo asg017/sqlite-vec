@@ -18,7 +18,11 @@ anywhere! A successor to [sqlite-vss](https://github.com/asg017/sqlite-vss)
   (Linux/MacOS/Windows, in the browser with WASM, Raspberry Pis, etc.)
 
 <p align="center">
-<img src="./.github/logos/mozilla.svg" width=400 />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/mozilla.dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="./.github/logos/mozilla.svg">
+    <img alt="Mozilla Builders logo" width=400>
+  </picture>
 </p>
 
 <p align="center">
