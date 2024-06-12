@@ -101,10 +101,16 @@ is the main sponsor through the new Builders project.
 
 `sqlite-vec` is also sponsored by the following companies:
 
-<a href="https://fly.io/"><img src="./.github/logos/flyio.svg" width=33%/></a>
-<a href="https://turso.tech/"><img src="./.github/logos/turso.svg" width=33%/>
+<a href="https://fly.io/">
+<img src="./.github/logos/flyio.dark.svg#gh-dark-mode-only" width="32%"/>
+<img src="./.github/logos/flyio.svg#gh-light-mode-only" width="32%"/>
 </a>
-<a href="https://sqlitecloud.io/"><img src="./.github/logos/sqlitecloud.svg" width=33%/></a>
+<a href="https://turso.tech/"><img src="./.github/logos/turso.svg" width="32%"/>
+</a>
+<a href="https://sqlitecloud.io/">
+<img src="./.github/logos/sqlitecloud.dark.svg#gh-dark-mode-only" width="32%"">
+<img src="./.github/logos/sqlitecloud.svg#gh-light-mode-only" width="32%"">
+</a>
 
 As well as multiple individual supporters on
 [Github sponsors](https://github.com/sponsors/asg017/)!
