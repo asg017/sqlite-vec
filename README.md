@@ -90,7 +90,7 @@ Additionally, there will be pre-compiled and pre-packaged packages of
 - Datasette and sqlite-utils plugins
 - Pre-compiled loadable extensions on Github releases
 
-## Sponors
+## Sponsors
 
 Development of `sqlite-vec` is supported by multiple generous sponsors! Mozilla
 is the main sponsor through the new Builders project.
