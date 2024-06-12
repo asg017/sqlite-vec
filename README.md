@@ -111,7 +111,8 @@ is the main sponsor through the new Builders project.
 
 <a href="https://turso.tech/">
 <picture>
-  <source srcset="./.github/logos/turso.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/turso.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./.github/logos/turso.svg">
   <img alt="logo of Turso" src="./.github/logos/turso.svg" width="32%">
 </picture>
 </a>
