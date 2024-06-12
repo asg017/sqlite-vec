@@ -96,7 +96,11 @@ Development of `sqlite-vec` is supported by multiple generous sponsors! Mozilla
 is the main sponsor through the new Builders project.
 
 <p align="center">
-<img src="./.github/logos/mozilla.svg" width=400 />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/mozilla.dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="./.github/logos/mozilla.svg">
+    <img alt="Mozilla Builders logo" width=400>
+  </picture>
 </p>
 
 `sqlite-vec` is also sponsored by the following companies:
@@ -105,7 +109,7 @@ is the main sponsor through the new Builders project.
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/flyio.dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="./.github/logos/flyio.svg">
-  <img alt="logo of Fly.io" src="./.github/logos/flyio.svg" width="32%">
+  <img alt="Fly.io logo" src="./.github/logos/flyio.svg" width="32%">
 </picture>
 </a>
 
@@ -113,7 +117,7 @@ is the main sponsor through the new Builders project.
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/turso.svg">
   <source media="(prefers-color-scheme: light)" srcset="./.github/logos/turso.svg">
-  <img alt="logo of Turso" src="./.github/logos/turso.svg" width="32%">
+  <img alt="Turso logo" src="./.github/logos/turso.svg" width="32%">
 </picture>
 </a>
 
@@ -121,7 +125,7 @@ is the main sponsor through the new Builders project.
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/sqlitecloud.dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="./.github/logos/sqlitecloud.svg">
-  <img alt="logo of SQLite Cloud" src="./.github/logos/flyio.svg" width="32%">
+  <img alt="SQLite Cloud logo" src="./.github/logos/flyio.svg" width="32%">
 </picture>
 </a>
 
