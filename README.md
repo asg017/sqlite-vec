@@ -102,14 +102,25 @@ is the main sponsor through the new Builders project.
 `sqlite-vec` is also sponsored by the following companies:
 
 <a href="https://fly.io/">
-<img src="./.github/logos/flyio.dark.svg#gh-dark-mode-only" width="32%"/>
-<img src="./.github/logos/flyio.svg#gh-light-mode-only" width="32%"/>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/flyio.dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./.github/logos/flyio.svg">
+  <img alt="logo of Fly.io" src="./.github/logos/flyio.svg" width="32%">
+</picture>
 </a>
-<a href="https://turso.tech/"><img src="./.github/logos/turso.svg" width="32%"/>
+
+<a href="https://turso.tech/">
+<picture>
+  <img src="./.github/logos/turso.svg" width="32%"/>
+</picture>
 </a>
+
 <a href="https://sqlitecloud.io/">
-<img src="./.github/logos/sqlitecloud.dark.svg#gh-dark-mode-only" width="32%"">
-<img src="./.github/logos/sqlitecloud.svg#gh-light-mode-only" width="32%"">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/sqlitecloud.dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./.github/logos/sqlitecloud.svg">
+  <img alt="logo of SQLite Cloud" src="./.github/logos/flyio.svg" width="32%">
+</picture>
 </a>
 
 As well as multiple individual supporters on
