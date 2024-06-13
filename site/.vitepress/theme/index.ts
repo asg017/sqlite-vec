@@ -3,6 +3,7 @@ import { h } from "vue";
 import type { Theme } from "vitepress";
 import DefaultTheme from "vitepress/theme";
 import "./style.css";
+import Sponsors from "./Sponsors.vue";
 
 export default {
   extends: DefaultTheme,
@@ -13,6 +14,8 @@ export default {
         h("marquee", { class: "banner", scrollamount: "10" }, [
           "🚧🚧🚧 sqlite-vec is still in beta, and this documentation is incomplete! Watch the repo for updates 🚧🚧🚧",
         ]),
+      "home-hero-image": () => h("div", {}, [""]),
+      "aside-ads-before": () => h(Sponsors),
     });
   },
   enhanceApp({ app, router, siteData }) {
