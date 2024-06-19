@@ -236,6 +236,39 @@ static f32 l2_sqr_int8_neon(const void *pVect1v, const void *pVect2v,
 
   return sqrtf(sum_scalar);
 }
+
+static i16 l1_int8_neon(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+  i8 *pVect1 = (i8 *)pVect1v;
+  i8 *pVect2 = (i8 *)pVect2v;
+  size_t qty = *((size_t *)qty_ptr);
+
+  const i8 *pEnd1 = pVect1 + qty;
+
+  // each batch will accumulate into this vector of 8 longs
+  // simplifying the final sumation
+  int16x8_t acc = vdupq_n_s16(0);  
+
+  while (pVect1 < pEnd1 - 7) {
+    // loading 8 at a time
+    int8x8_t v1 = vld1_s8(pVect1);
+    int8x8_t v2 = vld1_s8(pVect2);
+    pVect1 += 8;
+    pVect2 += 8;
+    // widen, abs diff, accumulate
+    acc = vabal_s8(acc, v1, v2);
+  }
+
+  // sum of the abs diff of the remaining elements
+  i16 sum = 0;
+  while (pVect1 < pEnd1) {
+    i16 diff = abs(*pVect1 - *pVect2);
+    sum += diff;
+    pVect1++;
+    pVect2++;
+  }
+
+  return vaddvq_s16(acc) + sum;
+}
 #endif
 
 static f32 l2_sqr_float(const void *pVect1v, const void *pVect2v,
@@ -290,6 +323,30 @@ static f32 distance_l2_sqr_int8(const void *a, const void *b, const void *d) {
   }
   #endif
   return l2_sqr_int8(a, b, d);
+}
+
+static f32 l1_int8(const void *pA, const void *pB, const void *pD) {
+  i8 *a = (i8 *)pA;
+  i8 *b = (i8 *)pB;
+  size_t d = *((size_t *)pD); 
+
+  f32 res = 0; 
+  for (size_t i = 0; i < d; i++) {
+    res += abs(*a - *b);
+    a++;
+    b++;
+  }
+
+  return res;
+}
+
+static i16 distance_l1_int8(const void *a, const void *b, const void *d) {
+  #ifdef SQLITE_VEC_ENABLE_NEON
+  if ((*(const size_t *)d) > 7) {
+    return l1_int8_neon(a, b, d);
+  }
+  #endif
+  return l1_int8(a, b, d);
 }
 
 static f32 distance_cosine_float(const void *pVect1v, const void *pVect2v,
@@ -1025,14 +1082,16 @@ static void vec_distance_l1(sqlite3_context *context, int argc,
   }
   case SQLITE_VEC_ELEMENT_TYPE_FLOAT32: {
     // TODO: implement distance_l1_float
-    f32 result = distance_l1_float(a, b, &dimensions);
-    sqlite3_result_double(context, result);
+    sqlite3_result_error(
+        context, "Cannot calculate L1 distance between two float vectors (not implemented yet).", -1);
+    // f32 result = distance_l1_float(a, b, &dimensions);
+    // sqlite3_result_double(context, result);
     goto finish;
   }
   case SQLITE_VEC_ELEMENT_TYPE_INT8: {
-    // TODO: implement distance_l1_int8
-    f32 result = distance_l1_int8(a, b, &dimensions);
-    sqlite3_result_double(context, result);
+    i16 result = distance_l1_int8(a, b, &dimensions);
+    sqlite3_result_int(context, result);
+    // sqlite3_result_double(context, result);
     goto finish;
   }
   }
@@ -5751,6 +5810,7 @@ __declspec(dllexport)
     {"vec_version",         _static_text_func,    0, DEFAULT_FLAGS,                                          SQLITE_VEC_VERSION },
     {"vec_debug",           _static_text_func,    0, DEFAULT_FLAGS,                                          SQLITE_VEC_DEBUG_STRING },
     {"vec_distance_l2",     vec_distance_l2,      2, DEFAULT_FLAGS | SQLITE_SUBTYPE,                         NULL },
+    {"vec_distance_l1",     vec_distance_l1,      2, DEFAULT_FLAGS | SQLITE_SUBTYPE,                         NULL },
     {"vec_distance_hamming",vec_distance_hamming, 2, DEFAULT_FLAGS | SQLITE_SUBTYPE,                         NULL },
     {"vec_distance_cosine", vec_distance_cosine,  2, DEFAULT_FLAGS | SQLITE_SUBTYPE,                         NULL },
     {"vec_length",          vec_length,           1, DEFAULT_FLAGS | SQLITE_SUBTYPE,                         NULL },
