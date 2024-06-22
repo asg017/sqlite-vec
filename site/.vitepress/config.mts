@@ -11,6 +11,17 @@ const VERSION = readFileSync(
   "utf8"
 );
 
+const sqliteLanuage = JSON.parse(
+  readFileSync(
+    join(
+      dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "sqlite.tmlanguage.json"
+    ),
+    "utf8"
+  )
+);
+
 function head(): HeadConfig[] {
   return [
     [
@@ -18,7 +29,7 @@ function head(): HeadConfig[] {
       {
         rel: "shortcut icon",
         type: "image/svg+xml",
-        href: "favicon.svg",
+        href: "./logo.light.svg",
       },
     ],
     [
@@ -36,22 +47,34 @@ const guides = {
   text: "Guides",
   collapsed: true,
   items: [
-    { text: "Binary Quantization", link: "/guides/binary-quant" },
-    { text: "Scalar Quantization", link: "/guides/scalar-quant" },
+    { text: "Performance", link: "/guides/performance" },
     {
-      text: "Matryosha/Adaptive Length Embeddings",
-      link: "/guides/matryoshka",
+      text: "Vector operations",
+      items: [
+        { text: "Vector Arithmetic", link: "/guides/arithmetic" },
+        { text: "Binary Quantization", link: "/guides/binary-quant" },
+        { text: "Scalar Quantization", link: "/guides/scalar-quant" },
+        {
+          text: "Matryoshka Embeddings",
+          link: "/guides/matryoshka",
+        },
+      ],
     },
-    { text: "Semantic Search", link: "/guides/semantic-search" },
-    { text: "Hybrid Search", link: "/guides/hybrid-search" },
-    { text: "Classifiers", link: "/guides/classifiers" },
-    { text: "Improving Performance", link: "/guides/improving-perf" },
+
+    {
+      text: "Build with sqlite-vec",
+      items: [
+        { text: "Semantic Search", link: "/guides/semantic-search" },
+        { text: "Hybrid Search", link: "/guides/hybrid-search" },
+        { text: "Retrival Augmented Generation (RAG)", link: "/guides/rag" },
+        { text: "Classifiers", link: "/guides/classifiers" },
+      ],
+    },
   ],
 };
 
 function nav(): DefaultTheme.NavItem[] {
   return [
-    guides,
     { text: "API Reference", link: "/api-reference" },
     { text: "♥ Sponsor", link: "https://github.com/sponsors/asg017" },
     {
@@ -103,17 +126,25 @@ function sidebar(): DefaultTheme.SidebarItem[] {
   return [
     {
       text: "Getting Started",
-      collapsed: false,
+      collapsed: true,
       items: [
         {
-          text: "Quickstart",
-          link: "/getting-started",
+          text: "Installation",
+          link: "/installation",
+        },
+        {
+          text: "Introduction",
+          link: "/introduction",
+        },
+        {
+          text: "Quick Start",
+          link: "/quickstart",
         },
       ],
     },
     {
       text: "Using with...",
-      collapsed: false,
+      collapsed: true,
       items: [
         { text: "Python", link: "/python" },
         { text: "JavaScript", link: "/js" },
@@ -124,7 +155,6 @@ function sidebar(): DefaultTheme.SidebarItem[] {
         { text: "WebAssembly (Browser)", link: "/wasm" },
         { text: "Datasette", link: "/datasette" },
         { text: "sqlite-utils", link: "/sqlite-utils" },
-        { text: "Loadable Extension", link: "/loadable" },
       ],
     },
     guides,
@@ -134,6 +164,10 @@ function sidebar(): DefaultTheme.SidebarItem[] {
         { text: "Compiling", link: "/compiling" },
         { text: "API Reference", link: "/api-reference" },
       ],
+    },
+    {
+      text: "Sponsors",
+      link: "/sponsors",
     },
     {
       text: "See also",
@@ -163,13 +197,18 @@ export default defineConfig({
   head: head(),
   base: "/sqlite-vec/",
   themeConfig: {
+    logo: {
+      light: "/logo.dark.svg",
+      dark: "/logo.light.svg",
+      alt: "sqlite-vec logo",
+    },
+
     nav: nav(),
-
     sidebar: sidebar(),
-
     footer: {
-      message: "MIT License",
-      copyright: "Copyright © 2024 Alex Garcia",
+      message: "MIT/Apache-2 License",
+      copyright:
+        'Copyright © 2024 <a href="https://alexgarcia.xyz/">Alex Garcia</a>',
     },
     outline: "deep",
     search: {
@@ -185,20 +224,10 @@ export default defineConfig({
   },
   rewrites: {
     "using/:pkg.md": ":pkg.md",
-    "guides/:pkg.md": ":pkg.md",
+    "getting-started/:pkg.md": ":pkg.md",
+    //"guides/:pkg.md": ":pkg.md",
   },
   markdown: {
-    languages: [
-      JSON.parse(
-        readFileSync(
-          join(
-            dirname(fileURLToPath(import.meta.url)),
-            "..",
-            "sqlite.tmlanguage.json"
-          ),
-          "utf8"
-        )
-      ),
-    ],
+    languages: [sqliteLanuage],
   },
 });
