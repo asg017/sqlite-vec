@@ -46,6 +46,12 @@ ifndef OMIT_SIMD
 	endif
 endif
 
+ifdef USE_BREW_SQLITE
+	SQLITE_INCLUDE_PATH=-I/opt/homebrew/opt/sqlite/include
+	SQLITE_LIB_PATH=-L/opt/homebrew/opt/sqlite/lib
+	CFLAGS += $(SQLITE_INCLUDE_PATH) $(SQLITE_LIB_PATH)
+endif
+
 ifdef IS_MACOS_ARM
 RENAME_WHEELS_ARGS=--is-macos-arm
 else
