@@ -479,6 +479,7 @@ def test_vec_quantize_i8():
     ).fetchone()[0]
     assert vec_quantize_i8() == 111
 
+
 @pytest.mark.skip(reason="TODO")
 def test_vec_quantize_binary():
     vec_quantize_binary = lambda *args, input="?": db.execute(
@@ -534,6 +535,232 @@ def test_vec0_updates():
             "ccc": bitmap_full(128),
         }
     ]
+
+    db.execute("create virtual table t1 using vec0(aaa float[4], chunk_size=8)")
+    db.execute(
+        "create virtual table txt_pk using vec0( txt_id text primary key, aaa float[4])"
+    )
+
+    # EVIDENCE-OF: V06519_23358 vec0 INSERT validates vector
+    with _raises(
+        'Inserted vector for the "aaa" column is invalid: Input must have type BLOB (compact format) or TEXT (JSON)'
+    ):
+        db.execute("insert into t1 values (1, ?)", [None])
+
+    # EVIDENCE-OF: V08221_25059 vec0 INSERT validates vector type
+    with _raises(
+        'Inserted vector for the "aaa" column is expected to be of type float32, but a bit vector was provided.'
+    ):
+        db.execute("insert into t1 values (1, vec_bit(?))", [b"\xff\xff\xff\xff"])
+
+    # EVIDENCE-OF: V01145_17984 vec0 INSERT validates vector dimension match
+    with _raises(
+        'Dimension mismatch for inserted vector for the "aaa" column. Expected 4 dimensions but received 3.'
+    ):
+        db.execute("insert into t1 values (1, ?)", ["[1,2,3]"])
+
+    # EVIDENCE-OF: V24228_08298 vec0 INSERT ensure no value provided for "distance" hidden column.
+    with _raises('A value was provided for the hidden "distance" column.'):
+        db.execute("insert into t1(rowid, aaa, distance) values (1, '[1,2,3,4]', 1)")
+
+    # EVIDENCE-OF: V11875_28713 vec0 INSERT ensure no value provided for "distance" hidden column.
+    with _raises('A value was provided for the hidden "k" column.'):
+        db.execute("insert into t1(rowid, aaa, k) values (1, '[1,2,3,4]', 1)")
+
+    # EVIDENCE-OF: V17090_01160 vec0 INSERT duplicated int primary key raises uniqueness error
+    db.execute("insert into t1 values (1, '[1,1,1,1]')")
+    with _raises("UNIQUE constraint failed on t1 primary key"):
+        db.execute("insert into t1 values (1, '[2,2,2,2]')")
+
+    # similate error on rowids shadow table
+    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_INSERT, "t1_rowids"))
+    # EVIDENCE-OF: V04679_21517 vec0 INSERT failed on _rowid shadow insert raises error
+    with _raises("Error inserting into rowid shadow table: not authorized"):
+        db.execute("insert into t1 values (2, '[2,2,2,2]')")
+    db.set_authorizer(None)
+    db.execute("insert into t1 values (2, '[2,2,2,2]')")
+
+    # test inserts where no rowid is provided
+    db.execute("insert into t1(aaa) values ('[3,3,3,3]')")
+
+    # EVIDENCE-OF: V30855_14925 vec0 INSERT non-integer/text primary key value rauses error
+    with _raises("Only integers are allows for primary key values on t1"):
+        db.execute("insert into t1 values (1.2, '[4,4,4,4]')")
+
+    # similate error on rowids shadow table, when rowid is not provided
+    # EVIDENCE-OF: V15177_32015 vec0 INSERT error on _rowids shadow insert raises error
+    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_INSERT, "t1_rowids"))
+    with _raises("Error inserting into rowid shadow table: not authorized"):
+        db.execute("insert into t1(aaa) values ('[2,2,2,2]')")
+    db.set_authorizer(None)
+
+    # EVIDENCE-OF: V31559_15629 vec0 INSERT error on _chunks shadow insert raises error
+    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_READ, "t1_chunks", "chunk_id"))
+    with _raises("Internal sqlite-vec error: Could not find latest chunk"):
+        db.execute("insert into t1 values (999, '[2,2,2,2]')")
+    db.set_authorizer(None)
+
+    # EVIDENCE-OF: V22053_06123 vec0 INSERT error on reading validity blob
+    db.commit()
+    db.execute("begin")
+    db.execute("ALTER TABLE t1_chunks DROP COLUMN validity")
+    with _raises(
+        "Internal sqlite-vec error: could not open validity blob on main.t1_chunks.1"
+    ):
+        db.execute("insert into t1 values (9999, '[2,2,2,2]')")
+    db.rollback()
+
+    # EVIDENCE-OF: V29362_13432 vec0 INSERT validity blob size mismatch with chunk_size
+    db.commit()
+    db.execute("begin")
+    db.execute("UPDATE t1_chunks SET validity = zeroblob(101)")
+    with _raises(
+        "Internal sqlite-vec error: validity blob size mismatch on main.t1_chunks.1, expected 1 but received 101."
+    ):
+        db.execute("insert into t1 values (9999, '[2,2,2,2]')")
+    db.rollback()
+
+    # EVIDENCE-OF: V16386_00456 vec0 INSERT valdates vector blob column sizes
+    db.commit()
+    db.execute("begin")
+    db.execute("UPDATE t1_vector_chunks00 SET vectors = zeroblob(101)")
+    with _raises(
+        "Internal sqlite-vec error: vector blob size mismatch on main.t1_vector_chunks00.1. Expected 128, actual 101"
+    ):
+        db.execute("insert into t1 values (9999, '[2,2,2,2]')")
+    db.rollback()
+
+    # EVIDENCE-OF: V09221_26060 vec0 INSERT rowids blob open error
+    db.commit()
+    db.execute("begin")
+    db.execute("ALTER TABLE t1_chunks DROP COLUMN rowids")
+    with _raises(
+        "Internal sqlite-vec error: could not open rowids blob on main.t1_chunks.1"
+    ):
+        db.execute("insert into t1 values (9999, '[2,2,2,2]')")
+    db.rollback()
+
+    # EVIDENCE-OF: V12779_29618 vec0 INSERT rowids blob validates size
+    db.commit()
+    db.execute("begin")
+    db.execute("UPDATE t1_chunks SET rowids = zeroblob(101)")
+    with _raises(
+        "Internal sqlite-vec error: rowids blob size mismatch on main.t1_chunks.1. Expected 64, actual 101"
+    ):
+        db.execute("insert into t1 values (9999, '[2,2,2,2]')")
+    db.rollback()
+
+    # EVIDENCE-OF: V21925_05995 vec0 INSERT error on "rowids update position" raises error
+    db.set_authorizer(
+        authorizer_deny_on(sqlite3.SQLITE_UPDATE, "t1_rowids", "chunk_id")
+    )
+    with _raises(
+        "Internal sqlite-vec error: could not update rowids position for rowid=9999, chunk_rowid=1, chunk_offset=3"
+    ):
+        db.execute("insert into t1 values (9999, '[2,2,2,2]')")
+    db.set_authorizer(None)
+
+    ########## testing inserts on text primary key tables ##########
+
+    # EVIDENCE-OF: V04200_21039 vec0 table with text primary key ensure text values
+    with _raises(
+        "The txt_pk virtual table was declared with a TEXT primary key, but a non-TEXT value was provided in an INSERT."
+    ):
+        db.execute("insert into txt_pk(txt_id, aaa) values (1, '[1,2,3,4]')")
+
+    db.execute("insert into txt_pk(txt_id, aaa) values ('a', '[1,2,3,4]')")
+
+    # EVIDENCE-OF: V20497_04568 vec0 table with text primary key raises uniqueness error on duplicate values
+    with _raises("UNIQUE constraint failed on txt_pk primary key"):
+        db.execute("insert into txt_pk(txt_id, aaa) values ('a', '[5,6,7,8]')")
+
+    # EVIDENCE-OF: V24016_08086 vec0 table with text primary key raises error on rowid write error
+    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_INSERT, "txt_pk_rowids"))
+    with _raises("Error inserting into rowid shadow table: not authorized"):
+        db.execute("insert into txt_pk(txt_id, aaa) values ('b', '[2,2,2,2]')")
+    db.set_authorizer(None)
+    db.execute("insert into txt_pk(txt_id, aaa) values ('b', '[2,2,2,2]')")
+
+
+def test_vec0_update_insert_errors2():
+    db = connect(EXT_PATH)
+    db.execute("create virtual table t1 using vec0(aaa float[4], chunk_size=8)")
+    db.execute(
+        """
+      insert into t1(aaa) values
+      ('[1,1,1,1]'),
+      ('[2,1,1,1]'),
+      ('[3,1,1,1]'),
+      ('[4,1,1,1]'),
+      ('[5,1,1,1]'),
+      ('[6,1,1,1]')
+    """
+    )
+    assert execute_all(db, "select * from t1_chunks") == [
+        {
+            "chunk_id": 1,
+            "rowids": b"\x01\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x02\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x03\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x04\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x05\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x06\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x00\x00\x00\x00\x00\x00\x00\x00",
+            "size": 8,
+            "validity": b"?",  # 0b00111111
+        }
+    ]
+    db.execute(
+        """
+      insert into t1(aaa) values
+      ('[7,1,1,1]'),
+      ('[8,1,1,1]')
+    """
+    )
+    assert execute_all(db, "select * from t1_chunks") == [
+        {
+            "chunk_id": 1,
+            "rowids": b"\x01\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x02\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x03\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x04\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x05\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x06\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x07\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x08\x00\x00\x00\x00\x00\x00\x00",
+            "size": 8,
+            "validity": b"\xff",  # 0b11111111
+        }
+    ]
+    # EVIDENCE-OF: V08441_25279 vec0 INSERT error on new chunk creation raises error
+    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_INSERT, "t1_chunks"))
+    with _raises("Internal sqlite-vec error: Could not insert a new vector chunk"):
+        db.execute("insert into t1(aaa) values ('[9,1,1,1]')")
+    db.set_authorizer(None)
+
+
+def authorizer_deny_on(operation, x1, x2=None):
+    def _auth(op, p1, p2, p3, p4):
+        if op == operation and p1 == x1 and p2 == x2:
+            return sqlite3.SQLITE_DENY
+        return sqlite3.SQLITE_OK
+
+    return _auth
+
+
+def authorizer_debug(op, p1, p2, p3, p4):
+    print(op, p1, p2, p3, p4)
+    return sqlite3.SQLITE_OK
+
+
+from contextlib import contextmanager
+
+
+@contextmanager
+def _raises(message):
+    with pytest.raises(sqlite3.OperationalError, match=re.escape(message)):
+        yield
 
 
 def test_vec_each():
