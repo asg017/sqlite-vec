@@ -3603,6 +3603,7 @@ static int vec0Destroy(sqlite3_vtab *pVtab) {
     rc = SQLITE_ERROR;
     goto done;
   }
+  sqlite3_finalize(stmt);
 
   zSql = sqlite3_mprintf("DROP TABLE " VEC0_SHADOW_ROWIDS_NAME, p->schemaName,
                          p->tableName);
@@ -3612,6 +3613,7 @@ static int vec0Destroy(sqlite3_vtab *pVtab) {
     rc = SQLITE_ERROR;
     goto done;
   }
+  sqlite3_finalize(stmt);
 
   for (int i = 0; i < p->numVectorColumns; i++) {
     zSql = sqlite3_mprintf("DROP TABLE \"%w\".\"%w\"", p->schemaName,
@@ -3622,8 +3624,9 @@ static int vec0Destroy(sqlite3_vtab *pVtab) {
       rc = SQLITE_ERROR;
       goto done;
     }
+    sqlite3_finalize(stmt);
   }
-
+  stmt = NULL;
   rc = SQLITE_OK;
 done:
   sqlite3_free(p);
