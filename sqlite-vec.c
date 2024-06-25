@@ -2837,7 +2837,6 @@ struct vec0_vtab {
   sqlite3_blob *vectorBlobs[VEC0_MAX_VECTOR_COLUMNS];
 };
 
-
 void vec0_free_resources(vec0_vtab *p) {
   for (int i = 0; i < p->numVectorColumns; i++) {
     sqlite3_blob_close(p->vectorBlobs[i]);
@@ -3596,34 +3595,37 @@ static int vec0Destroy(sqlite3_vtab *pVtab) {
 
   // TODO evidence-of here
 
-  zSql = sqlite3_mprintf("DROP TABLE " VEC0_SHADOW_CHUNKS_NAME, p->schemaName, p->tableName);
+  zSql = sqlite3_mprintf("DROP TABLE " VEC0_SHADOW_CHUNKS_NAME, p->schemaName,
+                         p->tableName);
   rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, 0);
   sqlite3_free((void *)zSql);
-  if((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
+  if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
     rc = SQLITE_ERROR;
     goto done;
   }
 
-  zSql = sqlite3_mprintf("DROP TABLE " VEC0_SHADOW_ROWIDS_NAME, p->schemaName, p->tableName);
+  zSql = sqlite3_mprintf("DROP TABLE " VEC0_SHADOW_ROWIDS_NAME, p->schemaName,
+                         p->tableName);
   rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, 0);
   sqlite3_free((void *)zSql);
-  if((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
+  if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
     rc = SQLITE_ERROR;
     goto done;
   }
 
   for (int i = 0; i < p->numVectorColumns; i++) {
-    zSql = sqlite3_mprintf("DROP TABLE \"%w\".\"%w\"" , p->schemaName, p->shadowVectorChunksNames[i]);
+    zSql = sqlite3_mprintf("DROP TABLE \"%w\".\"%w\"", p->schemaName,
+                           p->shadowVectorChunksNames[i]);
     rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, 0);
     sqlite3_free((void *)zSql);
-    if((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
+    if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
       rc = SQLITE_ERROR;
       goto done;
     }
   }
 
   rc = SQLITE_OK;
-  done:
+done:
   sqlite3_free(p);
   sqlite3_finalize(stmt);
   return rc;

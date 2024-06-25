@@ -748,18 +748,29 @@ def test_vec0_update_insert_errors2():
 
 def test_vec0_drops():
     db = connect(EXT_PATH)
-    db.execute("create virtual table t1 using vec0(aaa float[4], bbb float[4], chunk_size=8)")
-    assert [row['name'] for row in execute_all(db, "select name from pragma_table_list where name like 't1%' order by 1")] == [
-        't1',
-        't1_chunks',
-        't1_rowids',
-        't1_vector_chunks00',
-        't1_vector_chunks01',
+    db.execute(
+        "create virtual table t1 using vec0(aaa float[4], bbb float[4], chunk_size=8)"
+    )
+    assert [
+        row["name"]
+        for row in execute_all(
+            db, "select name from sqlite_master where name like 't1%' order by 1"
+        )
+    ] == [
+        "t1",
+        "t1_chunks",
+        "t1_rowids",
+        "t1_vector_chunks00",
+        "t1_vector_chunks01",
     ]
     db.execute("drop table t1")
-    assert [row['name'] for row in execute_all(db, "select name from pragma_table_list where name like 't1%' order by 1")] == [
+    assert [
+        row["name"]
+        for row in execute_all(
+            db, "select name from sqlite_master where name like 't1%' order by 1"
+        )
+    ] == []
 
-    ]
 
 def test_vec0_update_deletes():
     db = connect(EXT_PATH)
