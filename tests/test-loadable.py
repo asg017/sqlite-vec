@@ -190,6 +190,7 @@ def test_vec_f32():
         match="invalid float32 vector BLOB length. Must be divisible by 4, found 5",
     ):
         vec_f32(b"aaaaa")
+
     with pytest.raises(
         sqlite3.OperationalError,
         match=re.escape("JSON array parsing error: Input does not start with '['"),
@@ -198,11 +199,13 @@ def test_vec_f32():
     # TODO mas tests
 
     # TODO different error message
-    with pytest.raises(
-        sqlite3.OperationalError,
-        match="zero-length vectors are not supported.",
-    ):
+    with _raises("zero-length vectors are not supported."):
         vec_f32("[")
+
+    with _raises("zero-length vectors are not supported."):
+        vec_f32("[]")
+    # with _raises("zero-length vectors are not supported."):
+    #    vec_f32("[1.2")
 
     # vec_f32("[]")
 
@@ -740,6 +743,40 @@ def test_vec0_update_insert_errors2():
     db.set_authorizer(None)
 
 
+def test_vec0_update_deletes():
+    db = connect(EXT_PATH)
+    db.execute("create virtual table t1 using vec0(aaa float[4], chunk_size=8)")
+    db.execute(
+        """
+      insert into t1(aaa) values
+      ('[1,1,1,1]'),
+      ('[2,1,1,1]'),
+      ('[3,1,1,1]'),
+      ('[4,1,1,1]'),
+      ('[5,1,1,1]'),
+      ('[6,1,1,1]')
+    """
+    )
+
+    # db.commit()
+    # db.execute("begin")
+    # db.execute("DELETE FROM t1_rowids WHERE rowid = 1")
+    # with _raises("XXX"):
+    #    db.execute("DELETE FROM t1 where rowid = 1")
+    # db.rollback()
+
+    if False:  # TODO
+        with _raises("XXX"):
+            db.execute("DELETE FROM t1 WHERE rowid = 999")
+    if False:  # TODO
+        db.commit()
+        db.execute("begin")
+        db.execute("DELETE FROM t1_rowids WHERE rowid = 1")
+        with _raises("XXX"):
+            db.execute("DELETE FROM t1 where rowid = 1")
+        db.rollback()
+
+
 def authorizer_deny_on(operation, x1, x2=None):
     def _auth(op, p1, p2, p3, p4):
         if op == operation and p1 == x1 and p2 == x2:
@@ -758,8 +795,8 @@ from contextlib import contextmanager
 
 
 @contextmanager
-def _raises(message):
-    with pytest.raises(sqlite3.OperationalError, match=re.escape(message)):
+def _raises(message, error=sqlite3.OperationalError):
+    with pytest.raises(error, match=re.escape(message)):
         yield
 
 
@@ -812,6 +849,207 @@ def test_vec_npy_each():
             "vector": _f32([9.9, 8.8, 7.7]),
         },
     ]
+
+
+def test_vec_npy_each_errors():
+    vec_npy_each = lambda *args: execute_all(
+        db, "select rowid, * from vec_npy_each(?)", args
+    )
+
+    full = b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+
+    # EVIDENCE-OF: V03312_20150 numpy validation too short
+    with _raises("numpy array too short"):
+        vec_npy_each(b"")
+    # EVIDENCE-OF: V11954_28792 numpy validate magic
+    with _raises("numpy array does not contain the 'magic' header"):
+        vec_npy_each(b"\x93NUMPX\x01\x00v\x00")
+
+    with _raises("numpy array header length is invalid"):
+        vec_npy_each(b"\x93NUMPY\x01\x00v\x00")
+
+    with _raises("numpy header did not start with '{'"):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00c'descr': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+
+    with _raises("expected key in numpy header"):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{                                                                                                                    \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+
+    with _raises("expected a string as key in numpy header"):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{False: '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+
+    with _raises("expected a ':' after key in numpy header"):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{'descr'                                                                                                           \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+    with _raises("expected a ':' after key in numpy header"):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{'descr' False                                                                                                           \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+
+    # with _raises("XXX"):
+    #    vec_npy_each(b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@")
+    # with _raises("XXX"):
+    #    vec_npy_each(b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@")
+    # with _raises("XXX"):
+    #    vec_npy_each(b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@")
+
+
+def test_vec0_constructor():
+    vec_constructor_error_prefix = "vec0 constructor error: {}"
+    vec_col_error_prefix = "vec0 constructor error: could not parse vector column '{}'"
+    with _raises(
+        vec_col_error_prefix.format("aaa float[0]"),
+        sqlite3.DatabaseError,
+    ):
+        db.execute("create virtual table v using vec0(aaa float[0])")
+
+    with _raises(
+        vec_col_error_prefix.format("aaa float[-1]"),
+        sqlite3.DatabaseError,
+    ):
+        db.execute("create virtual table v using vec0(aaa float[-1])")
+
+    with _raises(
+        "vec0 constructor error: More than one primary key definition was provided, vec0 only suports a single primary key column",
+        sqlite3.DatabaseError,
+    ):
+        db.execute(
+            "create virtual table v using vec0(aaa float[1], a int primary key, b int primary key)"
+        )
+
+    with _raises(
+        "vec0 constructor error: Too many provided vector columns, maximum 16",
+        sqlite3.DatabaseError,
+    ):
+        db.execute(
+            "create virtual table v using vec0( a1 float[1], a2 float[1], a3 float[1], a4 float[1], a5 float[1], a6 float[1], a7 float[1], a8 float[1], a9 float[1], a10 float[1], a11 float[1], a12 float[1], a13 float[1], a14 float[1], a15 float[1], a16 float[1], a17 float[1])"
+        )
+
+    with _raises(
+        "vec0 constructor error: At least one vector column is required",
+        sqlite3.DatabaseError,
+    ):
+        db.execute("create virtual table v using vec0( )")
+
+    with _raises(
+        "vec0 constructor error: could not declare virtual table, 'duplicate column name: a'",
+        sqlite3.DatabaseError,
+    ):
+        db.execute("create virtual table v using vec0(a float[1], a float[1] )")
+
+    # EVIDENCE-OF: V27642_11712 vec0 table option key validate
+    with _raises(
+        "Unknown table option: chunk_sizex",
+        sqlite3.DatabaseError,
+    ):
+        db.execute("create virtual table v using vec0(chunk_sizex=8)")
+
+    # EVIDENCE-OF: V01931_18769 vec0 chunk_size option positive
+    with _raises(
+        "vec0 constructor error: chunk_size must be a non-zero positive integer",
+        sqlite3.DatabaseError,
+    ):
+        db.execute("create virtual table v using vec0(chunk_size=0)")
+
+    # EVIDENCE-OF: V14110_30948 vec0 chunk_size divisble by 8
+    with _raises(
+        "vec0 constructor error: chunk_size must be divisible by 8",
+        sqlite3.DatabaseError,
+    ):
+        db.execute("create virtual table v using vec0(chunk_size=7)")
+
+    table_option_errors = ['chunk_size=', 'chunk_size=8 x']
+
+    for x in table_option_errors:
+      with _raises(
+          f"vec0 constructor error: could not parse table option '{x}'",
+          sqlite3.DatabaseError,
+      ):
+          db.execute(f"create virtual table v using vec0({x})")
+
+    with _raises(
+        "vec0 constructor error: Could not parse '4'",
+        sqlite3.DatabaseError,
+    ):
+        db.execute("create virtual table v using vec0(4)")
+
+def test_vec0_create_errors():
+    # EVIDENCE-OF: V17740_01811 vec0 create _chunks error handling
+    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_CREATE_TABLE, "t1_chunks"))
+    with _raises(
+        "Could not create '_chunks' shadow table: not authorized",
+    ):
+        db.execute("create virtual table t1 using vec0(a float[1])")
+    db.set_authorizer(None)
+
+    # EVIDENCE-OF: V11631_28470 vec0 create _rowids error handling
+    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_CREATE_TABLE, "t1_rowids"))
+    with _raises(
+        "Could not create '_rowids' shadow table: not authorized",
+    ):
+        db.execute("create virtual table t1 using vec0(a float[1])")
+    db.set_authorizer(None)
+
+    # EVIDENCE-OF: V25919_09989 vec0 create _vectorchunks error handling
+    db.set_authorizer(
+        authorizer_deny_on(sqlite3.SQLITE_CREATE_TABLE, "t1_vector_chunks00")
+    )
+    with _raises(
+        "Could not create '_vector_chunks00' shadow table: not authorized",
+    ):
+        db.execute("create virtual table t1 using vec0(a float[1])")
+    db.set_authorizer(None)
+
+    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_INSERT, "t1_chunks"))
+    with _raises(
+        "Could not create create an initial chunk",
+    ):
+        db.execute("create virtual table t1 using vec0(a float[1])")
+    db.set_authorizer(None)
+
+    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_INSERT, "t1_vector_chunks00"))
+    with _raises(
+        "Could not create create an initial chunk",
+    ):
+        db.execute("create virtual table t1 using vec0(a float[1])")
+    db.set_authorizer(None)
+
+    # EVIDENCE-OF: V21406_05476 vec0 init raises error on 'latest chunk' init error
+    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_READ, "t1_chunks", ""))
+    with _raises(
+        "Internal sqlite-vec error: could not initialize 'latest chunk' statement",
+    ):
+        db.execute("create virtual table t1 using vec0(a float[1])")
+    db.set_authorizer(None)
+
+    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_INSERT, "t1_rowids"))
+    with _raises(
+        "Internal sqlite-vec error: could not initialize 'insert rowids' statement"
+    ):
+        db.execute("create virtual table t1 using vec0(a float[1])")
+    db.set_authorizer(None)
+
+    db.set_authorizer(
+        authorizer_deny_on(sqlite3.SQLITE_UPDATE, "t1_rowids", "chunk_id")
+    )
+    with _raises(
+        "Internal sqlite-vec error: could not initialize 'update rowids position' statement"
+    ):
+        db.execute("create virtual table t1 using vec0(a float[1])")
+    db.set_authorizer(None)
+
+    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_READ, "t1_rowids", "id"))
+    with _raises(
+        "Internal sqlite-vec error: could not initialize 'rowids get chunk position' statement",
+    ):
+        db.execute("create virtual table t1 using vec0(a float[1])")
+    db.set_authorizer(None)
 
 
 def test_smoke():
