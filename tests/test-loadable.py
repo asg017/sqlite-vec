@@ -285,10 +285,10 @@ def test_vec_distance_l1():
         elif dtype == np.int8:
             transform = "vec_int8(?)"
 
-        a_i8 = np.array(a, dtype=dtype)
-        b_i8 = np.array(b, dtype=dtype)
+        a_sql_t = np.array(a, dtype=dtype)
+        b_sql_t = np.array(b, dtype=dtype)
 
-        x = vec_distance_l1(a_i8, b_i8, a=transform, b=transform)
+        x = vec_distance_l1(a_sql_t, b_sql_t, a=transform, b=transform)
         # dont use dtype here bc overflow 
         y = np.sum(np.abs(np.array(a) - np.array(b)))
         assert isclose(x, y, abs_tol=1e-6)
@@ -303,8 +303,13 @@ def test_vec_distance_l1():
     check([100]*20, [-100]*20, dtype=np.int8)
     check([127]*1000000, [-128]*1000000, dtype=np.int8)
 
-    # check([1e10, 2e10, 3e10], [-1e10, -2e10, -3e10], dtype=np.float32)
-    # check([1e-10, 2e-10, 3e-10], [-1e-10, -2e-10, -3e-10], dtype=np.float32)
+    check([1.2, 0.1, 0.5, 0.9, 1.4, 4.5], [0.4, -0.4, 0.1, 0.1, 0.5, 0.9], dtype=np.float32)
+    check([1.0, 2.0, 3.0], [-1.0, -2.0, -3.0], dtype=np.float32)
+    check([1e10, 2e10, np.finfo(np.float32).max], [-1e10, -2e10, np.finfo(np.float32).min], dtype=np.float32)
+    # overflow in leftover elements
+    check([1e10, 2e10, 1e10, 2e10, np.finfo(np.float32).max], [-1e10, -2e10, -1e10, -2e10, np.finfo(np.float32).min], dtype=np.float32)
+    # overflow in neon elements (BROKEN)
+    check([np.finfo(np.float32).max, 1e10, 2e10, 1e10, 2e10], [np.finfo(np.float32).min, -1e10, -2e10, -1e10, -2e10], dtype=np.float32)
 
 def test_vec_distance_l2():
     vec_distance_l2 = lambda *args, a="?", b="?": db.execute(
@@ -316,16 +321,18 @@ def test_vec_distance_l2():
             transform = "?"
         elif dtype == np.int8:
             transform = "vec_int8(?)"
-        a = np.array(a, dtype=dtype)
-        b = np.array(b, dtype=dtype)
 
-        x = vec_distance_l2(a, b, a=transform, b=transform)
-        y = npy_l2(a, b)
+        a_sql_t = np.array(a, dtype=dtype)
+        b_sql_t = np.array(b, dtype=dtype)
+
+        x = vec_distance_l2(a_sql_t, b_sql_t, a=transform, b=transform)
+        y = npy_l2(np.array(a), np.array(b))
         assert isclose(x, y, abs_tol=1e-6)
 
     check([1.2, 0.1], [0.4, -0.4])
     check([-1.2, -0.1], [-0.4, 0.4])
     check([1, 2, 3], [-9, -8, -7], dtype=np.int8)
+
 
 
 def test_vec_length():
