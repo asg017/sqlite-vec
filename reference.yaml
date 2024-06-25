@@ -8,8 +8,8 @@ functions:
   vec_version:
     params: []
     section: meta
-    desc: x
-    example: x
+    desc: Returns a version string of the current `sqlite-vec` version.
+    example: select vec_version();
   vec_debug:
     params: []
     section: meta
@@ -118,4 +118,4 @@ entrypoints:
 compile_options:
   - SQLITE_VEC_ENABLE_AVX
   - SQLITE_VEC_ENABLE_NEON
-  
+

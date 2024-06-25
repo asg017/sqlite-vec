@@ -46,6 +46,12 @@ ifndef OMIT_SIMD
 	endif
 endif
 
+ifdef USE_BREW_SQLITE
+	SQLITE_INCLUDE_PATH=-I/opt/homebrew/opt/sqlite/include
+	SQLITE_LIB_PATH=-L/opt/homebrew/opt/sqlite/lib
+	CFLAGS += $(SQLITE_INCLUDE_PATH) $(SQLITE_LIB_PATH)
+endif
+
 ifdef IS_MACOS_ARM
 RENAME_WHEELS_ARGS=--is-macos-arm
 else
@@ -158,17 +164,21 @@ lint:
 progress:
 	deno run --allow-read=sqlite-vec.c scripts/progress.ts
 
+
+evidence-of:
+	@echo "EVIDENCE-OF: V$(shell printf "%05d" $$((RANDOM % 100000)))_$(shell printf "%05d" $$((RANDOM % 100000)))"
+
 test:
 	sqlite3 :memory: '.read test.sql'
 
-.PHONY: version loadable static test clean gh-release
+.PHONY: version loadable static test clean gh-release evidence-of
 
 publish-release:
 	./scripts/publish-release.sh
 
-
+# -k test_vec0_update
 test-loadable: loadable
-	$(PYTHON) -m pytest -vv -s tests/test-loadable.py
+	$(PYTHON) -m pytest -vv -s -x tests/test-loadable.py
 
 test-loadable-snapshot-update: loadable
 	$(PYTHON) -m pytest -vv tests/test-loadable.py --snapshot-update

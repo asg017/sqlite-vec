@@ -1,0 +1,4 @@
+- page_size
+- memory mapping
+- in-memory index
+- chunk_size (?)

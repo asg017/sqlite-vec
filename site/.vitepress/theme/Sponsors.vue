@@ -11,7 +11,7 @@ const sponsors = computed(() => {
         {
           name: "Mozilla Builders",
           url: "",
-          img: withBase("./mozilla.svg"),
+          img: withBase("/mozilla.svg"),
         },
       ],
     },
@@ -21,7 +21,7 @@ const sponsors = computed(() => {
         {
           name: "Fly.io",
           url: "https://fly.io",
-          img: withBase("./flyio.svg"),
+          img: withBase("/flyio.svg"),
         },
       ],
     },
@@ -31,7 +31,7 @@ const sponsors = computed(() => {
         {
           name: "Turso",
           url: "https://turso.tech",
-          img: withBase("./turso.svg"),
+          img: withBase("/turso.svg"),
         },
       ],
     },
@@ -41,7 +41,7 @@ const sponsors = computed(() => {
         {
           name: "SQLite Cloud",
           url: "https://sqlitecloud.io",
-          img: withBase("./sqlitecloud.svg"),
+          img: withBase("/sqlitecloud.svg"),
         },
       ],
     },
@@ -51,18 +51,20 @@ const sponsors = computed(() => {
 
 <template>
   <!--<a class="sponsors-aside-text" href="/sponsor/">Sponsors</a>-->
-  <VPDocAsideSponsors :data="sponsors" />
-  <div
-    style="
-      font-size: 14px;
-      text-align: center;
-      font-style: italic;
-      margin-top: 4px;
-    "
-  >
-    <a href="https://github.com/asg017/sqlite-vec#sponsors"
-      >Become a sponsor! ↗</a
+  <div>
+    <VPDocAsideSponsors :data="sponsors" />
+    <div
+      style="
+        font-size: 14px;
+        text-align: center;
+        font-style: italic;
+        margin-top: 4px;
+      "
     >
+      <a href="https://github.com/asg017/sqlite-vec#sponsors"
+        >Become a sponsor! ↗</a
+      >
+    </div>
   </div>
 </template>
 
