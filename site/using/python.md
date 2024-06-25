@@ -57,10 +57,20 @@ If your vectors are from `numpy` arrays, the Python SQLite package allows you to
 
 ```python
 import numpy as np
+import sqlite3
+import sqlite_vec
+
+db = sqlite3.connect(":memory:")
+db.enable_load_extension(True)
+sqlite_vec.load(db)
+db.enable_load_extension(False)
+
+db.execute("CREATE VIRTUAL TABLE vec_demo(sample_embedding float[4])")
 
 embedding = np.array([0.1, 0.2, 0.3, 0.4])
-result = db.execute('select vec_length(?)', [embedding.astype(np.float32)]).fetchone()[0]
-print(result) # 4
+db.execute(
+    "INSERT INTO vec_demo(sample_embedding) VALUES (?)", [embedding.astype(np.float32)]
+)
 ```
 
 ## Recipes
