@@ -18,17 +18,19 @@ anywhere! A successor to [sqlite-vss](https://github.com/asg017/sqlite-vss)
   (Linux/MacOS/Windows, in the browser with WASM, Raspberry Pis, etc.)
 
 <p align="center">
+  <a href="https://hacks.mozilla.org/2024/06/sponsoring-sqlite-vec-to-enable-more-powerful-local-ai-applications/">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/mozilla.dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="./.github/logos/mozilla.svg">
     <img alt="Mozilla Builders logo" width=400>
   </picture>
+  </a>
 </p>
 
 <p align="center">
 <i>
 <code>sqlite-vec</code> is a
-<a href="#">Mozilla Builders project</a>,
+<a href="https://hacks.mozilla.org/2024/06/sponsoring-sqlite-vec-to-enable-more-powerful-local-ai-applications/">Mozilla Builders project</a>,
 with additional sponsorship from
 <a href="https://fly.io/"><img width=14px src="./.github/logos/flyio.small.ico"/> Fly.io </a>,
 <a href="https://turso.tech/"><img width=14px src="./.github/logos/turso.small.ico"/> Turso</a>, and
@@ -119,11 +121,13 @@ Development of `sqlite-vec` is supported by multiple generous sponsors! Mozilla
 is the main sponsor through the new Builders project.
 
 <p align="center">
+  <a href="https://hacks.mozilla.org/2024/06/sponsoring-sqlite-vec-to-enable-more-powerful-local-ai-applications/">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/mozilla.dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="./.github/logos/mozilla.svg">
     <img alt="Mozilla Builders logo" width=400>
   </picture>
+  </a>
 </p>
 
 `sqlite-vec` is also sponsored by the following companies:
