@@ -238,37 +238,36 @@ static f32 l2_sqr_int8_neon(const void *pVect1v, const void *pVect2v,
   return sqrtf(sum_scalar);
 }
 
-static i16 l1_int8_neon(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+// TODO: add tests for this
+static i64 l1_int8_neon(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
   i8 *pVect1 = (i8 *)pVect1v;
   i8 *pVect2 = (i8 *)pVect2v;
   size_t qty = *((size_t *)qty_ptr);
 
   const i8 *pEnd1 = pVect1 + qty;
 
-  // each batch will accumulate into this vector of 8 longs
-  // simplifying the final sumation
-  int16x8_t acc = vdupq_n_s16(0);  
+  // use 32 bit accumulator to avoid overflow
+  int32x4_t acc = vdupq_n_s32(0);
 
-  while (pVect1 < pEnd1 - 7) {
-    // loading 8 at a time
-    int8x8_t v1 = vld1_s8(pVect1);
-    int8x8_t v2 = vld1_s8(pVect2);
-    pVect1 += 8;
-    pVect2 += 8;
-    // widen, abs diff, accumulate
-    acc = vabal_s8(acc, v1, v2);
+  while (pVect1 < pEnd1 - 15) {
+    int8x16_t v1 = vld1q_s8(pVect1);
+    int8x16_t v2 = vld1q_s8(pVect2);
+    pVect1 += 16;
+    pVect2 += 16;
+    uint8x16_t diff = vabdq_s8(v1, v2);
+
+    acc = vaddq_s32(acc, vpaddlq_u16(vpaddlq_u8(diff)));
   }
 
-  // sum of the abs diff of the remaining elements
-  i16 sum = 0;
+  // sum the abs diff of the remaining elements
+  i32 sum = 0;
   while (pVect1 < pEnd1) {
-    i16 diff = abs(*pVect1 - *pVect2);
+    i32 diff = abs((i32)*pVect1 - (i32)*pVect2);
     sum += diff;
     pVect1++;
     pVect2++;
   }
-
-  return vaddvq_s16(acc) + sum;
+  return vaddvq_s32(acc) + sum;
 }
 #endif
 
@@ -326,12 +325,12 @@ static f32 distance_l2_sqr_int8(const void *a, const void *b, const void *d) {
   return l2_sqr_int8(a, b, d);
 }
 
-static f32 l1_int8(const void *pA, const void *pB, const void *pD) {
+static i64 l1_int8(const void *pA, const void *pB, const void *pD) {
   i8 *a = (i8 *)pA;
   i8 *b = (i8 *)pB;
   size_t d = *((size_t *)pD); 
 
-  f32 res = 0; 
+  i64 res = 0; 
   for (size_t i = 0; i < d; i++) {
     res += abs(*a - *b);
     a++;
@@ -341,9 +340,9 @@ static f32 l1_int8(const void *pA, const void *pB, const void *pD) {
   return res;
 }
 
-static i16 distance_l1_int8(const void *a, const void *b, const void *d) {
+static i64 distance_l1_int8(const void *a, const void *b, const void *d) {
   #ifdef SQLITE_VEC_ENABLE_NEON
-  if ((*(const size_t *)d) > 7) {
+  if ((*(const size_t *)d) > 15) {
     return l1_int8_neon(a, b, d);
   }
   #endif
@@ -1090,7 +1089,7 @@ static void vec_distance_l1(sqlite3_context *context, int argc,
     goto finish;
   }
   case SQLITE_VEC_ELEMENT_TYPE_INT8: {
-    i16 result = distance_l1_int8(a, b, &dimensions);
+    i64 result = distance_l1_int8(a, b, &dimensions);
     sqlite3_result_int(context, result);
     // sqlite3_result_double(context, result);
     goto finish;
