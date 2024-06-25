@@ -3054,9 +3054,12 @@ int vec0_new_chunk(vec0_vtab *p, i64 *chunk_rowid) {
     sqlite3_finalize(stmt);
     return rc;
   }
+
+#ifdef SQLITE_THREADSAFE
   if (sqlite3_mutex_enter) {
     sqlite3_mutex_enter(sqlite3_db_mutex(p->db));
   }
+#endif
 
   sqlite3_bind_int64(stmt, 1, p->chunk_size);               // size
   sqlite3_bind_zeroblob(stmt, 2, p->chunk_size / CHAR_BIT); // validity bitmap
@@ -3065,9 +3068,11 @@ int vec0_new_chunk(vec0_vtab *p, i64 *chunk_rowid) {
   rc = sqlite3_step(stmt);
   int failed = rc != SQLITE_DONE;
   rowid = sqlite3_last_insert_rowid(p->db);
+#ifdef SQLITE_THREADSAFE
   if (sqlite3_mutex_leave) {
     sqlite3_mutex_leave(sqlite3_db_mutex(p->db));
   }
+#endif
   sqlite3_finalize(stmt);
   if (failed) {
     return SQLITE_ERROR;
@@ -3263,8 +3268,9 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     int keyLength, valueLength;
     rc = vec0_parse_table_option(argv[i], strlen(argv[i]), &key, &keyLength,
                                  &value, &valueLength);
-    if(rc == SQLITE_ERROR) {
-      *pzErr = sqlite3_mprintf( VEC_CONSTRUCTOR_ERROR "could not parse table option '%s'", argv[i]);
+    if (rc == SQLITE_ERROR) {
+      *pzErr = sqlite3_mprintf(
+          VEC_CONSTRUCTOR_ERROR "could not parse table option '%s'", argv[i]);
       goto error;
     }
     if (rc == SQLITE_OK) {
@@ -3272,23 +3278,28 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
         chunk_size = atoi(value);
         if (chunk_size <= 0) {
           // IMP: V01931_18769
-          *pzErr = sqlite3_mprintf( VEC_CONSTRUCTOR_ERROR "chunk_size must be a non-zero positive integer");
+          *pzErr =
+              sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR
+                              "chunk_size must be a non-zero positive integer");
           goto error;
         }
         if ((chunk_size % 8) != 0) {
           // IMP: V14110_30948
-          *pzErr = sqlite3_mprintf( VEC_CONSTRUCTOR_ERROR "chunk_size must be divisible by 8");
+          *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR
+                                   "chunk_size must be divisible by 8");
           goto error;
         }
       } else {
         // IMP: V27642_11712
-        *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR "Unknown table option: %.*s", keyLength, key);
+        *pzErr = sqlite3_mprintf(
+            VEC_CONSTRUCTOR_ERROR "Unknown table option: %.*s", keyLength, key);
         goto error;
       }
       continue;
     }
-      *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR "Could not parse '%s'", argv[i]);
-      goto error;
+    *pzErr =
+        sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR "Could not parse '%s'", argv[i]);
+    goto error;
   }
 
   if (chunk_size < 0) {
@@ -4355,9 +4366,11 @@ int vec0Update_InsertRowidStep(vec0_vtab *p, sqlite3_value *idValue,
       return SQLITE_ERROR;
     }
 
+#ifdef SQLITE_THREADSAFE
     if (sqlite3_mutex_enter) {
       sqlite3_mutex_enter(sqlite3_db_mutex(p->db));
     }
+#endif
 
     sqlite3_bind_value(p->stmtRowidsInsertId, 1, idValue);
     rc = sqlite3_step(p->stmtRowidsInsertId);
@@ -4383,9 +4396,11 @@ int vec0Update_InsertRowidStep(vec0_vtab *p, sqlite3_value *idValue,
   complete:
     sqlite3_reset(p->stmtRowidsInsertId);
     sqlite3_clear_bindings(p->stmtRowidsInsertId);
+#ifdef SQLITE_THREADSAFE
     if (sqlite3_mutex_leave) {
       sqlite3_mutex_leave(sqlite3_db_mutex(p->db));
     }
+#endif
     return rc;
   }
 
@@ -4393,9 +4408,11 @@ int vec0Update_InsertRowidStep(vec0_vtab *p, sqlite3_value *idValue,
   if (sqlite3_value_type(idValue) == SQLITE_INTEGER) {
     i64 suppliedRowid = sqlite3_value_int64(idValue);
 
+#ifdef SQLITE_THREADSAFE
     if (sqlite3_mutex_enter) {
       sqlite3_mutex_enter(sqlite3_db_mutex(p->db));
     }
+#endif
     sqlite3_bind_int64(p->stmtRowidsInsertRowid, 1, suppliedRowid);
     rc = sqlite3_step(p->stmtRowidsInsertRowid);
 
@@ -4420,9 +4437,11 @@ int vec0Update_InsertRowidStep(vec0_vtab *p, sqlite3_value *idValue,
   complete2:
     sqlite3_reset(p->stmtRowidsInsertRowid);
     sqlite3_clear_bindings(p->stmtRowidsInsertRowid);
+#ifdef SQLITE_THREADSAFE
     if (sqlite3_mutex_leave) {
       sqlite3_mutex_leave(sqlite3_db_mutex(p->db));
     }
+#endif
     return rc;
   }
 
@@ -4435,10 +4454,11 @@ int vec0Update_InsertRowidStep(vec0_vtab *p, sqlite3_value *idValue,
                    p->tableName);
     return SQLITE_ERROR;
   }
-
+#ifdef SQLITE_THREADSAFE
   if (sqlite3_mutex_enter) {
     sqlite3_mutex_enter(sqlite3_db_mutex(p->db));
   }
+#endif
 
   // no need to bind a value to ?1 here: needs to be NULL
   // so we can get the next autoincremented rowid value.
@@ -4456,9 +4476,11 @@ int vec0Update_InsertRowidStep(vec0_vtab *p, sqlite3_value *idValue,
 complete3:
   sqlite3_reset(p->stmtRowidsInsertId);
   sqlite3_clear_bindings(p->stmtRowidsInsertId);
+#ifdef SQLITE_THREADSAFE
   if (sqlite3_mutex_leave) {
     sqlite3_mutex_leave(sqlite3_db_mutex(p->db));
   }
+#endif
   return rc;
 }
 

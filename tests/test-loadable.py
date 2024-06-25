@@ -15,6 +15,7 @@ from math import isclose
 EXT_PATH = "./dist/vec0"
 
 SUPPORTS_SUBTYPE = sqlite3.version_info[1] > 38
+SUPPORTS_DROP_COLUMN = sqlite3.version_info[1] >= 35
 
 
 def bitmap_full(n: int) -> bytearray:
@@ -604,14 +605,15 @@ def test_vec0_updates():
     db.set_authorizer(None)
 
     # EVIDENCE-OF: V22053_06123 vec0 INSERT error on reading validity blob
-    db.commit()
-    db.execute("begin")
-    db.execute("ALTER TABLE t1_chunks DROP COLUMN validity")
-    with _raises(
-        "Internal sqlite-vec error: could not open validity blob on main.t1_chunks.1"
-    ):
-        db.execute("insert into t1 values (9999, '[2,2,2,2]')")
-    db.rollback()
+    if SUPPORTS_DROP_COLUMN:
+        db.commit()
+        db.execute("begin")
+        db.execute("ALTER TABLE t1_chunks DROP COLUMN validity")
+        with _raises(
+            "Internal sqlite-vec error: could not open validity blob on main.t1_chunks.1"
+        ):
+            db.execute("insert into t1 values (9999, '[2,2,2,2]')")
+        db.rollback()
 
     # EVIDENCE-OF: V29362_13432 vec0 INSERT validity blob size mismatch with chunk_size
     db.commit()
@@ -634,14 +636,15 @@ def test_vec0_updates():
     db.rollback()
 
     # EVIDENCE-OF: V09221_26060 vec0 INSERT rowids blob open error
-    db.commit()
-    db.execute("begin")
-    db.execute("ALTER TABLE t1_chunks DROP COLUMN rowids")
-    with _raises(
-        "Internal sqlite-vec error: could not open rowids blob on main.t1_chunks.1"
-    ):
-        db.execute("insert into t1 values (9999, '[2,2,2,2]')")
-    db.rollback()
+    if SUPPORTS_DROP_COLUMN:
+        db.commit()
+        db.execute("begin")
+        db.execute("ALTER TABLE t1_chunks DROP COLUMN rowids")
+        with _raises(
+            "Internal sqlite-vec error: could not open rowids blob on main.t1_chunks.1"
+        ):
+            db.execute("insert into t1 values (9999, '[2,2,2,2]')")
+        db.rollback()
 
     # EVIDENCE-OF: V12779_29618 vec0 INSERT rowids blob validates size
     db.commit()
@@ -964,20 +967,21 @@ def test_vec0_constructor():
     ):
         db.execute("create virtual table v using vec0(chunk_size=7)")
 
-    table_option_errors = ['chunk_size=', 'chunk_size=8 x']
+    table_option_errors = ["chunk_size=", "chunk_size=8 x"]
 
     for x in table_option_errors:
-      with _raises(
-          f"vec0 constructor error: could not parse table option '{x}'",
-          sqlite3.DatabaseError,
-      ):
-          db.execute(f"create virtual table v using vec0({x})")
+        with _raises(
+            f"vec0 constructor error: could not parse table option '{x}'",
+            sqlite3.DatabaseError,
+        ):
+            db.execute(f"create virtual table v using vec0({x})")
 
     with _raises(
         "vec0 constructor error: Could not parse '4'",
         sqlite3.DatabaseError,
     ):
         db.execute("create virtual table v using vec0(4)")
+
 
 def test_vec0_create_errors():
     # EVIDENCE-OF: V17740_01811 vec0 create _chunks error handling
