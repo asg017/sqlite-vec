@@ -42,7 +42,7 @@ def _f32(list):
 
 
 def _i64(list):
-    return struct.pack("%sl" % len(list), *list)
+    return struct.pack("%sq" % len(list), *list)
 
 
 def _int8(list):
