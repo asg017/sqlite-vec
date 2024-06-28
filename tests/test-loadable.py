@@ -497,12 +497,11 @@ def test_vec_quantize_i8():
     assert vec_quantize_i8() == 111
 
 
-@pytest.mark.skip(reason="TODO")
 def test_vec_quantize_binary():
     vec_quantize_binary = lambda *args, input="?": db.execute(
         f"select vec_quantize_binary({input})", args
     ).fetchone()[0]
-    assert vec_quantize_binary("[-1, -1, -1, -1, 1, 1, 1, 1]") == 111
+    assert vec_quantize_binary("[-1, -1, -1, -1, 1, 1, 1, 1]") == b"\xf0"
 
 
 @pytest.mark.skip(reason="TODO")
