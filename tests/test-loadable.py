@@ -538,18 +538,18 @@ def test_vec0_inserts():
             "ccc": bitmap_full(128),
         }
     ]
-    #db.execute(
+    # db.execute(
     #    "update t set aaa = ? where rowid = ?",
     #    [np.full((128,), 0.00011, dtype="float32"), 1],
-    #)
-    #assert execute_all(db, "select * from t") == [
+    # )
+    # assert execute_all(db, "select * from t") == [
     #    {
     #        "rowid": 1,
     #        "aaa": _f32([0.00011] * 128),
     #        "bbb": _int8([4] * 128),
     #        "ccc": bitmap_full(128),
     #    }
-    #]
+    # ]
 
     db.execute("create virtual table t1 using vec0(aaa float[4], chunk_size=8)")
     db.execute(
@@ -996,9 +996,9 @@ def test_vec0_updates():
                 (3, :z, vec_quantize_i8(:z, 'unit') ,vec_quantize_binary(:z));
         """,
         {
-          "x":  "[.1, .1, .1, .1, -.1, -.1, -.1, -.1]",
+            "x": "[.1, .1, .1, .1, -.1, -.1, -.1, -.1]",
             "y": "[-.2, .2, .2, .2, .2, .2, -.2, .2]",
-            "z": "[.3, .3, .3, .3, .3, .3, .3, .3]"
+            "z": "[.3, .3, .3, .3, .3, .3, .3, .3]",
         },
     )
     assert execute_all(db, "select * from t3") == [
@@ -1011,18 +1011,29 @@ def test_vec0_updates():
         {
             "rowid": 2,
             "aaa": _f32([-0.2, 0.2, 0.2, 0.2, 0.2, 0.2, -0.2, 0.2]),
-            "bbb": _int8([-26, 24,  24,  24,  24,  24,  -26,  24]),
+            "bbb": _int8([-26, 24, 24, 24, 24, 24, -26, 24]),
             "ccc": bitmap("10111110"),
         },
         {
             "rowid": 3,
             "aaa": _f32([0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3]),
-            "bbb": _int8([37, 37, 37, 37, 37, 37, 37, 37, ]),
+            "bbb": _int8(
+                [
+                    37,
+                    37,
+                    37,
+                    37,
+                    37,
+                    37,
+                    37,
+                    37,
+                ]
+            ),
             "ccc": bitmap("11111111"),
         },
     ]
 
-    db.execute("UPDATE t3 SET aaa = ? WHERE rowid = 1", ['[.9,.9,.9,.9,.9,.9,.9,.9]'])
+    db.execute("UPDATE t3 SET aaa = ? WHERE rowid = 1", ["[.9,.9,.9,.9,.9,.9,.9,.9]"])
     assert execute_all(db, "select * from t3") == [
         {
             "rowid": 1,
@@ -1033,45 +1044,70 @@ def test_vec0_updates():
         {
             "rowid": 2,
             "aaa": _f32([-0.2, 0.2, 0.2, 0.2, 0.2, 0.2, -0.2, 0.2]),
-            "bbb": _int8([-26, 24,  24,  24,  24,  24,  -26,  24]),
+            "bbb": _int8([-26, 24, 24, 24, 24, 24, -26, 24]),
             "ccc": bitmap("10111110"),
         },
         {
             "rowid": 3,
             "aaa": _f32([0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3]),
-            "bbb": _int8([37, 37, 37, 37, 37, 37, 37, 37, ]),
+            "bbb": _int8(
+                [
+                    37,
+                    37,
+                    37,
+                    37,
+                    37,
+                    37,
+                    37,
+                    37,
+                ]
+            ),
             "ccc": bitmap("11111111"),
         },
     ]
 
     # EVIDENCE-OF: V15203_32042 vec0 UPDATE validates vector
-    with _raises('Updated vector for the "aaa" column is invalid: invalid float32 vector BLOB length. Must be divisible by 4, found 1'):
+    with _raises(
+        'Updated vector for the "aaa" column is invalid: invalid float32 vector BLOB length. Must be divisible by 4, found 1'
+    ):
         db.execute("UPDATE t3 SET aaa = X'AB' WHERE rowid = 1")
 
     # EVIDENCE-OF: V25739_09810 vec0 UPDATE validates dimension length
-    with _raises('Dimension mismatch for new updated vector for the "aaa" column. Expected 8 dimensions but received 1.'):
+    with _raises(
+        'Dimension mismatch for new updated vector for the "aaa" column. Expected 8 dimensions but received 1.'
+    ):
         db.execute("UPDATE t3 SET aaa = vec_bit(X'AABBCCDD') WHERE rowid = 1")
 
     # EVIDENCE-OF: V03643_20481 vec0 UPDATE validates vector column type
-    with _raises('Updated vector for the "bbb" column is expected to be of type int8, but a float32 vector was provided.'):
+    with _raises(
+        'Updated vector for the "bbb" column is expected to be of type int8, but a float32 vector was provided.'
+    ):
         db.execute("UPDATE t3 SET bbb = X'ABABABAB' WHERE rowid = 1")
 
     db.execute("CREATE VIRTUAL TABLE t2 USING vec0(a float[2], b float[2])")
     db.execute("INSERT INTO t2(rowid, a, b) VALUES (1, '[.1, .1]', '[.2, .2]')")
-    assert execute_all(db, "select * from t2") == [{
-        'rowid': 1,
-        'a': _f32([.1, .1]),
-        'b': _f32([.2, .2]),
-    }]
+    assert execute_all(db, "select * from t2") == [
+        {
+            "rowid": 1,
+            "a": _f32([0.1, 0.1]),
+            "b": _f32([0.2, 0.2]),
+        }
+    ]
     # sanity check: the 1st column UPDATE "works", but since the 2nd one fails,
     # then aaa should remain unchanged.
-    with _raises('Dimension mismatch for new updated vector for the "b" column. Expected 2 dimensions but received 3.'):
-      db.execute("UPDATE t2 SET a = '[.11, .11]', b = '[.22, .22, .22]' WHERE rowid = 1")
-    assert execute_all(db, "select * from t2") == [{
-        'rowid': 1,
-        'a': _f32([.1, .1]),
-        'b': _f32([.2, .2]),
-    }]
+    with _raises(
+        'Dimension mismatch for new updated vector for the "b" column. Expected 2 dimensions but received 3.'
+    ):
+        db.execute(
+            "UPDATE t2 SET a = '[.11, .11]', b = '[.22, .22, .22]' WHERE rowid = 1"
+        )
+    assert execute_all(db, "select * from t2") == [
+        {
+            "rowid": 1,
+            "a": _f32([0.1, 0.1]),
+            "b": _f32([0.2, 0.2]),
+        }
+    ]
     # TODO: set UPDATEs on int8/bit columns
 
     # db.execute("UPDATE t3 SET ccc = vec_bit(?) WHERE rowid = 3", [bitmap('01010101')])
@@ -1108,26 +1144,28 @@ def test_vec0_text_pk():
           );
         """
     )
-    db.executemany("INSERT INTO t VALUES (:t_id, :aaa, :bbb)",
+    db.executemany(
+        "INSERT INTO t VALUES (:t_id, :aaa, :bbb)",
         [
             {
-              "t_id": "t_1",
-              "aaa":  "[.1, .1, .1, .1, -.1, -.1, -.1, -.1]",
-              "bbb":  "[.1, .1, .1, .1, -.1, -.1, -.1, -.1]",
+                "t_id": "t_1",
+                "aaa": "[.1, .1, .1, .1, -.1, -.1, -.1, -.1]",
+                "bbb": "[.1, .1, .1, .1, -.1, -.1, -.1, -.1]",
             },
             {
-              "t_id": "t_2",
-              "aaa":  "[.1, .1, .1, .1, -.1, -.1, -.1, -.1]",
-              "bbb":  "[.1, .1, .1, .1, -.1, -.1, -.1, -.1]",
+                "t_id": "t_2",
+                "aaa": "[.1, .1, .1, .1, -.1, -.1, -.1, -.1]",
+                "bbb": "[.1, .1, .1, .1, -.1, -.1, -.1, -.1]",
             },
             {
-              "t_id": "t_3",
-              "aaa":  "[.1, .1, .1, .1, -.1, -.1, -.1, -.1]",
-              "bbb":  "[.1, .1, .1, .1, -.1, -.1, -.1, -.1]",
+                "t_id": "t_3",
+                "aaa": "[.1, .1, .1, .1, -.1, -.1, -.1, -.1]",
+                "bbb": "[.1, .1, .1, .1, -.1, -.1, -.1, -.1]",
             },
         ],
     )
     assert execute_all(db, "select * from t") == []
+
 
 def authorizer_deny_on(operation, x1, x2=None):
     def _auth(op, p1, p2, p3, p4):

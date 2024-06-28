@@ -613,7 +613,8 @@ static int fvec_from_value(sqlite3_value *value, f32 **vector,
   }
 
   *pzErr = sqlite3_mprintf(
-      "Input must have type BLOB (compact format) or TEXT (JSON), found %s", type_name(value_type));
+      "Input must have type BLOB (compact format) or TEXT (JSON), found %s",
+      type_name(value_type));
   return SQLITE_ERROR;
 }
 
@@ -639,7 +640,7 @@ static int bitvec_from_value(sqlite3_value *value, u8 **vector,
 
 static int int8_vec_from_value(sqlite3_value *value, i8 **vector,
                                size_t *dimensions, vector_cleanup *cleanup,
-                              char **pzErr) {
+                               char **pzErr) {
   int value_type = sqlite3_value_type(value);
   if (value_type == SQLITE_BLOB) {
     const void *blob = sqlite3_value_blob(value);
@@ -798,7 +799,6 @@ int vector_from_value(sqlite3_value *value, void **vector, size_t *dimensions,
   *pzErrorMessage = sqlite3_mprintf("Unknown subtype: %d", subtype);
   return SQLITE_ERROR;
 }
-
 
 int ensure_vector_match(sqlite3_value *aValue, sqlite3_value *bValue, void **a,
                         void **b, enum VectorElementType *element_type,
@@ -3044,10 +3044,10 @@ int vec0_get_id_value_from_rowid(vec0_vtab *pVtab, i64 rowid,
   *out = sqlite3_value_dup(value);
   rc = SQLITE_OK;
 
-  cleanup:
-    sqlite3_reset(pVtab->stmtRowidsGetChunkPosition);
-    sqlite3_clear_bindings(pVtab->stmtRowidsGetChunkPosition);
-    return rc;
+cleanup:
+  sqlite3_reset(pVtab->stmtRowidsGetChunkPosition);
+  sqlite3_clear_bindings(pVtab->stmtRowidsGetChunkPosition);
+  return rc;
 }
 
 // TODO make sure callees use the return value of this function
@@ -4471,7 +4471,7 @@ static int vec0Column_point(vec0_vtab *pVtab, vec0_cursor *pCur,
   }
   // TODO only have 1st vector data
   if (vec0_column_idx_is_vector(pVtab, i)) {
-    if(sqlite3_vtab_nochange(context)) {
+    if (sqlite3_vtab_nochange(context)) {
       sqlite3_result_null(context);
       return SQLITE_OK;
     }
@@ -5220,7 +5220,7 @@ cleanup:
 
 int vec0Update_Delete_DeleteRowids(vec0_vtab *p, i64 rowid) {
   int rc;
-    sqlite3_stmt *stmt = NULL;
+  sqlite3_stmt *stmt = NULL;
 
   char *zSql =
       sqlite3_mprintf("DELETE FROM " VEC0_SHADOW_ROWIDS_NAME " WHERE rowid = ?",
@@ -5231,17 +5231,17 @@ int vec0Update_Delete_DeleteRowids(vec0_vtab *p, i64 rowid) {
 
   rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
   sqlite3_free(zSql);
-  if(rc != SQLITE_OK ) {
+  if (rc != SQLITE_OK) {
     goto cleanup;
   }
   sqlite3_bind_int64(stmt, 1, rowid);
   rc = sqlite3_step(stmt);
-  if(rc != SQLITE_DONE) {
+  if (rc != SQLITE_DONE) {
     goto cleanup;
   }
   rc = SQLITE_OK;
 
-  cleanup:
+cleanup:
   sqlite3_finalize(stmt);
   return rc;
 }
@@ -5374,7 +5374,7 @@ int vec0Update_UpdateOnRowid(sqlite3_vtab *pVTab, int argc,
 
   // 1. get chunk_id and chunk_offset from _rowids
   rc = vec0_get_chunk_position(p, rowid, &chunk_id, &chunk_offset);
-  if(rc != SQLITE_OK) {
+  if (rc != SQLITE_OK) {
     return rc;
   }
 
@@ -5392,13 +5392,13 @@ int vec0Update_UpdateOnRowid(sqlite3_vtab *pVTab, int argc,
     // but subtypes don't appear to survive xColumn -> xUpdate, it's always 0.
     // So for now, we'll just use NULL and warn people to not SET X = NULL
     // in the docs.
-    if(sqlite3_value_type(valueVector) == SQLITE_NULL) {
+    if (sqlite3_value_type(valueVector) == SQLITE_NULL) {
       continue;
     }
 
     rc = vec0Update_UpdateVectorColumn(p, chunk_id, chunk_offset, i,
                                        valueVector);
-    if(rc != SQLITE_OK){
+    if (rc != SQLITE_OK) {
       return SQLITE_ERROR;
     }
   }
@@ -5488,7 +5488,7 @@ static void vec_static_blob_from_raw(sqlite3_context *context, int argc,
                                      sqlite3_value **argv) {
   struct static_blob_definition *p;
   p = sqlite3_malloc(sizeof(*p));
-  if(!p) {
+  if (!p) {
     sqlite3_result_error_nomem(context);
     return;
   }
@@ -6179,7 +6179,7 @@ int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
 #ifdef SQLITE_VEC_ENABLE_EXPERIMENTAL
   vec_static_blob_data *static_blob_data;
   static_blob_data = sqlite3_malloc(sizeof(*static_blob_data));
-  if(!static_blob_data) {
+  if (!static_blob_data) {
     return SQLITE_NOMEM;
   }
   memset(static_blob_data, 0, sizeof(*static_blob_data));
