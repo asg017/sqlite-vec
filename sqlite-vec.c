@@ -1727,7 +1727,7 @@ size_t vector_byte_size(enum VectorElementType element_type,
   }
 }
 
-inline size_t vector_column_byte_size(struct VectorColumnDefinition column) {
+size_t vector_column_byte_size(struct VectorColumnDefinition column) {
   return vector_byte_size(column.element_type, column.dimensions);
 }
 

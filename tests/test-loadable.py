@@ -42,7 +42,7 @@ def _f32(list):
 
 
 def _i64(list):
-    return struct.pack("%sL" % len(list), *list)
+    return struct.pack("%sl" % len(list), *list)
 
 
 def _int8(list):
@@ -1251,10 +1251,11 @@ def test_vec0_best_index():
     with _raises("A LIMIT or 'k = ?' constraint is required on vec0 knn queries."):
         db.execute("select * from t where aaa MATCH ?")
 
-    with _raises("Only LIMIT or 'k =?' can be provided, not both"):
-        db.execute("select * from t where aaa MATCH ? and k = 10 limit 20")
+    if SUPPORTS_VTAB_LIMIT:
+      with _raises("Only LIMIT or 'k =?' can be provided, not both"):
+          db.execute("select * from t where aaa MATCH ? and k = 10 limit 20")
 
-    with _raises(
+      with _raises(
         "Only a single 'ORDER BY distance' clause is allowed on vec0 KNN queries"
     ):
         db.execute(
