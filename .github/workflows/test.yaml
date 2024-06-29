@@ -69,7 +69,7 @@ jobs:
         shell: bash
       - run: make sqlite-vec.h
       - run: mkdir dist
-      - run: cl.exe /fPIC -shared /W4 /Ivendor/ /O2 sqlite-vec.c -o dist/vec0.dll
+      - run: cl.exe /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c -o dist/vec0.dll
       - run: pip install pytest numpy; make test-loadable
       - uses: actions/upload-artifact@v4
         with:
