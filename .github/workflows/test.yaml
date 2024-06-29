@@ -58,12 +58,10 @@ jobs:
           name: sqlite-vec-windows-x86_64-extension
           path: dist/*
   build-windows-x86_64-extension-msvc:
-    runs-on: windows-2019
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
-        with:
-          vsversion: 2023
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
