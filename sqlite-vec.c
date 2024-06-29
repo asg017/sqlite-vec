@@ -4900,7 +4900,7 @@ int vec0Update_InsertNextAvailableStep(
                    "validity blob size mismatch on "
                    "%s.%s.%lld, expected %lld but received %lld.",
                    p->schemaName, p->shadowChunksName, *chunk_rowid,
-                   p->chunk_size / CHAR_BIT, validitySize);
+                   (i64) (p->chunk_size / CHAR_BIT), validitySize);
     rc = SQLITE_ERROR;
     goto cleanup;
   }
