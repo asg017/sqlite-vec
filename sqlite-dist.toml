@@ -5,6 +5,7 @@ homepage = "https://alexgarcia.xyz/sqlite-vec"
 repo = "https://github.com/asg017/sqlite-vec"
 description = "A vector search SQLite extension."
 authors = ["Alex Garcia"]
+git_tag_format = "v$VERSION"
 
 [targets]
 github_releases = {}
