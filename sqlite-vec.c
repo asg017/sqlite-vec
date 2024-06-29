@@ -6295,7 +6295,7 @@ int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
   const int DEFAULT_FLAGS =
       SQLITE_UTF8 | SQLITE_INNOCUOUS | SQLITE_DETERMINISTIC;
 
-  static const struct {
+  static struct {
     const char *zFName;
     void (*xFunc)(sqlite3_context *, int, sqlite3_value **);
     int nArg;
@@ -6335,7 +6335,7 @@ int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
   memset(static_blob_data, 0, sizeof(*static_blob_data));
 #endif
 
-  static const struct {
+  static struct {
     char *name;
     const sqlite3_module *module;
     void *p;
