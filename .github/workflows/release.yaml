@@ -51,6 +51,8 @@ jobs:
           path: dist/*
   build-windows-x86_64-extension-msvc:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
