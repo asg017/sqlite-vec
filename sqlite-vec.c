@@ -456,7 +456,7 @@ int array_append(struct Array *array, const void *element) {
       return SQLITE_NOMEM;
     }
   }
-  memcpy(&array->z[array->length * array->element_size], element,
+  memcpy(& ((unsigned char *) array->z)[array->length * array->element_size], element,
          array->element_size);
   array->length++;
   return SQLITE_OK;
@@ -2726,7 +2726,7 @@ static int vec_npy_eachColumnBuffer(vec_npy_each_cursor *pCur,
     case SQLITE_VEC_ELEMENT_TYPE_FLOAT32: {
       sqlite3_result_blob(
           context,
-          &pCur->vector[pCur->iRowid * pCur->nDimensions * sizeof(f32)],
+          & ((unsigned char *) pCur->vector)[pCur->iRowid * pCur->nDimensions * sizeof(f32)],
           pCur->nDimensions * sizeof(f32), SQLITE_STATIC);
 
       break;
@@ -2750,8 +2750,7 @@ static int vec_npy_eachColumnFile(vec_npy_each_cursor *pCur,
     switch (pCur->elementType) {
     case SQLITE_VEC_ELEMENT_TYPE_FLOAT32: {
       sqlite3_result_blob(context,
-                          &pCur->chunksBuffer[pCur->currentChunkIndex *
-                                              pCur->nDimensions * sizeof(f32)],
+                          & ((unsigned char *)pCur->chunksBuffer)[pCur->currentChunkIndex * pCur->nDimensions * sizeof(f32)],
                           pCur->nDimensions * sizeof(f32), SQLITE_TRANSIENT);
       break;
     }
@@ -6297,7 +6296,7 @@ int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
       SQLITE_UTF8 | SQLITE_INNOCUOUS | SQLITE_DETERMINISTIC;
 
   static const struct {
-    char *zFName;
+    const char *zFName;
     void (*xFunc)(sqlite3_context *, int, sqlite3_value **);
     int nArg;
     int flags;
