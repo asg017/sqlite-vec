@@ -6286,6 +6286,9 @@ __declspec(dllexport)
 #define SQLITE_RESULT_SUBTYPE 0x001000000
 #endif
 
+#ifdef _WIN32
+__declspec(dllexport)
+#endif
 int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
                      const sqlite3_api_routines *pApi) {
   SQLITE_EXTENSION_INIT2(pApi);
@@ -6379,6 +6382,9 @@ int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
   return SQLITE_OK;
 }
 
+#ifdef _WIN32
+__declspec(dllexport)
+#endif
 int sqlite3_vec_fs_read_init(sqlite3 *db, char **pzErrMsg,
                              const sqlite3_api_routines *pApi) {
   UNUSED_PARAMETER(pzErrMsg);

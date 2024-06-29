@@ -58,7 +58,6 @@ jobs:
           name: sqlite-vec-windows-x86_64-extension
           path: dist/*
   build-windows-x86_64-extension-msvc:
-    if: false
     runs-on: windows-2019
     steps:
       - uses: actions/checkout@v4
