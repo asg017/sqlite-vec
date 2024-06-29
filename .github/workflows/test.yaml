@@ -68,13 +68,8 @@ jobs:
       - run: ./scripts/vendor.sh
         shell: bash
       - run: make sqlite-vec.h
-      - run: cl.exe \
-          /fPIC -shared \
-          /W4 \
-          /Ivendor/ \
-          /O2 \
-          \
-          sqlite-vec.c -o dist/vec0.dll
+      - run: mkdir dist
+      - run: cl.exe /fPIC -shared /W4 /Ivendor/ /O2 sqlite-vec.c -o dist/vec0.dll
       - run: pip install pytest numpy; make test-loadable
       - uses: actions/upload-artifact@v4
         with:
