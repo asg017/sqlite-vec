@@ -73,7 +73,7 @@ jobs:
       - run: pip install pytest numpy; make test-loadable
       - uses: actions/upload-artifact@v4
         with:
-          name: sqlite-vec-windows-x86_64-extension
+          name: sqlite-vec-windows-x86_64-msvc-extension
           path: dist/*
   build-wasm32-emscripten:
     runs-on: ubuntu-latest
