@@ -6292,8 +6292,7 @@ int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
                      const sqlite3_api_routines *pApi) {
   SQLITE_EXTENSION_INIT2(pApi);
   int rc = SQLITE_OK;
-  const int DEFAULT_FLAGS =
-      SQLITE_UTF8 | SQLITE_INNOCUOUS | SQLITE_DETERMINISTIC;
+  #define DEFAULT_FLAGS (SQLITE_UTF8 | SQLITE_INNOCUOUS | SQLITE_DETERMINISTIC)
 
   rc = sqlite3_create_function_v2(db, "vec_version", 0, DEFAULT_FLAGS, SQLITE_VEC_VERSION, _static_text_func, NULL, NULL, NULL);
   if(rc != SQLITE_OK) {
