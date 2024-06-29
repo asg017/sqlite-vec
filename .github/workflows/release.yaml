@@ -68,6 +68,8 @@ jobs:
           name: sqlite-vec-windows-x86_64-msvc-extension
           path: dist/*
       - run: gh release upload ${{ github.ref_name }} dist/vec0.dll
+        env:
+          GH_TOKEN: ${{ github.token }}
   build-wasm32-emscripten:
     runs-on: ubuntu-latest
     steps:
