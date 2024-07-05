@@ -95,8 +95,10 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           mkdir $HOME/cosmo
-          curl -L -o cosmocc-3.3.6.zip https://github.com/jart/cosmopolitan/releases/download/3.3.6/cosmocc-3.3.6.zip
-          unzip cosmocc-3.3.6.zip -d $HOME/cosmo
+          curl -L -o cosmocc-$COSMO_VERSION.zip https://github.com/jart/cosmopolitan/releases/download/$COSMO_VERSION/cosmocc-$COSMO_VERSION.zip
+          unzip cosmocc-$COSMO_VERSION.zip -d $HOME/cosmo
+        env:
+          COSMO_VERSION: "3.5.4"
       - run: ./scripts/vendor.sh
       - run: make cli CC=$HOME/cosmo/bin/cosmocc AR=$HOME/cosmo/bin/cosmoar OMIT_SIMD=1
       - uses: actions/upload-artifact@v4

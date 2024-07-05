@@ -72,6 +72,26 @@ jobs:
       - run: gh release upload ${{ github.ref_name }} dist/vec0.dll
         env:
           GH_TOKEN: ${{ github.token }}
+  build-cosmopolitan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir $HOME/cosmo
+          curl -L -o cosmocc-$COSMO_VERSION.zip https://github.com/jart/cosmopolitan/releases/download/$COSMO_VERSION/cosmocc-$COSMO_VERSION.zip
+          unzip cosmocc-$COSMO_VERSION.zip -d $HOME/cosmo
+        env:
+          COSMO_VERSION: "3.5.4"
+      - run: ./scripts/vendor.sh
+      - run: make cli CC=$HOME/cosmo/bin/cosmocc AR=$HOME/cosmo/bin/cosmoar OMIT_SIMD=1
+      - run: tar -czvf sqlite-vec-$(cat VERSION)-cli-cosmopolitan.tar.gz dist/sqlite3
+      - run: gh release upload ${{ github.ref_name }} sqlite-vec-$(cat VERSION)-cli-cosmopolitan.tar.gz
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-cosmopolitan
+          path: dist/*
   build-wasm32-emscripten:
     runs-on: ubuntu-latest
     steps:
