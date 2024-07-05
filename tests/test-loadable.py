@@ -113,11 +113,33 @@ FUNCTIONS = [
     "vec_quantize_i8",
     "vec_quantize_i8",
     "vec_slice",
+    "vec_static_blob_from_raw",
     "vec_sub",
     "vec_to_json",
     "vec_version",
 ]
-MODULES = ["vec0", "vec_each", "vec_npy_each"]
+MODULES = [
+    "vec0",
+    "vec_each",
+    "vec_npy_each",
+    "vec_static_blob_entries",
+    "vec_static_blobs",
+]
+
+
+@pytest.mark.skip(reason="TODO")
+def test_vec_static_blob_from_raw():
+    pass
+
+
+@pytest.mark.skip(reason="TODO")
+def test_vec_static_blobs():
+    pass
+
+
+@pytest.mark.skip(reason="TODO")
+def test_vec_static_blob_entries():
+    pass
 
 
 def test_funcs():
@@ -419,6 +441,11 @@ def test_vec_slice():
         match="slice 'start' index is greater than 'end' index",
     ):
         vec_slice(b"\xab\xab\xab\xab", 1, 0)
+
+    with _raises(
+        "slice 'start' index is equal to the 'end' index, vectors must have non-zero length"
+    ):
+        vec_slice(b"\xab\xab\xab\xab", 0, 0)
 
 
 def test_vec_add():
@@ -775,6 +802,7 @@ def test_vec0_drops():
         "t1_vector_chunks00",
         "t1_vector_chunks01",
     ]
+
     db.execute("drop table t1")
     assert [
         row["name"]
@@ -1175,7 +1203,8 @@ def test_vec0_text_pk():
           create virtual table t using vec0(
             t_id text primary key,
             aaa float[1],
-            bbb float8[1]
+            bbb float8[1],
+            chunk_size=8
           );
         """
     )
@@ -1226,6 +1255,39 @@ def test_vec0_text_pk():
         db.execute("select * from t")
     db.set_authorizer(None)
 
+    assert execute_all(
+        db, "select t_id, distance from t where aaa match ? and k = 3", ["[.01]"]
+    ) == [
+        {
+            "t_id": "t_1",
+            "distance": 0.09000000357627869,
+        },
+        {
+            "t_id": "t_2",
+            "distance": 0.1899999976158142,
+        },
+        {
+            "t_id": "t_3",
+            "distance": 0.2900000214576721,
+        },
+    ]
+
+    if SUPPORTS_VTAB_IN:
+        assert execute_all(
+            db,
+            "select t_id, distance from t where aaa match ? and k = 3 and t_id in ('t_2', 't_3')",
+            ["[.01]"],
+        ) == [
+            {
+                "t_id": "t_2",
+                "distance": 0.1899999976158142,
+            },
+            {
+                "t_id": "t_3",
+                "distance": 0.2900000214576721,
+            },
+        ]
+
 
 def test_vec0_best_index():
     db = connect(EXT_PATH)
@@ -1251,15 +1313,15 @@ def test_vec0_best_index():
         db.execute("select * from t where aaa MATCH ?")
 
     if SUPPORTS_VTAB_LIMIT:
-      with _raises("Only LIMIT or 'k =?' can be provided, not both"):
-          db.execute("select * from t where aaa MATCH ? and k = 10 limit 20")
+        with _raises("Only LIMIT or 'k =?' can be provided, not both"):
+            db.execute("select * from t where aaa MATCH ? and k = 10 limit 20")
 
-      with _raises(
-        "Only a single 'ORDER BY distance' clause is allowed on vec0 KNN queries"
-    ):
-        db.execute(
-            "select * from t where aaa MATCH NULL and k = 10 order by distance, distance"
-        )
+        with _raises(
+            "Only a single 'ORDER BY distance' clause is allowed on vec0 KNN queries"
+        ):
+            db.execute(
+                "select * from t where aaa MATCH NULL and k = 10 order by distance, distance"
+            )
 
     with _raises(
         "Only ascending in ORDER BY distance clause is supported, DESC is not supported yet."
@@ -1679,6 +1741,214 @@ def test_vec0_create_errors():
     db.set_authorizer(None)
 
 
+def test_vec0_knn():
+    db = connect(EXT_PATH)
+    db.execute(
+        """
+          create virtual table v using vec0(
+            aaa float[8],
+            bbb int8[8],
+            ccc bit[8],
+            chunk_size=8
+          );
+        """
+    )
+
+    with _raises(
+        'Query vector on the "aaa" column is invalid: Input must have type BLOB (compact format) or TEXT (JSON), found NULL'
+    ):
+        db.execute("select * from v where aaa match NULL and k = 10")
+
+    with _raises(
+        'Query vector for the "aaa" column is expected to be of type float32, but a bit vector was provided.'
+    ):
+        db.execute("select * from v where aaa match vec_bit(X'AA') and k = 10")
+
+    with _raises(
+        'Dimension mismatch for inserted vector for the "aaa" column. Expected 8 dimensions but received 1.'
+    ):
+        db.execute("select * from v where aaa match vec_f32('[.1]') and k = 10")
+
+    qaaa = json.dumps([0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01])
+    with _raises("k value in knn queries must be greater than or equal to 0."):
+        db.execute("select * from v where aaa match vec_f32(?) and k = -1", [qaaa])
+
+    assert (
+        execute_all(db, "select * from v where aaa match vec_f32(?) and k = 0", [qaaa])
+        == []
+    )
+
+    # EVIDENCE-OF: V06942_23781
+    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_READ, "v_chunks", "chunk_id"))
+    with _raises(
+        "Error preparing stmtChunk: access to v_chunks.chunk_id is prohibited",
+        sqlite3.DatabaseError,
+    ):
+        db.execute("select * from v where aaa match vec_f32(?) and k = 5", [qaaa])
+    db.set_authorizer(None)
+
+    assert (
+        execute_all(db, "select * from v where aaa match vec_f32(?) and k = 5", [qaaa])
+        == []
+    )
+
+    db.executemany(
+        """
+               INSERT INTO v VALUES
+                (:id, :vector, vec_quantize_i8(:vector, 'unit') ,vec_quantize_binary(:vector));
+        """,
+        [
+            {
+                "id": i,
+                "vector": json.dumps(
+                    [
+                        i * 0.01,
+                        i * 0.01,
+                        i * 0.01,
+                        i * 0.01,
+                        i * 0.01,
+                        i * 0.01,
+                        i * 0.01,
+                        i * 0.01,
+                    ]
+                ),
+            }
+            for i in range(24)
+        ],
+    )
+
+    assert execute_all(
+        db, "select rowid from v where aaa match vec_f32(?) and k = 9", [qaaa]
+    ) == [
+        {"rowid": 1},
+        {"rowid": 2},  # ordering of 2 and 0 here depends on if min_idx uses < or <=
+        {"rowid": 0},  #
+        {"rowid": 3},
+        {"rowid": 4},
+        {"rowid": 5},
+        {"rowid": 6},
+        {"rowid": 7},
+        {"rowid": 8},
+    ]
+    # TODO separate test, DELETE FROM WHERE rowid in (...) is fullscan that calls vec0Rowid. try on text PKs
+    db.execute("delete from v where rowid in (1, 0, 8, 9)")
+    assert execute_all(
+        db, "select rowid from v where aaa match vec_f32(?) and k = 9", [qaaa]
+    ) == [
+        {"rowid": 2},
+        {"rowid": 3},
+        {"rowid": 4},
+        {"rowid": 5},
+        {"rowid": 6},
+        {"rowid": 7},
+        {"rowid": 10},
+        {"rowid": 11},
+        {"rowid": 12},
+    ]
+
+    # EVIDENCE-OF: V05271_22109 vec0 knn validates chunk size
+    db.commit()
+    db.execute("BEGIN")
+    db.execute("update v_chunks set validity = zeroblob(100)")
+    with _raises("chunk validity size doesn't match - expected 1, found 100"):
+        db.execute("select * from v where aaa match ? and k = 2", [qaaa])
+    db.rollback()
+
+    # EVIDENCE-OF: V02796_19635 vec0 knn validates rowids size
+    db.commit()
+    db.execute("BEGIN")
+    db.execute("update v_chunks set rowids = zeroblob(100)")
+    with _raises("chunk rowids size doesn't match - expected 64, found 100"):
+        db.execute("select * from v where aaa match ? and k = 2", [qaaa])
+    db.rollback()
+
+    # EVIDENCE-OF: V16465_00535 vec0 knn validates vector chunk size
+    db.commit()
+    db.execute("BEGIN")
+    db.execute("update v_vector_chunks00 set vectors = zeroblob(100)")
+    with _raises("vectors blob size doesn't match - expected 256, found 100"):
+        db.execute("select * from v where aaa match ? and k = 2", [qaaa])
+    db.rollback()
+
+
+import numpy.typing as npt
+
+
+def np_distance_l2(
+    vec: npt.NDArray[np.float32], mat: npt.NDArray[np.float32]
+) -> npt.NDArray[np.float32]:
+    return np.sqrt(np.sum((mat - vec) ** 2, axis=1))
+
+
+def np_topk(
+    vec: npt.NDArray[np.float32],
+    mat: npt.NDArray[np.float32],
+    k: int = 5,
+) -> tuple[npt.NDArray[np.int32], npt.NDArray[np.float32]]:
+    distances = np_distance_l2(vec, mat)
+    # Rather than sorting all similarities and taking the top K, it's faster to
+    # argpartition and then just sort the top K.
+    # The difference is O(N logN) vs O(N + k logk)
+    indices = np.argpartition(distances, kth=k)[:k]
+    top_indices = indices[np.argsort(distances[indices])]
+    return top_indices, distances[top_indices]
+
+
+# import faiss
+@pytest.mark.skip(reason="TODO")
+def test_correctness_npy():
+    db = connect(EXT_PATH)
+    np.random.seed(420 + 1 + 2)
+    mat = np.random.uniform(low=-1.0, high=1.0, size=(10000, 24)).astype(np.float32)
+    queries = np.random.uniform(low=-1.0, high=1.0, size=(1000, 24)).astype(np.float32)
+
+    # sqlite-vec with vec0
+    db.execute("create virtual table v using vec0(a float[24], chunk_size=8)")
+    for v in mat:
+        db.execute("insert into v(a) values (?)", [v])
+
+    # sqlite-vec with scalar functions
+    db.execute("create table t(a float[24])")
+    for v in mat:
+        db.execute("insert into t(a) values (?)", [v])
+
+    faiss_index = faiss.IndexFlatL2(24)
+    faiss_index.add(mat)
+
+    k = 10000 - 1
+    for idx, q in enumerate(queries):
+        print(idx)
+        result = execute_all(
+            db,
+            "select rowid - 1 as idx, distance from v where a match ? and k = ?",
+            [q, k],
+        )
+        vec_vtab_rowids = [row["idx"] for row in result]
+        vec_vtab_distances = [row["distance"] for row in result]
+
+        result = execute_all(
+            db,
+            "select rowid - 1 as idx, vec_distance_l2(a, ?) as distance from t order by 2 limit ?",
+            [q, k],
+        )
+        vec_scalar_rowids = [row["idx"] for row in result]
+        vec_scalar_distances = [row["distance"] for row in result]
+        assert vec_scalar_rowids == vec_vtab_rowids
+        assert vec_scalar_distances == vec_vtab_distances
+
+        faiss_distances, faiss_rowids = faiss_index.search(np.array([q]), k)
+        faiss_distances = np.sqrt(faiss_distances)
+        assert faiss_rowids[0].tolist() == vec_scalar_rowids
+        assert faiss_distances[0].tolist() == vec_scalar_distances
+
+        assert faiss_distances[0].tolist() == vec_vtab_distances
+        assert faiss_rowids[0].tolist() == vec_vtab_rowids
+
+        np_rowids, np_distances = np_topk(mat, q, k=k)
+        # assert vec_vtab_rowids == np_rowids.tolist()
+        # assert vec_vtab_distances == np_distances.tolist()
+
+
 def test_smoke():
     db.execute("create virtual table vec_xyz using vec0( a float[2] )")
     assert execute_all(
@@ -1834,19 +2104,14 @@ def test_vec0_stress_small_chunks():
                 "rowid": 500,
             },
             {
-                "a": _f32([499 * 0.1] * 8),
-                "distance": 0.2828384041786194,
-                "rowid": 499,
-            },
-            {
                 "a": _f32([501 * 0.1] * 8),
                 "distance": 0.2828384041786194,
                 "rowid": 501,
             },
             {
-                "a": _f32([498 * 0.1] * 8),
-                "distance": 0.5656875967979431,
-                "rowid": 498,
+                "a": _f32([499 * 0.1] * 8),
+                "distance": 0.2828384041786194,
+                "rowid": 499,
             },
             {
                 "a": _f32([502 * 0.1] * 8),
@@ -1854,14 +2119,19 @@ def test_vec0_stress_small_chunks():
                 "rowid": 502,
             },
             {
-                "a": _f32([497 * 0.1] * 8),
-                "distance": 0.8485260009765625,
-                "rowid": 497,
+                "a": _f32([498 * 0.1] * 8),
+                "distance": 0.5656875967979431,
+                "rowid": 498,
             },
             {
                 "a": _f32([503 * 0.1] * 8),
                 "distance": 0.8485260009765625,
                 "rowid": 503,
+            },
+            {
+                "a": _f32([497 * 0.1] * 8),
+                "distance": 0.8485260009765625,
+                "rowid": 497,
             },
             {
                 "a": _f32([496 * 0.1] * 8),
