@@ -308,7 +308,7 @@ def test_vec_distance_l1():
     check([1e10, 2e10, np.finfo(np.float32).max], [-1e10, -2e10, np.finfo(np.float32).min], dtype=np.float32)
     # overflow in leftover elements
     check([1e10, 2e10, 1e10, 2e10, np.finfo(np.float32).max], [-1e10, -2e10, -1e10, -2e10, np.finfo(np.float32).min], dtype=np.float32)
-    # overflow in neon elements (BROKEN)
+    # overflow in neon elements 
     check([np.finfo(np.float32).max, 1e10, 2e10, 1e10, 2e10], [np.finfo(np.float32).min, -1e10, -2e10, -1e10, -2e10], dtype=np.float32)
 
 def test_vec_distance_l2():
@@ -331,7 +331,13 @@ def test_vec_distance_l2():
 
     check([1.2, 0.1], [0.4, -0.4])
     check([-1.2, -0.1], [-0.4, 0.4])
+    # check([np.finfo(np.float32).max, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2], 
+    #       [np.finfo(np.float32).min, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2])
     check([1, 2, 3], [-9, -8, -7], dtype=np.int8)
+    # check([127, 127, 127], [-128, -128, -128], dtype=np.int8)
+    # check([127]*10, [-128]*10, dtype=np.int8)
+    # check([np.finfo(np.float32).max, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2], 
+    #       [np.finfo(np.float32).min, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2, 0.1, 1.2])
 
 
 

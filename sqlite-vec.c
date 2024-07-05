@@ -282,10 +282,13 @@ static double l1_f32_neon(const void *pVect1v, const void *pVect2v, const void *
     float32x4_t v2 = vld1q_f32(pVect2);
     pVect1 += 4;
     pVect2 += 4;
-    float32x4_t diff = vabdq_f32(v1, v2);
 
-    // f32x4 -> f64x2
-    acc = vaddq_f64(acc, vaddq_f64(vcvt_f64_f32(vget_low_f32(diff)), vcvt_high_f64_f32(diff)));
+    // f32x4 -> f64x2 to pad for overflow
+    float64x2_t low_diff = vabdq_f64(vcvt_f64_f32(vget_low_f32(v1)), vcvt_f64_f32(vget_low_f32(v2)));
+    float64x2_t high_diff = vabdq_f64(vcvt_high_f64_f32(v1), vcvt_high_f64_f32(v2));
+
+    acc = vaddq_f64(acc, vaddq_f64(low_diff, high_diff));
+    // acc = vaddq_f64(acc, vaddq_f64(vcvt_f64_f32(vget_low_f32(diff)), vcvt_high_f64_f32(diff)));
   }
 
   double sum = 0;
