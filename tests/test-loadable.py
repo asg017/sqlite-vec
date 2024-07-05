@@ -14,8 +14,10 @@ from math import isclose
 
 EXT_PATH = "./dist/vec0"
 
-SUPPORTS_SUBTYPE = sqlite3.version_info[1] > 38
-SUPPORTS_DROP_COLUMN = sqlite3.version_info[1] >= 35
+SUPPORTS_SUBTYPE = sqlite3.sqlite_version_info[1] > 38
+SUPPORTS_DROP_COLUMN = sqlite3.sqlite_version_info[1] >= 35
+SUPPORTS_VTAB_IN = sqlite3.sqlite_version_info[1] >= 38
+SUPPORTS_VTAB_LIMIT = sqlite3.sqlite_version_info[1] >= 41
 
 
 def bitmap_full(n: int) -> bytearray:
@@ -39,11 +41,19 @@ def _f32(list):
     return struct.pack("%sf" % len(list), *list)
 
 
+def _i64(list):
+    return struct.pack("%sq" % len(list), *list)
+
+
 def _int8(list):
     return struct.pack("%sb" % len(list), *list)
 
 
-def connect(ext, path=":memory:"):
+def bitmap(bitstring):
+    return bytes([int(bitstring, 2)])
+
+
+def connect(ext, path=":memory:", extra_entrypoint=None):
     db = sqlite3.connect(path)
 
     db.execute(
@@ -53,6 +63,9 @@ def connect(ext, path=":memory:"):
 
     db.enable_load_extension(True)
     db.load_extension(ext)
+
+    if extra_entrypoint:
+        db.execute("select load_extension(?, ?)", [ext, extra_entrypoint])
 
     db.execute(
         "create temp table loaded_functions as select name from pragma_function_list where name not in (select name from base_functions) order by name"
@@ -101,11 +114,33 @@ FUNCTIONS = [
     "vec_quantize_i8",
     "vec_quantize_i8",
     "vec_slice",
+    "vec_static_blob_from_raw",
     "vec_sub",
     "vec_to_json",
     "vec_version",
 ]
-MODULES = ["vec0", "vec_each", "vec_npy_each"]
+MODULES = [
+    "vec0",
+    "vec_each",
+    "vec_npy_each",
+    "vec_static_blob_entries",
+    "vec_static_blobs",
+]
+
+
+@pytest.mark.skip(reason="TODO")
+def test_vec_static_blob_from_raw():
+    pass
+
+
+@pytest.mark.skip(reason="TODO")
+def test_vec_static_blobs():
+    pass
+
+
+@pytest.mark.skip(reason="TODO")
+def test_vec_static_blob_entries():
+    pass
 
 
 def test_funcs():
@@ -452,6 +487,11 @@ def test_vec_slice():
     ):
         vec_slice(b"\xab\xab\xab\xab", 1, 0)
 
+    with _raises(
+        "slice 'start' index is equal to the 'end' index, vectors must have non-zero length"
+    ):
+        vec_slice(b"\xab\xab\xab\xab", 0, 0)
+
 
 def test_vec_add():
     vec_add = lambda *args, a="?", b="?": db.execute(
@@ -529,12 +569,11 @@ def test_vec_quantize_i8():
     assert vec_quantize_i8() == 111
 
 
-@pytest.mark.skip(reason="TODO")
 def test_vec_quantize_binary():
     vec_quantize_binary = lambda *args, input="?": db.execute(
         f"select vec_quantize_binary({input})", args
     ).fetchone()[0]
-    assert vec_quantize_binary("[-1, -1, -1, -1, 1, 1, 1, 1]") == 111
+    assert vec_quantize_binary("[-1, -1, -1, -1, 1, 1, 1, 1]") == b"\xf0"
 
 
 @pytest.mark.skip(reason="TODO")
@@ -542,7 +581,7 @@ def test_vec0():
     pass
 
 
-def test_vec0_updates():
+def test_vec0_inserts():
     db = connect(EXT_PATH)
     db.execute(
         """
@@ -572,18 +611,18 @@ def test_vec0_updates():
             "ccc": bitmap_full(128),
         }
     ]
-    db.execute(
-        "update t set aaa = ? where rowid = ?",
-        [np.full((128,), 0.00011, dtype="float32"), 1],
-    )
-    assert execute_all(db, "select * from t") == [
-        {
-            "rowid": 1,
-            "aaa": _f32([0.00011] * 128),
-            "bbb": _int8([4] * 128),
-            "ccc": bitmap_full(128),
-        }
-    ]
+    # db.execute(
+    #    "update t set aaa = ? where rowid = ?",
+    #    [np.full((128,), 0.00011, dtype="float32"), 1],
+    # )
+    # assert execute_all(db, "select * from t") == [
+    #    {
+    #        "rowid": 1,
+    #        "aaa": _f32([0.00011] * 128),
+    #        "bbb": _int8([4] * 128),
+    #        "ccc": bitmap_full(128),
+    #    }
+    # ]
 
     db.execute("create virtual table t1 using vec0(aaa float[4], chunk_size=8)")
     db.execute(
@@ -733,7 +772,7 @@ def test_vec0_updates():
     db.execute("insert into txt_pk(txt_id, aaa) values ('b', '[2,2,2,2]')")
 
 
-def test_vec0_update_insert_errors2():
+def test_vec0_insert_errors2():
     db = connect(EXT_PATH)
     db.execute("create virtual table t1 using vec0(aaa float[4], chunk_size=8)")
     db.execute(
@@ -808,6 +847,7 @@ def test_vec0_drops():
         "t1_vector_chunks00",
         "t1_vector_chunks01",
     ]
+
     db.execute("drop table t1")
     assert [
         row["name"]
@@ -817,7 +857,140 @@ def test_vec0_drops():
     ] == []
 
 
-def test_vec0_update_deletes():
+def test_vec0_delete():
+    db = connect(EXT_PATH)
+    db.execute("create virtual table t1 using vec0(aaa float[4], chunk_size=8)")
+    db.execute(
+        """
+      insert into t1(aaa) values
+      ('[1,1,1,1]'),
+      ('[2,1,1,1]'),
+      ('[3,1,1,1]'),
+      ('[4,1,1,1]'),
+      ('[5,1,1,1]'),
+      ('[6,1,1,1]')
+    """
+    )
+    assert execute_all(db, "select * from t1_rowids") == [
+        {
+            "chunk_id": 1,
+            "chunk_offset": 0,
+            "id": None,
+            "rowid": 1,
+        },
+        {
+            "chunk_id": 1,
+            "chunk_offset": 1,
+            "id": None,
+            "rowid": 2,
+        },
+        {
+            "chunk_id": 1,
+            "chunk_offset": 2,
+            "id": None,
+            "rowid": 3,
+        },
+        {
+            "chunk_id": 1,
+            "chunk_offset": 3,
+            "id": None,
+            "rowid": 4,
+        },
+        {
+            "chunk_id": 1,
+            "chunk_offset": 4,
+            "id": None,
+            "rowid": 5,
+        },
+        {
+            "chunk_id": 1,
+            "chunk_offset": 5,
+            "id": None,
+            "rowid": 6,
+        },
+    ]
+    assert execute_all(db, "select * from t1_chunks") == [
+        {
+            "chunk_id": 1,
+            "rowids": _i64([1, 2, 3, 4, 5, 6, 0, 0]),
+            "size": 8,
+            "validity": bitmap("00111111"),
+        }
+    ]
+    assert execute_all(db, "select * from t1_vector_chunks00") == [
+        {
+            "rowid": 1,
+            "vectors": _f32([1, 1, 1, 1])
+            + _f32([2, 1, 1, 1])
+            + _f32([3, 1, 1, 1])
+            + _f32([4, 1, 1, 1])
+            + _f32([5, 1, 1, 1])
+            + _f32([6, 1, 1, 1])
+            + _f32([0, 0, 0, 0])
+            + _f32([0, 0, 0, 0]),
+        }
+    ]
+
+    db.execute("DELETE FROM t1 WHERE rowid = 1")
+    assert execute_all(db, "select * from t1_rowids") == [
+        {
+            "chunk_id": 1,
+            "chunk_offset": 1,
+            "id": None,
+            "rowid": 2,
+        },
+        {
+            "chunk_id": 1,
+            "chunk_offset": 2,
+            "id": None,
+            "rowid": 3,
+        },
+        {
+            "chunk_id": 1,
+            "chunk_offset": 3,
+            "id": None,
+            "rowid": 4,
+        },
+        {
+            "chunk_id": 1,
+            "chunk_offset": 4,
+            "id": None,
+            "rowid": 5,
+        },
+        {
+            "chunk_id": 1,
+            "chunk_offset": 5,
+            "id": None,
+            "rowid": 6,
+        },
+    ]
+    # TODO finish delete support
+    # assert execute_all(db, "select * from t1_chunks") == [
+    #    {
+    #        'chunk_id': 1,
+    #        'rowids': _i64([0,2,3,4,5,6,0,0]),
+    #        'size': 8,
+    #        'validity': bitmap("00111110"),
+    #    }
+    # ]
+    # assert execute_all(db, "select * from t1_vector_chunks00") == [
+    #    {
+    #        'rowid': 1,
+    #        'vectors': _f32([0,0,0,0])
+    #        +_f32([2,1,1,1])
+    #        +_f32([3,1,1,1])
+    #        +_f32([4,1,1,1])
+    #        +_f32([5,1,1,1])
+    #        +_f32([6,1,1,1])
+    #        +_f32([0,0,0,0])
+    #        +_f32([0,0,0,0])
+    #    }
+    # ]
+
+    # TODO test with text primary keys
+
+
+def test_vec0_delete_errors():
     db = connect(EXT_PATH)
     db.execute("create virtual table t1 using vec0(aaa float[4], chunk_size=8)")
     db.execute(
@@ -836,8 +1009,35 @@ def test_vec0_update_deletes():
     # db.execute("begin")
     # db.execute("DELETE FROM t1_rowids WHERE rowid = 1")
     # with _raises("XXX"):
-    #    db.execute("DELETE FROM t1 where rowid = 1")
+    #   db.execute("DELETE FROM t1 where rowid = 1")
     # db.rollback()
+
+    # EVIDENCE-OF: V26002_10073 vec0 DELETE error on reading validity blob
+    if SUPPORTS_DROP_COLUMN:
+        db.commit()
+        db.execute("begin")
+        db.execute("ALTER TABLE t1_chunks DROP COLUMN validity")
+        with _raises("could not open validity blob for main.t1_chunks.1"):
+            db.execute("delete from t1 where rowid = 1")
+        db.rollback()
+
+    # EVIDENCE-OF: V21193_05263 vec0 DELETE verifies that the validity bit is 1 before clearing
+    db.commit()
+    db.execute("begin")
+    db.execute("UPDATE t1_chunks SET validity = zeroblob(1)")
+    with _raises(
+        "vec0 deletion error: validity bit is not set for main.t1_chunks.1 at 0"
+    ):
+        db.execute("delete from t1 where rowid = 1")
+    db.rollback()
+
+    # EVIDENCE-OF: V21193_05263 vec0 DELETE raises error on validity blob error
+    db.commit()
+    db.execute("begin")
+    db.execute("UPDATE t1_chunks SET validity = zeroblob(0)")
+    with _raises("could not read validity blob for main.t1_chunks.1 at 0"):
+        db.execute("delete from t1 where rowid = 1")
+    db.rollback()
 
     if False:  # TODO
         with _raises("XXX"):
@@ -849,6 +1049,331 @@ def test_vec0_update_deletes():
         with _raises("XXX"):
             db.execute("DELETE FROM t1 where rowid = 1")
         db.rollback()
+
+
+def test_vec0_updates():
+    db = connect(EXT_PATH)
+    db.execute(
+        """
+          create virtual table t3 using vec0(
+            aaa float[8],
+            bbb int8[8],
+            ccc bit[8]
+          );
+        """
+    )
+    db.execute(
+        """
+               INSERT INTO t3 VALUES
+                (1, :x, vec_quantize_i8(:x, 'unit') ,vec_quantize_binary(:x)),
+                (2, :y, vec_quantize_i8(:y, 'unit') ,vec_quantize_binary(:y)),
+                (3, :z, vec_quantize_i8(:z, 'unit') ,vec_quantize_binary(:z));
+        """,
+        {
+            "x": "[.1, .1, .1, .1, -.1, -.1, -.1, -.1]",
+            "y": "[-.2, .2, .2, .2, .2, .2, -.2, .2]",
+            "z": "[.3, .3, .3, .3, .3, .3, .3, .3]",
+        },
+    )
+    assert execute_all(db, "select * from t3") == [
+        {
+            "rowid": 1,
+            "aaa": _f32([0.1, 0.1, 0.1, 0.1, -0.1, -0.1, -0.1, -0.1]),
+            "bbb": _int8([12, 12, 12, 12, -13, -13, -13, -13]),
+            "ccc": bitmap("00001111"),
+        },
+        {
+            "rowid": 2,
+            "aaa": _f32([-0.2, 0.2, 0.2, 0.2, 0.2, 0.2, -0.2, 0.2]),
+            "bbb": _int8([-26, 24, 24, 24, 24, 24, -26, 24]),
+            "ccc": bitmap("10111110"),
+        },
+        {
+            "rowid": 3,
+            "aaa": _f32([0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3]),
+            "bbb": _int8(
+                [
+                    37,
+                    37,
+                    37,
+                    37,
+                    37,
+                    37,
+                    37,
+                    37,
+                ]
+            ),
+            "ccc": bitmap("11111111"),
+        },
+    ]
+
+    db.execute("UPDATE t3 SET aaa = ? WHERE rowid = 1", ["[.9,.9,.9,.9,.9,.9,.9,.9]"])
+    assert execute_all(db, "select * from t3") == [
+        {
+            "rowid": 1,
+            "aaa": _f32([0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9]),
+            "bbb": _int8([12, 12, 12, 12, -13, -13, -13, -13]),
+            "ccc": bitmap("00001111"),
+        },
+        {
+            "rowid": 2,
+            "aaa": _f32([-0.2, 0.2, 0.2, 0.2, 0.2, 0.2, -0.2, 0.2]),
+            "bbb": _int8([-26, 24, 24, 24, 24, 24, -26, 24]),
+            "ccc": bitmap("10111110"),
+        },
+        {
+            "rowid": 3,
+            "aaa": _f32([0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3]),
+            "bbb": _int8(
+                [
+                    37,
+                    37,
+                    37,
+                    37,
+                    37,
+                    37,
+                    37,
+                    37,
+                ]
+            ),
+            "ccc": bitmap("11111111"),
+        },
+    ]
+
+    # EVIDENCE-OF: V15203_32042 vec0 UPDATE validates vector
+    with _raises(
+        'Updated vector for the "aaa" column is invalid: invalid float32 vector BLOB length. Must be divisible by 4, found 1'
+    ):
+        db.execute("UPDATE t3 SET aaa = X'AB' WHERE rowid = 1")
+
+    # EVIDENCE-OF: V25739_09810 vec0 UPDATE validates dimension length
+    with _raises(
+        'Dimension mismatch for new updated vector for the "aaa" column. Expected 8 dimensions but received 1.'
+    ):
+        db.execute("UPDATE t3 SET aaa = vec_bit(X'AABBCCDD') WHERE rowid = 1")
+
+    # EVIDENCE-OF: V03643_20481 vec0 UPDATE validates vector column type
+    with _raises(
+        'Updated vector for the "bbb" column is expected to be of type int8, but a float32 vector was provided.'
+    ):
+        db.execute("UPDATE t3 SET bbb = X'ABABABAB' WHERE rowid = 1")
+
+    db.execute("CREATE VIRTUAL TABLE t2 USING vec0(a float[2], b float[2])")
+    db.execute("INSERT INTO t2(rowid, a, b) VALUES (1, '[.1, .1]', '[.2, .2]')")
+    assert execute_all(db, "select * from t2") == [
+        {
+            "rowid": 1,
+            "a": _f32([0.1, 0.1]),
+            "b": _f32([0.2, 0.2]),
+        }
+    ]
+    # sanity check: the 1st column UPDATE "works", but since the 2nd one fails,
+    # then aaa should remain unchanged.
+    with _raises(
+        'Dimension mismatch for new updated vector for the "b" column. Expected 2 dimensions but received 3.'
+    ):
+        db.execute(
+            "UPDATE t2 SET a = '[.11, .11]', b = '[.22, .22, .22]' WHERE rowid = 1"
+        )
+    assert execute_all(db, "select * from t2") == [
+        {
+            "rowid": 1,
+            "a": _f32([0.1, 0.1]),
+            "b": _f32([0.2, 0.2]),
+        }
+    ]
+    # TODO: set UPDATEs on int8/bit columns
+
+    # db.execute("UPDATE t3 SET ccc = vec_bit(?) WHERE rowid = 3", [bitmap('01010101')])
+    # assert execute_all(db, "select * from t3") == [
+    #     {
+    #         "rowid": 1,
+    #         "aaa": _f32([0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9]),
+    #         "bbb": _int8([12, 12, 12, 12, -13, -13, -13, -13]),
+    #         "ccc": bitmap("00001111"),
+    #     },
+    #     {
+    #         "rowid": 2,
+    #         "aaa": _f32([-0.2, 0.2, 0.2, 0.2, 0.2, 0.2, -0.2, 0.2]),
+    #         "bbb": _int8([-26, 24,  24,  24,  24,  24,  -26,  24]),
+    #         "ccc": bitmap("10111110"),
+    #     },
+    #     {
+    #         "rowid": 3,
+    #         "aaa": _f32([0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3]),
+    #         "bbb": _int8([37, 37, 37, 37, 37, 37, 37, 37, ]),
+    #         "ccc": bitmap("11111111"),
+    #     },
+    # ]
+
+
+def test_vec0_point():
+    db = connect(EXT_PATH)
+    db.execute("CREATE VIRTUAL TABLE t USING vec0(a float[1], b float[1])")
+    db.execute(
+        "INSERT INTO t VALUES (1, X'AABBCCDD', X'00112233'), (2, X'AABBCCDD', X'99887766');"
+    )
+
+    assert execute_all(db, "select * from t where rowid = 1") == [
+        {
+            "a": b"\xaa\xbb\xcc\xdd",
+            "b": b'\x00\x11"3',
+            "rowid": 1,
+        }
+    ]
+    assert execute_all(db, "select * from t where rowid = 999") == []
+
+    db.execute(
+        "CREATE VIRTUAL TABLE t2 USING vec0(id text primary key, a float[1], b float[1])"
+    )
+    db.execute(
+        "INSERT INTO t2 VALUES ('A', X'AABBCCDD', X'00112233'), ('B', X'AABBCCDD', X'99887766');"
+    )
+
+    assert execute_all(db, "select * from t2 where id = 'A'") == [
+        {
+            "a": b"\xaa\xbb\xcc\xdd",
+            "b": b'\x00\x11"3',
+            "id": "A",
+        }
+    ]
+
+    assert execute_all(db, "select * from t2 where id = 'xxx'") == []
+
+
+def test_vec0_text_pk():
+    db = connect(EXT_PATH)
+    db.execute(
+        """
+          create virtual table t using vec0(
+            t_id text primary key,
+            aaa float[1],
+            bbb float8[1],
+            chunk_size=8
+          );
+        """
+    )
+    assert execute_all(db, "select * from t") == []
+
+    with _raises(
+        "The t virtual table was declared with a TEXT primary key, but a non-TEXT value was provided in an INSERT."
+    ):
+        db.execute("INSERT INTO t VALUES (1, X'AABBCCDD', X'AABBCCDD')")
+
+    db.executemany(
+        "INSERT INTO t VALUES (:t_id, :aaa, :bbb)",
+        [
+            {
+                "t_id": "t_1",
+                "aaa": "[.1]",
+                "bbb": "[-.1]",
+            },
+            {
+                "t_id": "t_2",
+                "aaa": "[.2]",
+                "bbb": "[-.2]",
+            },
+            {
+                "t_id": "t_3",
+                "aaa": "[.3]",
+                "bbb": "[-.3]",
+            },
+        ],
+    )
+    assert execute_all(db, "select t_id from t") == [
+        {"t_id": "t_1"},
+        {"t_id": "t_2"},
+        {"t_id": "t_3"},
+    ]
+    assert execute_all(db, "select * from t") == [
+        {"t_id": "t_1", "aaa": _f32([0.1]), "bbb": _f32([-0.1])},
+        {"t_id": "t_2", "aaa": _f32([0.2]), "bbb": _f32([-0.2])},
+        {"t_id": "t_3", "aaa": _f32([0.3]), "bbb": _f32([-0.3])},
+    ]
+
+    # EVIDENCE-OF: V09901_26739 vec0 full scan catches _rowid prep error
+    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_READ, "t_rowids", "rowid"))
+    with _raises(
+        "Error preparing rowid scan: access to t_rowids.rowid is prohibited",
+        sqlite3.DatabaseError,
+    ):
+        db.execute("select * from t")
+    db.set_authorizer(None)
+
+    assert execute_all(
+        db, "select t_id, distance from t where aaa match ? and k = 3", ["[.01]"]
+    ) == [
+        {
+            "t_id": "t_1",
+            "distance": 0.09000000357627869,
+        },
+        {
+            "t_id": "t_2",
+            "distance": 0.1899999976158142,
+        },
+        {
+            "t_id": "t_3",
+            "distance": 0.2900000214576721,
+        },
+    ]
+
+    if SUPPORTS_VTAB_IN:
+        assert execute_all(
+            db,
+            "select t_id, distance from t where aaa match ? and k = 3 and t_id in ('t_2', 't_3')",
+            ["[.01]"],
+        ) == [
+            {
+                "t_id": "t_2",
+                "distance": 0.1899999976158142,
+            },
+            {
+                "t_id": "t_3",
+                "distance": 0.2900000214576721,
+            },
+        ]
+
+
+def test_vec0_best_index():
+    db = connect(EXT_PATH)
+    db.execute(
+        """
+          create virtual table t using vec0(
+            aaa float[1],
+            bbb float8[1]
+          );
+        """
+    )
+
+    with _raises("only 1 MATCH operator is allowed in a single vec0 query"):
+        db.execute("select * from t where aaa match NULL and bbb match NULL")
+
+    if SUPPORTS_VTAB_IN:
+        with _raises(
+            "only 1 'rowid in (..)' operator is allowed in a single vec0 query"
+        ):
+            db.execute("select * from t where rowid in(4,5,6) and rowid in (1, 2,3)")
+
+    with _raises("A LIMIT or 'k = ?' constraint is required on vec0 knn queries."):
+        db.execute("select * from t where aaa MATCH ?")
+
+    if SUPPORTS_VTAB_LIMIT:
+        with _raises("Only LIMIT or 'k =?' can be provided, not both"):
+            db.execute("select * from t where aaa MATCH ? and k = 10 limit 20")
+
+        with _raises(
+            "Only a single 'ORDER BY distance' clause is allowed on vec0 KNN queries"
+        ):
+            db.execute(
+                "select * from t where aaa MATCH NULL and k = 10 order by distance, distance"
+            )
+
+    with _raises(
+        "Only ascending in ORDER BY distance clause is supported, DESC is not supported yet."
+    ):
+        db.execute(
+            "select * from t where aaa MATCH NULL and k = 10 order by distance desc"
+        )
 
 
 def authorizer_deny_on(operation, x1, x2=None):
@@ -924,6 +1449,8 @@ def test_vec_npy_each():
         },
     ]
 
+    assert vec_npy_each(to_npy(np.array([], dtype=np.float32))) == []
+
 
 def test_vec_npy_each_errors():
     vec_npy_each = lambda *args: execute_all(
@@ -966,12 +1493,144 @@ def test_vec_npy_each_errors():
             b"\x93NUMPY\x01\x00v\x00{'descr' False                                                                                                           \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
         )
 
+    with _raises("expected a string value after 'descr' key"):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{'descr':                                                                                                  \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+
+    with _raises("Only '<f4' values are supported in sqlite-vec numpy functions"):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{'descr': '=f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+
+    with _raises(
+        "Only fortran_order = False is supported in sqlite-vec numpy functions"
+    ):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': True, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+
+    with _raises(
+        "Error parsing numpy array: Expected left parenthesis '(' after shape key"
+    ):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{'shape':  2, 'descr': '<f4', 'fortran_order': False, }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+
+    with _raises(
+        "Error parsing numpy array: Expected an initial number in shape value"
+    ):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{'shape':  (, 'descr': '<f4', 'fortran_order': False, }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+
+    with _raises("Error parsing numpy array: Expected comma after first shape value"):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{'shape':  (2), 'descr': '<f4', 'fortran_order': False, }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+
+    with _raises(
+        "Error parsing numpy array: unexpected header EOF while parsing shape"
+    ):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{'shape':  (2,                                                                                             \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+
+    with _raises("Error parsing numpy array: unknown type in shape value"):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{'shape':  (2, 'nope'                                                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+
+    with _raises(
+        "Error parsing numpy array: expected right parenthesis after shape value"
+    ):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{'shape':  (2,4 (                                                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+
+    with _raises("Error parsing numpy array: unknown key in numpy header"):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{'no': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+
+    with _raises("Error parsing numpy array: unknown extra token after value"):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{'descr': '<f4' 'asdf', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+
+    with _raises("numpy array error: Expected a data size of 32, found 31"):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3"
+        )
+
     # with _raises("XXX"):
     #    vec_npy_each(b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@")
-    # with _raises("XXX"):
-    #    vec_npy_each(b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@")
-    # with _raises("XXX"):
-    #    vec_npy_each(b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@")
+
+
+import tempfile
+
+
+def test_vec_npy_each_errors_files():
+    db = connect(EXT_PATH, extra_entrypoint="sqlite3_vec_fs_read_init")
+
+    def vec_npy_each(data):
+        with tempfile.NamedTemporaryFile(delete_on_close=False) as f:
+            f.write(data)
+            f.close()
+            try:
+                return execute_all(
+                    db, "select rowid, * from vec_npy_each(vec_npy_file(?))", [f.name]
+                )
+            finally:
+                f.close()
+
+    with _raises("Could not open numpy file"):
+        db.execute('select * from vec_npy_each(vec_npy_file("not exist"))')
+
+    with _raises("numpy array file too short"):
+        vec_npy_each(b"\x93NUMPY\x01\x00v")
+
+    with _raises("numpy array file does not contain the 'magic' header"):
+        vec_npy_each(b"\x93XUMPY\x01\x00v\x00")
+
+    with _raises("numpy array file header length is invalid"):
+        vec_npy_each(b"\x93NUMPY\x01\x00v\x00")
+
+    with _raises(
+        "Error parsing numpy array: Only fortran_order = False is supported in sqlite-vec numpy functions"
+    ):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': True, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
+        )
+
+    with _raises("numpy array file error: Expected a data size of 32, found 31"):
+        vec_npy_each(
+            b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3"
+        )
+
+    assert vec_npy_each(to_npy(np.array([1.1, 2.2, 3.3], dtype=np.float32))) == [
+        {
+            "rowid": 0,
+            "vector": _f32([1.1, 2.2, 3.3]),
+        },
+    ]
+    assert vec_npy_each(
+        to_npy(np.array([[1.1, 2.2, 3.3], [4.4, 5.5, 6.6]], dtype=np.float32))
+    ) == [
+        {
+            "rowid": 0,
+            "vector": _f32([1.1, 2.2, 3.3]),
+        },
+        {
+            "rowid": 1,
+            "vector": _f32([4.4, 5.5, 6.6]),
+        },
+    ]
+    assert vec_npy_each(to_npy(np.array([], dtype=np.float32))) == []
+    x1025 = vec_npy_each(to_npy(np.array([[0.1, 0.2, 0.3]] * 1025, dtype=np.float32)))
+    assert len(x1025) == 1025
+
+    # np.array([[.1, .2, 3]] * 99, dtype=np.float32).shape
 
 
 def test_vec0_constructor():
@@ -1127,6 +1786,214 @@ def test_vec0_create_errors():
     db.set_authorizer(None)
 
 
+def test_vec0_knn():
+    db = connect(EXT_PATH)
+    db.execute(
+        """
+          create virtual table v using vec0(
+            aaa float[8],
+            bbb int8[8],
+            ccc bit[8],
+            chunk_size=8
+          );
+        """
+    )
+
+    with _raises(
+        'Query vector on the "aaa" column is invalid: Input must have type BLOB (compact format) or TEXT (JSON), found NULL'
+    ):
+        db.execute("select * from v where aaa match NULL and k = 10")
+
+    with _raises(
+        'Query vector for the "aaa" column is expected to be of type float32, but a bit vector was provided.'
+    ):
+        db.execute("select * from v where aaa match vec_bit(X'AA') and k = 10")
+
+    with _raises(
+        'Dimension mismatch for inserted vector for the "aaa" column. Expected 8 dimensions but received 1.'
+    ):
+        db.execute("select * from v where aaa match vec_f32('[.1]') and k = 10")
+
+    qaaa = json.dumps([0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01])
+    with _raises("k value in knn queries must be greater than or equal to 0."):
+        db.execute("select * from v where aaa match vec_f32(?) and k = -1", [qaaa])
+
+    assert (
+        execute_all(db, "select * from v where aaa match vec_f32(?) and k = 0", [qaaa])
+        == []
+    )
+
+    # EVIDENCE-OF: V06942_23781
+    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_READ, "v_chunks", "chunk_id"))
+    with _raises(
+        "Error preparing stmtChunk: access to v_chunks.chunk_id is prohibited",
+        sqlite3.DatabaseError,
+    ):
+        db.execute("select * from v where aaa match vec_f32(?) and k = 5", [qaaa])
+    db.set_authorizer(None)
+
+    assert (
+        execute_all(db, "select * from v where aaa match vec_f32(?) and k = 5", [qaaa])
+        == []
+    )
+
+    db.executemany(
+        """
+               INSERT INTO v VALUES
+                (:id, :vector, vec_quantize_i8(:vector, 'unit') ,vec_quantize_binary(:vector));
+        """,
+        [
+            {
+                "id": i,
+                "vector": json.dumps(
+                    [
+                        i * 0.01,
+                        i * 0.01,
+                        i * 0.01,
+                        i * 0.01,
+                        i * 0.01,
+                        i * 0.01,
+                        i * 0.01,
+                        i * 0.01,
+                    ]
+                ),
+            }
+            for i in range(24)
+        ],
+    )
+
+    assert execute_all(
+        db, "select rowid from v where aaa match vec_f32(?) and k = 9", [qaaa]
+    ) == [
+        {"rowid": 1},
+        {"rowid": 2},  # ordering of 2 and 0 here depends on if min_idx uses < or <=
+        {"rowid": 0},  #
+        {"rowid": 3},
+        {"rowid": 4},
+        {"rowid": 5},
+        {"rowid": 6},
+        {"rowid": 7},
+        {"rowid": 8},
+    ]
+    # TODO separate test, DELETE FROM WHERE rowid in (...) is fullscan that calls vec0Rowid. try on text PKs
+    db.execute("delete from v where rowid in (1, 0, 8, 9)")
+    assert execute_all(
+        db, "select rowid from v where aaa match vec_f32(?) and k = 9", [qaaa]
+    ) == [
+        {"rowid": 2},
+        {"rowid": 3},
+        {"rowid": 4},
+        {"rowid": 5},
+        {"rowid": 6},
+        {"rowid": 7},
+        {"rowid": 10},
+        {"rowid": 11},
+        {"rowid": 12},
+    ]
+
+    # EVIDENCE-OF: V05271_22109 vec0 knn validates chunk size
+    db.commit()
+    db.execute("BEGIN")
+    db.execute("update v_chunks set validity = zeroblob(100)")
+    with _raises("chunk validity size doesn't match - expected 1, found 100"):
+        db.execute("select * from v where aaa match ? and k = 2", [qaaa])
+    db.rollback()
+
+    # EVIDENCE-OF: V02796_19635 vec0 knn validates rowids size
+    db.commit()
+    db.execute("BEGIN")
+    db.execute("update v_chunks set rowids = zeroblob(100)")
+    with _raises("chunk rowids size doesn't match - expected 64, found 100"):
+        db.execute("select * from v where aaa match ? and k = 2", [qaaa])
+    db.rollback()
+
+    # EVIDENCE-OF: V16465_00535 vec0 knn validates vector chunk size
+    db.commit()
+    db.execute("BEGIN")
+    db.execute("update v_vector_chunks00 set vectors = zeroblob(100)")
+    with _raises("vectors blob size doesn't match - expected 256, found 100"):
+        db.execute("select * from v where aaa match ? and k = 2", [qaaa])
+    db.rollback()
+
+
+import numpy.typing as npt
+
+
+def np_distance_l2(
+    vec: npt.NDArray[np.float32], mat: npt.NDArray[np.float32]
+) -> npt.NDArray[np.float32]:
+    return np.sqrt(np.sum((mat - vec) ** 2, axis=1))
+
+
+def np_topk(
+    vec: npt.NDArray[np.float32],
+    mat: npt.NDArray[np.float32],
+    k: int = 5,
+) -> tuple[npt.NDArray[np.int32], npt.NDArray[np.float32]]:
+    distances = np_distance_l2(vec, mat)
+    # Rather than sorting all similarities and taking the top K, it's faster to
+    # argpartition and then just sort the top K.
+    # The difference is O(N logN) vs O(N + k logk)
+    indices = np.argpartition(distances, kth=k)[:k]
+    top_indices = indices[np.argsort(distances[indices])]
+    return top_indices, distances[top_indices]
+
+
+# import faiss
+@pytest.mark.skip(reason="TODO")
+def test_correctness_npy():
+    db = connect(EXT_PATH)
+    np.random.seed(420 + 1 + 2)
+    mat = np.random.uniform(low=-1.0, high=1.0, size=(10000, 24)).astype(np.float32)
+    queries = np.random.uniform(low=-1.0, high=1.0, size=(1000, 24)).astype(np.float32)
+
+    # sqlite-vec with vec0
+    db.execute("create virtual table v using vec0(a float[24], chunk_size=8)")
+    for v in mat:
+        db.execute("insert into v(a) values (?)", [v])
+
+    # sqlite-vec with scalar functions
+    db.execute("create table t(a float[24])")
+    for v in mat:
+        db.execute("insert into t(a) values (?)", [v])
+
+    faiss_index = faiss.IndexFlatL2(24)
+    faiss_index.add(mat)
+
+    k = 10000 - 1
+    for idx, q in enumerate(queries):
+        print(idx)
+        result = execute_all(
+            db,
+            "select rowid - 1 as idx, distance from v where a match ? and k = ?",
+            [q, k],
+        )
+        vec_vtab_rowids = [row["idx"] for row in result]
+        vec_vtab_distances = [row["distance"] for row in result]
+
+        result = execute_all(
+            db,
+            "select rowid - 1 as idx, vec_distance_l2(a, ?) as distance from t order by 2 limit ?",
+            [q, k],
+        )
+        vec_scalar_rowids = [row["idx"] for row in result]
+        vec_scalar_distances = [row["distance"] for row in result]
+        assert vec_scalar_rowids == vec_vtab_rowids
+        assert vec_scalar_distances == vec_vtab_distances
+
+        faiss_distances, faiss_rowids = faiss_index.search(np.array([q]), k)
+        faiss_distances = np.sqrt(faiss_distances)
+        assert faiss_rowids[0].tolist() == vec_scalar_rowids
+        assert faiss_distances[0].tolist() == vec_scalar_distances
+
+        assert faiss_distances[0].tolist() == vec_vtab_distances
+        assert faiss_rowids[0].tolist() == vec_vtab_rowids
+
+        np_rowids, np_distances = np_topk(mat, q, k=k)
+        # assert vec_vtab_rowids == np_rowids.tolist()
+        # assert vec_vtab_distances == np_distances.tolist()
+
+
 def test_smoke():
     db.execute("create virtual table vec_xyz using vec0( a float[2] )")
     assert execute_all(
@@ -1160,6 +2027,13 @@ def test_smoke():
             "select * from vec_xyz where a match X'' and k = 10 order by distance"
         ),
     )
+    if SUPPORTS_VTAB_LIMIT:
+        assert re.match(
+            "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 0:knn:",
+            explain_query_plan(
+                "select * from vec_xyz where a match X'' order by distance limit 10"
+            ),
+        )
     assert re.match(
         "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 0:fullscan",
         explain_query_plan("select * from vec_xyz"),
@@ -1275,19 +2149,14 @@ def test_vec0_stress_small_chunks():
                 "rowid": 500,
             },
             {
-                "a": _f32([499 * 0.1] * 8),
-                "distance": 0.2828384041786194,
-                "rowid": 499,
-            },
-            {
                 "a": _f32([501 * 0.1] * 8),
                 "distance": 0.2828384041786194,
                 "rowid": 501,
             },
             {
-                "a": _f32([498 * 0.1] * 8),
-                "distance": 0.5656875967979431,
-                "rowid": 498,
+                "a": _f32([499 * 0.1] * 8),
+                "distance": 0.2828384041786194,
+                "rowid": 499,
             },
             {
                 "a": _f32([502 * 0.1] * 8),
@@ -1295,14 +2164,19 @@ def test_vec0_stress_small_chunks():
                 "rowid": 502,
             },
             {
-                "a": _f32([497 * 0.1] * 8),
-                "distance": 0.8485260009765625,
-                "rowid": 497,
+                "a": _f32([498 * 0.1] * 8),
+                "distance": 0.5656875967979431,
+                "rowid": 498,
             },
             {
                 "a": _f32([503 * 0.1] * 8),
                 "distance": 0.8485260009765625,
                 "rowid": 503,
+            },
+            {
+                "a": _f32([497 * 0.1] * 8),
+                "distance": 0.8485260009765625,
+                "rowid": 497,
             },
             {
                 "a": _f32([496 * 0.1] * 8),

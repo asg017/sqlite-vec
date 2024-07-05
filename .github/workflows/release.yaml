@@ -16,7 +16,7 @@ jobs:
           name: sqlite-vec-linux-x86_64-extension
           path: dist/*
   build-macos-x86_64-extension:
-    runs-on: macos-11
+    runs-on: macos-12
     steps:
       - uses: actions/checkout@v3
       - run: ./scripts/vendor.sh
@@ -49,6 +49,29 @@ jobs:
         with:
           name: sqlite-vec-windows-x86_64-extension
           path: dist/*
+  build-windows-x86_64-extension-msvc:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: ./scripts/vendor.sh
+        shell: bash
+      - run: make sqlite-vec.h
+      - run: mkdir dist
+      - run: cl.exe /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c -o dist/vec0.dll
+      - run: pip install pytest numpy; make test-loadable
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-windows-x86_64-msvc-extension
+          path: dist/*
+      - run: gh release upload ${{ github.ref_name }} dist/vec0.dll
+        env:
+          GH_TOKEN: ${{ github.token }}
   build-wasm32-emscripten:
     runs-on: ubuntu-latest
     steps:
@@ -98,7 +121,7 @@ jobs:
           name: sqlite-vec-wasm32-emscripten
           path: dist/wasm32-emscripten
       - run: |
-          curl -L https://github.com/asg017/sqlite-dist/releases/download/v0.0.1-alpha.6/sqlite-dist-x86_64-unknown-linux-gnu.tar.xz \
+          curl -L https://github.com/asg017/sqlite-dist/releases/download/v0.0.1-alpha.7/sqlite-dist-x86_64-unknown-linux-gnu.tar.xz \
             | tar xfJ - --strip-components 1
       - run: make sqlite-vec.h
       - run: ./sqlite-dist ./sqlite-dist.toml --input dist/ --output distx/ --version $(cat VERSION)

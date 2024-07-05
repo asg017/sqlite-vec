@@ -3,6 +3,7 @@
 sift/
 *.tar.gz
 *.db
+*.npy
 *.bin
 *.out
 venv/
