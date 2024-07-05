@@ -52,7 +52,7 @@ jobs:
       - run: ./scripts/vendor.sh
         shell: bash
       - run: make loadable static CC=gcc
-      - run: pip install pytest numpy; make test-loadable
+      - run: pip install pytest numpy; make test-loadable CC=gcc
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-windows-x86_64-extension
