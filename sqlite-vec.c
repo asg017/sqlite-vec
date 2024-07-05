@@ -6435,7 +6435,8 @@ static int vec_static_blob_entriesColumn(sqlite3_vtab_cursor *cur,
 
       sqlite3_result_blob(
           context,
-          p->blob->p + (pCur->iRowid * p->blob->dimensions * sizeof(float)),
+          ((unsigned char *)p->blob->p) +
+              (pCur->iRowid * p->blob->dimensions * sizeof(float)),
           p->blob->dimensions * sizeof(float), SQLITE_STATIC);
       sqlite3_result_subtype(context, p->blob->element_type);
       break;
@@ -6447,9 +6448,10 @@ static int vec_static_blob_entriesColumn(sqlite3_vtab_cursor *cur,
     case VEC_STATIC_BLOB_ENTRIES_VECTOR: {
       i32 rowid = ((i32 *)pCur->knn_data->rowids)[pCur->knn_data->current_idx];
 
-      sqlite3_result_blob(
-          context, p->blob->p + (rowid * p->blob->dimensions * sizeof(float)),
-          p->blob->dimensions * sizeof(float), SQLITE_STATIC);
+      sqlite3_result_blob(context,
+                          ((unsigned char *)p->blob->p) +
+                              (rowid * p->blob->dimensions * sizeof(float)),
+                          p->blob->dimensions * sizeof(float), SQLITE_STATIC);
       sqlite3_result_subtype(context, p->blob->element_type);
       break;
     }
