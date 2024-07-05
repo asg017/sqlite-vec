@@ -73,6 +73,20 @@ cli: $(TARGET_CLI)
 
 all: loadable static cli
 
+OBJS_DIR=$(prefix)/.objs
+LIBS_DIR=$(prefix)/.libs
+BUILD_DIR=$(prefix)/.build
+
+$(OBJS_DIR): $(prefix)
+	mkdir -p $@
+
+$(LIBS_DIR): $(prefix)
+	mkdir -p $@
+
+$(BUILD_DIR): $(prefix)
+	mkdir -p $@
+
+
 $(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(prefix)
 	$(CC) \
 		-fPIC -shared \
@@ -90,19 +104,6 @@ $(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(prefix) $(OBJS_DIR)
 $(TARGET_STATIC_H): sqlite-vec.h $(prefix)
 	cp $< $@
 
-
-OBJS_DIR=$(prefix)/.objs
-LIBS_DIR=$(prefix)/.libs
-BUILD_DIR=$(prefix)/.build
-
-$(OBJS_DIR): $(prefix)
-	mkdir -p $@
-
-$(LIBS_DIR): $(prefix)
-	mkdir -p $@
-
-$(BUILD_DIR): $(prefix)
-	mkdir -p $@
 
 $(OBJS_DIR)/sqlite3.o: vendor/sqlite3.c $(OBJS_DIR)
 	$(CC) -c -g3 -O3 -DSQLITE_EXTRA_INIT=core_init -DSQLITE_CORE -DSQLITE_ENABLE_STMT_SCANSTATUS -DSQLITE_ENABLE_BYTECODE_VTAB -DSQLITE_ENABLE_EXPLAIN_COMMENTS -I./vendor $< -o $@
