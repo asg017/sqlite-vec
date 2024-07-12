@@ -129,12 +129,12 @@ function sidebar(): DefaultTheme.SidebarItem[] {
       collapsed: true,
       items: [
         {
-          text: "Installation",
-          link: "/installation",
-        },
-        {
           text: "Introduction",
           link: "/introduction",
+        },
+        {
+          text: "Installation",
+          link: "/installation",
         },
         {
           text: "Quick Start",

@@ -19,8 +19,8 @@ features:
     details: On laptops, servers, mobile devices, browsers with WASM, Raspberry Pis, and more!
   - title: Bindings for many languages
     details: Python, Ruby, Node.js/Deno/Bun, Go, Rust, and more!
-  - title: Only SQL
-    details: No extra configuration or server, only CREATEs, INSERTs, and SELECTs
+  - title: Pure SQL
+    details: No extra configuration or server required — only CREATE, INSERT, and SELECT statements
 ---
 
 ```sqlite
