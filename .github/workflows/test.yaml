@@ -89,6 +89,24 @@ jobs:
         with:
           name: sqlite-vec-wasm32-emscripten
           path: dist/*
+  build-ncruces-go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make sqlite-vec.h
+      - uses: actions/checkout@v4
+        with:
+          repository: ncruces/go-sqlite3
+          path: go-sqlite3
+      - run: .github/workflows/repro.sh
+        working-directory: go-sqlite3/
+      - run: git apply ../bindings/go/ncruces/go-sqlite3.patch
+        working-directory: go-sqlite3/
+      - run: ./scripts/vendor.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-ncruces-go
+          path: dist/*
   build-cosmopolitan:
     runs-on: macos-latest
     steps:

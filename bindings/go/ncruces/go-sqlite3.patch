@@ -9,7 +9,7 @@ index 36183bb..d202a26 100755
 +	-DSQLITE_VEC_OMIT_FS=1 \
  	-DSQLITE_CUSTOM_INCLUDE=sqlite_opt.h \
  	$(awk '{print "-Wl,--export="$0}' exports.txt)
- 
+
 diff --git a/embed/sqlite3.wasm b/embed/sqlite3.wasm
 index 569f0b3..b1d9693 100755
 Binary files a/embed/sqlite3.wasm and b/embed/sqlite3.wasm differ
@@ -22,9 +22,9 @@ index 4fb926b..49a9ee9 100644
  #include "vfs.c"
  #include "vtab.c"
 -
-+#include "../../../../../sqlite-vec.c"
++#include "../../sqlite-vec.c"
  sqlite3_destructor_type malloc_destructor = &free;
- 
+
  __attribute__((constructor)) void init() {
 @@ -28,4 +28,5 @@ __attribute__((constructor)) void init() {
    sqlite3_auto_extension((void (*)(void))sqlite3_series_init);
