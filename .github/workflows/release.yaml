@@ -206,3 +206,32 @@ jobs:
         working-directory: ./bindings/rust
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  build-ncruces-go:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: make sqlite-vec.h
+      - uses: actions/checkout@v4
+        with:
+          repository: ncruces/go-sqlite3
+          path: go-sqlite3
+      - run: git apply ../bindings/go/ncruces/go-sqlite3.patch
+        working-directory: go-sqlite3/
+      - run: |
+          mkdir -p tools/
+          [ -d "tools/wasi-sdk"* ]         || curl -#L "$WASI_SDK" | tar xzC tools &
+          [ -d "tools/binaryen-version"* ] || curl -#L "$BINARYEN" | tar xzC tools &
+          wait
+          sqlite3/download.sh
+          embed/build.sh
+        env:
+          WASI_SDK: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-23/wasi-sdk-23.0-linux.tar.gz"
+          BINARYEN: "https://github.com/WebAssembly/binaryen/releases/download/version_118/binaryen-version_118-x86_64-linux.tar.gz"
+        working-directory: go-sqlite3/
+      - run: cp go-sqlite3/embed/sqlite3.wasm sqlite-vec-$(cat VERSION)-ncruces-go.wasm
+      - run: gh release upload ${{ github.ref_name }} sqlite-vec-$(cat VERSION)-ncruces-go.wasm
+        env:
+          GH_TOKEN: ${{ github.token }}
