@@ -12,9 +12,9 @@ sqlite-vec.h: ../../sqlite-vec.h
 		cp $< $@
 
 sqlite3ext.h: ../../vendor/sqlite3ext.h
-	cp $< $@
+		cp $< $@
 
-sqlite3.h:
-	cp $< $@
+sqlite3.h: ../../vendor/sqlite3.h
+		cp $< $@
 
 .PHONY: deps
