@@ -10,6 +10,9 @@ import (
 	"github.com/ncruces/go-sqlite3"
 )
 
+//go:embed sqlite3.vec.wasm
+var sqliteWithVecWasm []byte
+
 func serializeFloat32(vector []float32) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	err := binary.Write(buf, binary.LittleEndian, vector)
@@ -19,15 +22,11 @@ func serializeFloat32(vector []float32) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-const memory = ":memory:"
-
-//go:embed sqlite3.vec.wasm
-var sqliteWithVecWasm []byte
 
 func main() {
 	sqlite3.Binary = sqliteWithVecWasm
 
-	db, err := sqlite3.Open(memory)
+	db, err := sqlite3.Open(":memory:")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -36,6 +35,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	stmt.Step()
+
+	fmt.Printf("sqlite_version=%s, vec_version=%s\n", stmt.ColumnText(0), stmt.ColumnText(1))
 
 
 	err = db.Exec("CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[4])")
