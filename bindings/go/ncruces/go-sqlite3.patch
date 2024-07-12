@@ -1,17 +1,17 @@
 diff --git a/embed/build.sh b/embed/build.sh
-index 36183bb..d202a26 100755
+index 014bd22..f9ccc7d 100755
 --- a/embed/build.sh
 +++ b/embed/build.sh
-@@ -20,6 +20,7 @@ WASI_SDK="$ROOT/tools/wasi-sdk-22.0/bin"
- 	-Wl,--stack-first \
- 	-Wl,--import-undefined \
+@@ -21,6 +21,7 @@ WASI_SDK="$ROOT/tools/wasi-sdk-23.0/bin"
+ 	-Wl,--initial-memory=327680 \
  	-D_HAVE_SQLITE_CONFIG_H \
-+	-DSQLITE_VEC_OMIT_FS=1 \
  	-DSQLITE_CUSTOM_INCLUDE=sqlite_opt.h \
++  -DSQLITE_VEC_OMIT_FS=1 \
  	$(awk '{print "-Wl,--export="$0}' exports.txt)
-
+ 
+ trap 'rm -f sqlite3.tmp' EXIT
 diff --git a/sqlite3/main.c b/sqlite3/main.c
-index 4fb926b..49a9ee9 100644
+index 4fb926b..4cade42 100644
 --- a/sqlite3/main.c
 +++ b/sqlite3/main.c
 @@ -16,7 +16,7 @@
@@ -21,7 +21,7 @@ index 4fb926b..49a9ee9 100644
 -
 +#include "../../sqlite-vec.c"
  sqlite3_destructor_type malloc_destructor = &free;
-
+ 
  __attribute__((constructor)) void init() {
 @@ -28,4 +28,5 @@ __attribute__((constructor)) void init() {
    sqlite3_auto_extension((void (*)(void))sqlite3_series_init);
