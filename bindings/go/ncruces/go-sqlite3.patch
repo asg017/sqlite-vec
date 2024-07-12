@@ -10,9 +10,6 @@ index 36183bb..d202a26 100755
  	-DSQLITE_CUSTOM_INCLUDE=sqlite_opt.h \
  	$(awk '{print "-Wl,--export="$0}' exports.txt)
 
-diff --git a/embed/sqlite3.wasm b/embed/sqlite3.wasm
-index 569f0b3..b1d9693 100755
-Binary files a/embed/sqlite3.wasm and b/embed/sqlite3.wasm differ
 diff --git a/sqlite3/main.c b/sqlite3/main.c
 index 4fb926b..49a9ee9 100644
 --- a/sqlite3/main.c

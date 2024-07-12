@@ -98,15 +98,14 @@ jobs:
         with:
           repository: ncruces/go-sqlite3
           path: go-sqlite3
-      - run: .github/workflows/repro.sh
-        working-directory: go-sqlite3/
       - run: git apply ../bindings/go/ncruces/go-sqlite3.patch
         working-directory: go-sqlite3/
-      - run: ./scripts/vendor.sh
+      - run: .github/workflows/repro.sh
+        working-directory: go-sqlite3/
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-ncruces-go
-          path: dist/*
+          path: go-sqlite3/embed/sqlite3.wasm
   build-cosmopolitan:
     runs-on: macos-latest
     steps:
