@@ -1,0 +1,35 @@
+diff --git a/embed/build.sh b/embed/build.sh
+index 36183bb..d202a26 100755
+--- a/embed/build.sh
++++ b/embed/build.sh
+@@ -20,6 +20,7 @@ WASI_SDK="$ROOT/tools/wasi-sdk-22.0/bin"
+ 	-Wl,--stack-first \
+ 	-Wl,--import-undefined \
+ 	-D_HAVE_SQLITE_CONFIG_H \
++	-DSQLITE_VEC_OMIT_FS=1 \
+ 	-DSQLITE_CUSTOM_INCLUDE=sqlite_opt.h \
+ 	$(awk '{print "-Wl,--export="$0}' exports.txt)
+ 
+diff --git a/embed/sqlite3.wasm b/embed/sqlite3.wasm
+index 569f0b3..b1d9693 100755
+Binary files a/embed/sqlite3.wasm and b/embed/sqlite3.wasm differ
+diff --git a/sqlite3/main.c b/sqlite3/main.c
+index 4fb926b..49a9ee9 100644
+--- a/sqlite3/main.c
++++ b/sqlite3/main.c
+@@ -16,7 +16,7 @@
+ #include "time.c"
+ #include "vfs.c"
+ #include "vtab.c"
+-
++#include "../../../../../sqlite-vec.c"
+ sqlite3_destructor_type malloc_destructor = &free;
+ 
+ __attribute__((constructor)) void init() {
+@@ -28,4 +28,5 @@ __attribute__((constructor)) void init() {
+   sqlite3_auto_extension((void (*)(void))sqlite3_series_init);
+   sqlite3_auto_extension((void (*)(void))sqlite3_uint_init);
+   sqlite3_auto_extension((void (*)(void))sqlite3_time_init);
++  sqlite3_auto_extension((void (*)(void))sqlite3_vec_init);
+ }
+\ No newline at end of file

@@ -56,9 +56,11 @@ SQLITE_EXTENSION_INIT1
 #ifndef _WIN32
 #ifndef __EMSCRIPTEN__
 #ifndef __COSMOPOLITAN__
+#ifndef __wasi__
 typedef u_int8_t uint8_t;
 typedef u_int16_t uint16_t;
 typedef u_int64_t uint64_t;
+#endif
 #endif
 #endif
 #endif
@@ -375,7 +377,7 @@ static f32 distance_hamming(const void *a, const void *b, const void *d) {
 
 // from SQLite source:
 // https://github.com/sqlite/sqlite/blob/a509a90958ddb234d1785ed7801880ccb18b497e/src/json.c#L153
-static const char jsonIsSpace[] = {
+static const char jsonIsSpaceX[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -390,7 +392,7 @@ static const char jsonIsSpace[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
-#define jsonIsspace(x) (jsonIsSpace[(unsigned char)x])
+#define jsonIsspace(x) (jsonIsSpaceX[(unsigned char)x])
 
 typedef void (*vector_cleanup)(void *p);
 
@@ -2411,6 +2413,7 @@ struct vec_npy_each_cursor {
 
 static unsigned char NPY_MAGIC[6] = "\x93NUMPY";
 
+#ifndef SQLITE_VEC_OMIT_FS
 int parse_npy_file(sqlite3_vtab *pVTab, FILE *file, vec_npy_each_cursor *pCur) {
   int n;
   fseek(file, 0, SEEK_END);
@@ -2499,6 +2502,7 @@ int parse_npy_file(sqlite3_vtab *pVTab, FILE *file, vec_npy_each_cursor *pCur) {
   pCur->file = file;
   return SQLITE_OK;
 }
+#endif
 
 int parse_npy_buffer(sqlite3_vtab *pVTab, const unsigned char *buffer,
                      int bufferLength, void **data, size_t *numElements,
@@ -2595,7 +2599,9 @@ static int vec_npy_eachOpen(sqlite3_vtab *p, sqlite3_vtab_cursor **ppCursor) {
 static int vec_npy_eachClose(sqlite3_vtab_cursor *cur) {
   vec_npy_each_cursor *pCur = (vec_npy_each_cursor *)cur;
   if (pCur->file) {
+    #ifndef SQLITE_VEC_OMIT_FS
     fclose(pCur->file);
+    #endif
     pCur->file = NULL;
   }
   if (pCur->chunksBuffer) {
@@ -2649,7 +2655,9 @@ static int vec_npy_eachFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
   vec_npy_each_cursor *pCur = (vec_npy_each_cursor *)pVtabCursor;
 
   if (pCur->file) {
+    #ifndef SQLITE_VEC_OMIT_FS
     fclose(pCur->file);
+    #endif
     pCur->file = NULL;
   }
   if (pCur->chunksBuffer) {
@@ -2662,6 +2670,7 @@ static int vec_npy_eachFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
 
   struct VecNpyFile *f = NULL;
 
+  #ifndef SQLITE_VEC_OMIT_FS
   if ((f = sqlite3_value_pointer(argv[0], SQLITE_VEC_NPY_FILE_NAME))) {
     FILE *file = fopen(f->path, "r");
     if (!file) {
@@ -2671,11 +2680,15 @@ static int vec_npy_eachFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
 
     rc = parse_npy_file(pVtabCursor->pVtab, file, pCur);
     if (rc != SQLITE_OK) {
+      #ifndef SQLITE_VEC_OMIT_FS
       fclose(file);
+      #endif
       return rc;
     }
 
-  } else {
+  } else
+  #endif
+   {
 
     const unsigned char *input = sqlite3_value_blob(argv[0]);
     int inputLength = sqlite3_value_bytes(argv[0]);
@@ -2722,6 +2735,7 @@ static int vec_npy_eachNext(sqlite3_vtab_cursor *cur) {
     return SQLITE_OK;
   }
 
+  #ifndef SQLITE_VEC_OMIT_FS
   // else: input is a file
   pCur->currentChunkIndex++;
   if (pCur->currentChunkIndex >= pCur->currentChunkSize) {
@@ -2734,6 +2748,7 @@ static int vec_npy_eachNext(sqlite3_vtab_cursor *cur) {
     }
     pCur->currentChunkIndex = 0;
   }
+  #endif
   return SQLITE_OK;
 }
 
@@ -4150,15 +4165,6 @@ int bitmap_get(u8 *bitmap, i32 position) {
 void bitmap_clear(u8 *bitmap, i32 n) {
   assert((n % 8) == 0);
   memset(bitmap, 0, n / CHAR_BIT);
-}
-
-void bitmap_debug(u8 *bitmap, i32 n) {
-  for (int i = 0; i < n; i++) {
-    printf("%d", bitmap_get(bitmap, i));
-    if (i > 0 && (i % 8 == 0))
-      printf("|");
-  }
-  printf("\n");
 }
 
 /**
@@ -6700,10 +6706,10 @@ __declspec(dllexport)
                                 &vec_static_blob_entriesModule,
                                 static_blob_data, NULL);
   assert(rc == SQLITE_OK);
-
   return SQLITE_OK;
 }
 
+#ifndef SQLITE_VEC_OMIT_FS
 #ifdef _WIN32
 __declspec(dllexport)
 #endif
@@ -6716,6 +6722,7 @@ __declspec(dllexport)
                                   NULL, vec_npy_file, NULL, NULL, NULL);
   return rc;
 }
+#endif
 
 #ifdef SQLITE_VEC_ENABLE_TRACE_ENTRYPOINT
 
