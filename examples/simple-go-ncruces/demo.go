@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"log"
 
+	_ "github.com/asg017/sqlite-vec-ncruces-bindings"
 	"github.com/ncruces/go-sqlite3"
 )
 
-//go:embed sqlite3.vec.wasm
-var sqliteWithVecWasm []byte
 
 func serializeFloat32(vector []float32) ([]byte, error) {
 	buf := new(bytes.Buffer)
@@ -24,8 +23,6 @@ func serializeFloat32(vector []float32) ([]byte, error) {
 
 
 func main() {
-	sqlite3.Binary = sqliteWithVecWasm
-
 	db, err := sqlite3.Open(":memory:")
 	if err != nil {
 		log.Fatal(err)

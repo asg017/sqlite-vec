@@ -1,3 +1,5 @@
+github.com/asg017/sqlite-vec-ncruces-bindings v0.0.1-alpha.33 h1:Nrzcj5C3Ex64pWvfV6XMgc8KoMfnKoMmibjXJHTdbbY=
+github.com/asg017/sqlite-vec-ncruces-bindings v0.0.1-alpha.33/go.mod h1:2ji5nzTNgmzsJaKEnxLNRbsMHF17Bv9EbVEf0jQTAyA=
 github.com/ncruces/go-sqlite3 v0.17.2-0.20240711235451-21de85e849b7 h1:ssM02uUFDfz0V2TMg2du2BjbW9cpOhFJK0kpDN+X768=
 github.com/ncruces/go-sqlite3 v0.17.2-0.20240711235451-21de85e849b7/go.mod h1:FnCyui8SlDoL0mQZ5dTouNo7s7jXS0kJv9lBt1GlM9w=
 github.com/ncruces/julianday v1.0.0 h1:fH0OKwa7NWvniGQtxdJRxAgkBMolni2BjDHaWTxqt7M=
