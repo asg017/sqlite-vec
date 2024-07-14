@@ -236,6 +236,7 @@ jobs:
         with:
           repository: asg017/sqlite-vec-ncruces-bindings
           path: sqlite-vec-ncruces-bindings
+          token: ${{secrets.NCRUCES_BINDINGS_REPO_PAT}}
       - run: cp go-sqlite3/embed/sqlite3.wasm sqlite-vec-ncruces-bindings/sqlite3.wasm
       - run: |
           git config user.name "Alex Garcia"
