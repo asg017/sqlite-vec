@@ -238,8 +238,6 @@ jobs:
           path: sqlite-vec-ncruces-bindings
       - run: cp go-sqlite3/embed/sqlite3.wasm sqlite-vec-ncruces-bindings/sqlite3.wasm
       - run: |
-          git config user.name "Automated"
-          git config user.email "actions@users.noreply.github.com"
           git add sqlite3.wasm
           git commit --allow-empty -m "${{ github.ref_name }}" || exit 0
           git tag  "${{ github.ref_name }}"
