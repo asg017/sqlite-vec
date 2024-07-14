@@ -243,3 +243,5 @@ jobs:
           git tag  "${{ github.ref_name }}"
           git push origin main "${{ github.ref_name }}"
         working-directory: sqlite-vec-ncruces-bindings
+        env:
+          GITHUB_TOKEN: ${{secrets.NCRUCES_BINDINGS_REPO_PAT}}
