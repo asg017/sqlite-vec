@@ -24,13 +24,13 @@ binary quantized 8-dimensional vector can be stored in a single byte — one bit
 per element. For 1 million vectors, that would be just `1MB`, a 32x reduction!
 
 Though keep in mind, you're bound to lose a lot quality when reducing 32 bits of
-information to 1 bit. [Over-sampling and re-scoring](#re-scoring) will help a
+information to 1 bit. [Oversampling and re-scoring](#re-scoring) will help a
 lot.
 
 The main goal of BQ is to dramatically reduce the size of your vector index,
-resulting in faster searches and less resources. This is especially useful in
+resulting in faster searches with less resources. This is especially useful in
 `sqlite-vec`, which is (currently) brute-force only and meant to run on small
-devices. BQ is an easy low-cost method to make larger vector datasets easy to
+devices. BQ is an easy low-cost method to make larger vector datasets easier to
 manage.
 
 ## Binary Quantization `sqlite-vec`
@@ -41,7 +41,9 @@ element in a given vector, it will apply `0` to negative values and `1` to
 positive values, and pack them into a `BLOB`.
 
 ```sqlite
-select vec_quantize_binary('[-0.73, -0.80, 0.12, -0.73, 0.79, -0.11, 0.23, 0.97]');
+select vec_quantize_binary(
+  '[-0.73, -0.80, 0.12, -0.73, 0.79, -0.11, 0.23, 0.97]'
+);
 -- X'd4`
 ```
 
@@ -50,6 +52,9 @@ The single byte `0xd4` in hexadecimal is `11010100` in binary.
 <!-- TODO what https://github.com/asg017/sqlite-vec/issues/23 -->
 
 ## Demo
+
+Here's an end-to-end example of using binary quantization with `vec0` virtual
+tables in `sqlite-vec`.
 
 ```sqlite
 create virtual table vec_movies using vec0(
