@@ -523,6 +523,10 @@ static int fvec_from_value(sqlite3_value *value, f32 **vector,
   if (value_type == SQLITE_TEXT) {
     const char *source = (const char *)sqlite3_value_text(value);
     int source_len = sqlite3_value_bytes(value);
+    if(source_len == 0) {
+      *pzErr = sqlite3_mprintf("zero-length vectors are not supported.");
+      return SQLITE_ERROR;
+    }
     int i = 0;
 
     struct Array x;
@@ -657,6 +661,11 @@ static int int8_vec_from_value(sqlite3_value *value, i8 **vector,
     const char *source = (const char *)sqlite3_value_text(value);
     int source_len = sqlite3_value_bytes(value);
     int i = 0;
+
+    if(source_len == 0) {
+      *pzErr = sqlite3_mprintf("zero-length vectors are not supported.");
+      return SQLITE_ERROR;
+    }
 
     struct Array x;
     int rc = array_init(&x, sizeof(i8), ceil(source_len / 2.0));
@@ -805,7 +814,7 @@ int ensure_vector_match(sqlite3_value *aValue, sqlite3_value *bValue, void **a,
   int rc;
   enum VectorElementType aType, bType;
   size_t aDims, bDims;
-  char *error;
+  char *error = NULL;
   vector_cleanup aCleanup, bCleanup;
 
   rc = vector_from_value(aValue, a, &aDims, &aType, &aCleanup, &error);
@@ -828,8 +837,8 @@ int ensure_vector_match(sqlite3_value *aValue, sqlite3_value *bValue, void **a,
         sqlite3_mprintf("Vector type mistmatch. First vector has type %s, "
                         "while the second has type %s.",
                         vector_subtype_name(aType), vector_subtype_name(bType));
-    aCleanup(a);
-    bCleanup(b);
+    aCleanup(*a);
+    bCleanup(*b);
     return SQLITE_ERROR;
   }
   if (aDims != bDims) {
@@ -837,8 +846,8 @@ int ensure_vector_match(sqlite3_value *aValue, sqlite3_value *bValue, void **a,
         "Vector dimension mistmatch. First vector has %ld dimensions, "
         "while the second has %ld dimensions.",
         aDims, bDims);
-    aCleanup(a);
-    bCleanup(b);
+    aCleanup(*a);
+    bCleanup(*b);
     return SQLITE_ERROR;
   }
   *element_type = aType;
@@ -879,7 +888,7 @@ static void vec_npy_file(sqlite3_context *context, int argc,
 static void vec_f32(sqlite3_context *context, int argc, sqlite3_value **argv) {
   assert(argc == 1);
   int rc;
-  f32 *vector;
+  f32 *vector = NULL;
   size_t dimensions;
   fvec_cleanup cleanup;
   char *errmsg;
@@ -953,7 +962,7 @@ static void vec_distance_cosine(sqlite3_context *context, int argc,
                                 sqlite3_value **argv) {
   assert(argc == 2);
   int rc;
-  void *a, *b;
+  void *a = NULL, *b = NULL;
   size_t dimensions;
   vector_cleanup aCleanup, bCleanup;
   char *error;
@@ -995,7 +1004,7 @@ static void vec_distance_l2(sqlite3_context *context, int argc,
                             sqlite3_value **argv) {
   assert(argc == 2);
   int rc;
-  void *a, *b;
+  void *a = NULL, *b = NULL;
   size_t dimensions;
   vector_cleanup aCleanup, bCleanup;
   char *error;
@@ -1035,7 +1044,7 @@ static void vec_distance_hamming(sqlite3_context *context, int argc,
                                  sqlite3_value **argv) {
   assert(argc == 2);
   int rc;
-  void *a, *b;
+  void *a = NULL, *b = NULL;
   size_t dimensions;
   vector_cleanup aCleanup, bCleanup;
   char *error;
@@ -1187,7 +1196,7 @@ static void vec_quantize_binary(sqlite3_context *context, int argc,
 static void vec_add(sqlite3_context *context, int argc, sqlite3_value **argv) {
   assert(argc == 2);
   int rc;
-  void *a, *b;
+  void *a = NULL, *b = NULL;
   size_t dimensions;
   vector_cleanup aCleanup, bCleanup;
   char *error;
@@ -1244,7 +1253,7 @@ finish:
 static void vec_sub(sqlite3_context *context, int argc, sqlite3_value **argv) {
   assert(argc == 2);
   int rc;
-  void *a, *b;
+  void *a = NULL, *b = NULL;
   size_t dimensions;
   vector_cleanup aCleanup, bCleanup;
   char *error;

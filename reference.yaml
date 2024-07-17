@@ -1,9 +1,19 @@
 sections:
-  meta: Meta functions
-  constructor: Vector constructor functions
-  op: Vector operation functions
-  distance: Vector distance functions
-  quantize: Vector quantization functions
+  meta:
+    title: Meta
+    desc: TODO
+  constructors:
+    title: Constructors
+    desc: TODO
+  op:
+    title: Operations
+    desc: TODO
+  distance:
+    title: Distance functions
+    desc: TODO
+  quantization:
+    title: Quantization
+    desc: TODO
 functions:
   vec_version:
     params: []
@@ -15,33 +25,31 @@ functions:
     section: meta
     desc: Returns debugging information of the current `sqlite-vec` installation.
     example: select vec_debug();
-  vec_bit:
-    params: [vector]
-    section: constructor
-    desc: Creates a binary vector from a BLOB.
-    example:
-      - select vec_bit(X'F0');
-      - select subtype(vec_bit(X'F0'));
-      - select vec_to_json(vec_bit(X'F0'));
   vec_f32:
     params: [vector]
-    section: constructor
+    section: constructors
     desc: |
       Creates a float vector from a BLOB or JSON text. If a BLOB is provided,
       the length must be divisible by 4, as a float takes up 4 bytes of space each.
+
+      The returned value is a BLOB with 4 bytes per element, with a special [subtype](https://www.sqlite.org/c3ref/result_subtype.html)
+      of `223`.
     example:
-      - select vec_float32('[.1, .2, .3, 4]');
-      - select subtype(vec_float32('[.1, .2, .3, 4]'));
-      - select vec_float32(X'AABBCCDD');
-      - select vec_to_json(vec_float32(X'AABBCCDD'));
-      - select vec_float32(X'AA');
+      - select vec_f32('[.1, .2, .3, 4]');
+      - select subtype(vec_f32('[.1, .2, .3, 4]'));
+      - select vec_f32(X'AABBCCDD');
+      - select vec_to_json(vec_f32(X'AABBCCDD'));
+      - select vec_f32(X'AA');
   vec_int8:
     params: [vector]
-    section: constructor
-    desc:  |
+    section: constructors
+    desc: |
       Creates a 8-bit integer vector from a BLOB or JSON text. If a BLOB is provided,
       the length must be divisible by 4, as a float takes up 4 bytes of space each.
       If JSON text is provided, each element must be an integer between -128 and 127 inclusive.
+
+      The returned value is a BLOB with 1 byte per element, with a special [subtype](https://www.sqlite.org/c3ref/result_subtype.html)
+      of `225`.
 
     example:
       - select vec_int8('[1, 2, 3, 4]');
@@ -50,14 +58,44 @@ functions:
       - select vec_to_json(vec_int8(X'AABBCCDD'));
       - select vec_int8('[999]');
 
+  vec_bit:
+    params: [vector]
+    section: constructors
+    desc: |
+      Creates a binary vector from a BLOB.
+
+      The returned value is a BLOB with 4 bytes per element, with a special [subtype](https://www.sqlite.org/c3ref/result_subtype.html)
+      of `224`.
+    example:
+      - select vec_bit(X'F0');
+      - select subtype(vec_bit(X'F0'));
+      - select vec_to_json(vec_bit(X'F0'));
+  vec_length:
+    params: [vector]
+    section: op
+    desc: |
+      Returns the number of elements in the given vector.
+      The vector can be `JSON`, `BLOB`, or the result of a [constructor function](#constructors).
+
+      This function will return an error if `vector` is invalid.
+    example:
+      - select vec_length('[.1, .2]');
+      - select vec_length(X'AABBCCDD');
+      - select vec_length(vec_int8(X'AABBCCDD'));
+      - select vec_length(vec_bit(X'AABBCCDD'));
+      - select vec_length(X'CCDD');
   vec_add:
     params: [a, b]
     section: op
     desc: |
-      Adds each element in vector `a` with vector `b`, returning a new vector `c`. Both vectors
-      must be of the same type, and can only be a `float32` or `int8` vector.
-    example: |
-      - select vec_add(
+      Adds every element in vector `a` with vector `b`, returning a new vector `c`. Both vectors
+      must be of the same type and same length. Only `float32` and `int8` vectors are supported.
+
+      An error is raised if either `a` or `b` are invalid, or if they are not the same type or same length.
+
+    example:
+      - |
+        select vec_add(
           '[.1, .2, .3]',
           '[.4, .5, .6]'
         );
@@ -70,89 +108,101 @@ functions:
         );
       - |
         select vec_to_json(
-          vec_int8('[1, 2, 3]'),
-          vec_int8('[4, 5, 6]')
-        )
-  vec_length:
-    params: []
-    section: op
-    desc: x
-    example: x
-  vec_normalize:
-    params: []
-    section: op
-    desc: x
-    example: x
-  vec_slice:
-    params: []
-    section: op
-    desc: x
-    example: x
+          vec_add(
+            vec_int8('[1, 2, 3]'),
+            vec_int8('[4, 5, 6]')
+          )
+        );
+      - select vec_add('[.1]', vec_int8('[1]'));
+      - select vec_add(vec_bit(X'AA'), vec_bit(X'BB'));
   vec_sub:
-    params: []
+    params: [a, b]
     section: op
     desc: x
-    example: x
+    example:
+      - |
+        select vec_sub(
+          '[.1, .2, .3]',
+          '[.4, .5, .6]'
+        );
+      - |
+        select vec_to_json(
+          vec_sub(
+            '[.1, .2, .3]',
+            '[.4, .5, .6]'
+          )
+        );
+      - |
+        select vec_to_json(
+          vec_sub(
+            vec_int8('[1, 2, 3]'),
+            vec_int8('[4, 5, 6]')
+          )
+        );
+      - select vec_sub('[.1]', vec_int8('[1]'));
+      - select vec_sub(vec_bit(X'AA'), vec_bit(X'BB'));
+  vec_normalize:
+    params: [vector]
+    section: op
+    desc: x
+    example: select 'todo';
+  vec_slice:
+    params: [vector, start, end]
+    section: op
+    desc: x
+    example: select 'todo';
   vec_to_json:
-    params: []
+    params: [vector]
     section: op
     desc: x
-    example: x
+    example: select 'todo';
 
   vec_distance_cosine:
-    params: []
+    params: [a, b]
     section: distance
     desc: x
-    example: x
+    example: select 'todo';
   vec_distance_hamming:
-    params: []
+    params: [a, b]
     section: distance
     desc: x
-    example: x
+    example: select 'todo';
   vec_distance_l2:
-    params: []
+    params: [a, b]
     section: distance
     desc: x
-    example: x
+    example: select 'todo';
 
   vec_quantize_binary:
-    params: []
+    params: [vector]
     section: quantization
     desc: x
-    example: x
+    example: select 'todo';
   vec_quantize_i8:
-    params: []
+    params: [vector, "[start]", "[end]"]
     section: quantization
     desc: x
-    example: x
-  vec_quantize_i8:
-    params: []
-    section: quantization
-    desc: x
-    example: x
-
-table_functions:
-  vec_each:
-    columns: [rowid, value]
-    inputs: ["vector"]
-    desc:
-    example:
-  vec_npy_each:
-    columns: [rowid, vector]
-    inputs: ["input"]
-    desc:
-    example:
-
-virtual_tables:
-  vec0:
-    desc:
-    example:
-
-entrypoints:
-  sqlite3_vec_init: {}
-  sqlite3_vec_fs_read_init: {}
-compile_options:
-  - SQLITE_VEC_ENABLE_AVX
-  - SQLITE_VEC_ENABLE_NEON
-  - SQLITE_VEC_OMIT_FS
-
+    example: select 'todo';
+#table_functions:
+#  vec_each:
+#    columns: [rowid, value]
+#    inputs: ["vector"]
+#    desc:
+#    example:
+#  vec_npy_each:
+#    columns: [rowid, vector]
+#    inputs: ["input"]
+#    desc:
+#    example:
+#virtual_tables:
+#  vec0:
+#    desc:
+#    example:
+#entrypoints:
+#  sqlite3_vec_init: {}
+#  sqlite3_vec_fs_read_init: {}
+#compile_options:
+#  - SQLITE_VEC_ENABLE_AVX
+#  - SQLITE_VEC_ENABLE_NEON
+#  - SQLITE_VEC_OMIT_FS
+#

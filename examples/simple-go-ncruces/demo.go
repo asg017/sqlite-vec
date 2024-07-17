@@ -4,7 +4,6 @@ import (
 	"bytes"
 	_ "embed"
 	"encoding/binary"
-	"fmt"
 	"log"
 
 	_ "github.com/asg017/sqlite-vec-ncruces-bindings"
@@ -35,7 +34,7 @@ func main() {
 
 	stmt.Step()
 
-	fmt.Printf("sqlite_version=%s, vec_version=%s\n", stmt.ColumnText(0), stmt.ColumnText(1))
+	log.Printf("sqlite_version=%s, vec_version=%s\n", stmt.ColumnText(0), stmt.ColumnText(1))
 
 
 	err = db.Exec("CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[4])")
@@ -96,7 +95,7 @@ func main() {
 	for stmt.Step() {
 		rowid := stmt.ColumnInt64(0)
 		distance := stmt.ColumnFloat(1)
-		fmt.Printf("rowid=%d, distance=%f\n", rowid, distance)
+		log.Printf("rowid=%d, distance=%f\n", rowid, distance)
 	}
 	if err := stmt.Err(); err != nil {
 		log.Fatal(err)

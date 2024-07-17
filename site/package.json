@@ -1,7 +1,8 @@
 {
   "scripts": {
+    "ref": "node build-ref.mjs",
     "dev": "vitepress dev",
-    "build": "vitepress build",
+    "build": "npm run ref && vitepress build",
     "preview": "vitepress preview"
   },
   "devDependencies": {
@@ -9,6 +10,10 @@
   },
   "dependencies": {
     "@types/node": "^20.12.8",
+    "better-sqlite3": "^11.1.2",
+    "js-yaml": "^4.1.0",
+    "table": "^6.8.2",
+    "valibot": "^0.36.0",
     "vitepress": "^1.1.4"
   }
 }
