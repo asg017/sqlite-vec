@@ -2,7 +2,7 @@
   "scripts": {
     "ref": "node build-ref.mjs",
     "dev": "vitepress dev",
-    "build": "npm run ref && vitepress build",
+    "build": "vitepress build",
     "preview": "vitepress preview"
   },
   "devDependencies": {
