@@ -234,17 +234,20 @@ jobs:
         working-directory: go-sqlite3/
       - uses: actions/checkout@v4
         with:
-          repository: asg017/sqlite-vec-ncruces-bindings
-          path: sqlite-vec-ncruces-bindings
+          repository: asg017/sqlite-vec-bindings-go
+          path: sqlite-vec-bindings-go
           token: ${{secrets.NCRUCES_BINDINGS_REPO_PAT}}
-      - run: cp go-sqlite3/embed/sqlite3.wasm sqlite-vec-ncruces-bindings/sqlite3.wasm
+      - run: |
+          cp go-sqlite3/embed/sqlite3.wasm sqlite-vec-bindings-go/ncruces/sqlite3.wasm
+          cp sqlite-vec.c sqlite-vec-bindings-go/cgo/sqlite-vec.c
+          cp sqlite-vec.h sqlite-vec-bindings-go/cgo/sqlite-vec.h
       - run: |
           git config user.name "Alex Garcia"
           git config user.email "alexsebastian.garcia@gmail.com"
-          git add sqlite3.wasm
+          git add .
           git commit --allow-empty -m "AUTOMATED ${{ github.ref_name }}" || exit 0
           git tag  "${{ github.ref_name }}"
           git push origin main "${{ github.ref_name }}"
-        working-directory: sqlite-vec-ncruces-bindings
+        working-directory: sqlite-vec-bindings-go
         env:
           GITHUB_TOKEN: ${{secrets.NCRUCES_BINDINGS_REPO_PAT}}
