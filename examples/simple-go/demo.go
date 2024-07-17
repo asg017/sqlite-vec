@@ -7,12 +7,10 @@ import (
 	"fmt"
 	"log"
 
-	sqlite_vec "github.com/asg017/sqlite-vec/bindings/go/cgo"
+	sqlite_vec "github.com/asg017/sqlite-vec-go-bindings/cgo"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// #cgo LDFLAGS: -L../../dist
-import "C"
 
 func serializeFloat32(vector []float32) ([]byte, error) {
 	buf := new(bytes.Buffer)

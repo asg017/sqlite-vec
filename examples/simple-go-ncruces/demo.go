@@ -1,25 +1,12 @@
 package main
 
 import (
-	"bytes"
 	_ "embed"
-	"encoding/binary"
 	"log"
 
-	_ "github.com/asg017/sqlite-vec-ncruces-bindings"
+	sqlite_vec "github.com/asg017/sqlite-vec-go-bindings/ncruces"
 	"github.com/ncruces/go-sqlite3"
 )
-
-
-func serializeFloat32(vector []float32) ([]byte, error) {
-	buf := new(bytes.Buffer)
-	err := binary.Write(buf, binary.LittleEndian, vector)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
 
 func main() {
 	db, err := sqlite3.Open(":memory:")
@@ -56,7 +43,7 @@ func main() {
 	}
 
 	for id, values := range items {
-		v, err := serializeFloat32(values)
+		v, err := sqlite_vec.SerializeFloat32(values)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -86,7 +73,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	query, err := serializeFloat32(q)
+	query, err := sqlite_vec.SerializeFloat32(q)
 	if err != nil {
 		log.Fatal(err)
 	}
