@@ -231,7 +231,7 @@ static f32 l2_sqr_int8_neon(const void *pVect1v, const void *pVect2v,
   return sqrtf(sum_scalar);
 }
 
-static i64 l1_int8_neon(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+static i32 l1_int8_neon(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
   i8 *pVect1 = (i8 *)pVect1v;
   i8 *pVect2 = (i8 *)pVect2v;
   size_t qty = *((size_t *)qty_ptr);
@@ -276,12 +276,11 @@ static double l1_f32_neon(const void *pVect1v, const void *pVect2v, const void *
     pVect1 += 4;
     pVect2 += 4;
 
-    // f32x4 -> f64x2 to pad for overflow
+    // f32x4 -> f64x2 pad for overflow
     float64x2_t low_diff = vabdq_f64(vcvt_f64_f32(vget_low_f32(v1)), vcvt_f64_f32(vget_low_f32(v2)));
     float64x2_t high_diff = vabdq_f64(vcvt_high_f64_f32(v1), vcvt_high_f64_f32(v2));
 
     acc = vaddq_f64(acc, vaddq_f64(low_diff, high_diff));
-    // acc = vaddq_f64(acc, vaddq_f64(vcvt_f64_f32(vget_low_f32(diff)), vcvt_high_f64_f32(diff)));
   }
 
   double sum = 0;
@@ -349,12 +348,12 @@ static f32 distance_l2_sqr_int8(const void *a, const void *b, const void *d) {
   return l2_sqr_int8(a, b, d);
 }
 
-static i64 l1_int8(const void *pA, const void *pB, const void *pD) {
+static i32 l1_int8(const void *pA, const void *pB, const void *pD) {
   i8 *a = (i8 *)pA;
   i8 *b = (i8 *)pB;
   size_t d = *((size_t *)pD); 
 
-  i64 res = 0; 
+  i32 res = 0; 
   for (size_t i = 0; i < d; i++) {
     res += abs(*a - *b);
     a++;
@@ -364,7 +363,7 @@ static i64 l1_int8(const void *pA, const void *pB, const void *pD) {
   return res;
 }
 
-static i64 distance_l1_int8(const void *a, const void *b, const void *d) {
+static i32 distance_l1_int8(const void *a, const void *b, const void *d) {
   #ifdef SQLITE_VEC_ENABLE_NEON
   if ((*(const size_t *)d) > 15) {
     return l1_int8_neon(a, b, d);
@@ -1146,7 +1145,7 @@ finish:
 
 static void vec_distance_l1(sqlite3_context *context, int argc,
                             sqlite3_value **argv) {
-  todo_assert(argc == 2);
+  assert(argc == 2);
   int rc;
   void *a, *b;
   size_t dimensions;
