@@ -1167,9 +1167,6 @@ static void vec_distance_l1(sqlite3_context *context, int argc,
     goto finish;
   }
   case SQLITE_VEC_ELEMENT_TYPE_FLOAT32: {
-    // TODO: implement distance_l1_f32
-    // sqlite3_result_error(
-    //     context, "Cannot calculate L1 distance between two float vectors (not implemented yet).", -1);
     double result = distance_l1_f32(a, b, &dimensions);
     sqlite3_result_double(context, result);
     goto finish;
