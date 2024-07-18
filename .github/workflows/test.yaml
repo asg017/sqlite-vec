@@ -52,7 +52,7 @@ jobs:
       - run: ./scripts/vendor.sh
         shell: bash
       - run: make loadable static CC=gcc
-      - run: pip install pytest numpy; make test-loadable
+      - run: pip install pytest numpy; make test-loadable CC=gcc
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-windows-x86_64-extension
@@ -89,14 +89,42 @@ jobs:
         with:
           name: sqlite-vec-wasm32-emscripten
           path: dist/*
+  build-ncruces-go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make sqlite-vec.h
+      - uses: actions/checkout@v4
+        with:
+          repository: ncruces/go-sqlite3
+          path: go-sqlite3
+      - run: git apply ../bindings/go/ncruces/go-sqlite3.patch
+        working-directory: go-sqlite3/
+      - run: |
+          mkdir -p tools/
+          [ -d "tools/wasi-sdk"* ]         || curl -#L "$WASI_SDK" | tar xzC tools &
+          [ -d "tools/binaryen-version"* ] || curl -#L "$BINARYEN" | tar xzC tools &
+          wait
+          sqlite3/download.sh
+          embed/build.sh
+        env:
+          WASI_SDK: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-23/wasi-sdk-23.0-linux.tar.gz"
+          BINARYEN: "https://github.com/WebAssembly/binaryen/releases/download/version_118/binaryen-version_118-x86_64-linux.tar.gz"
+        working-directory: go-sqlite3/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-ncruces-go
+          path: go-sqlite3/embed/sqlite3.wasm
   build-cosmopolitan:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - run: |
           mkdir $HOME/cosmo
-          curl -L -o cosmocc-3.3.6.zip https://github.com/jart/cosmopolitan/releases/download/3.3.6/cosmocc-3.3.6.zip
-          unzip cosmocc-3.3.6.zip -d $HOME/cosmo
+          curl -L -o cosmocc-$COSMO_VERSION.zip https://github.com/jart/cosmopolitan/releases/download/$COSMO_VERSION/cosmocc-$COSMO_VERSION.zip
+          unzip cosmocc-$COSMO_VERSION.zip -d $HOME/cosmo
+        env:
+          COSMO_VERSION: "3.5.4"
       - run: ./scripts/vendor.sh
       - run: make cli CC=$HOME/cosmo/bin/cosmocc AR=$HOME/cosmo/bin/cosmoar OMIT_SIMD=1
       - uses: actions/upload-artifact@v4

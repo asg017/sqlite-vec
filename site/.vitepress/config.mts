@@ -48,6 +48,7 @@ const guides = {
   collapsed: true,
   items: [
     { text: "Performance", link: "/guides/performance" },
+
     {
       text: "Vector operations",
       items: [
@@ -129,17 +130,23 @@ function sidebar(): DefaultTheme.SidebarItem[] {
       collapsed: true,
       items: [
         {
-          text: "Installation",
-          link: "/installation",
-        },
-        {
           text: "Introduction",
           link: "/introduction",
         },
         {
-          text: "Quick Start",
-          link: "/quickstart",
+          text: "Installation",
+          link: "/installation",
         },
+      ],
+    },
+    {
+      text: "Features",
+      collapsed: true,
+      items: [
+        { text: "Vector formats", link: "/vector-formats" },
+        { text: "KNN queries", link: "/knn" },
+        { text: "vec0 virtual vables", link: "/vec0" },
+        { text: "Static blobs", link: "/numpy" },
       ],
     },
     {

@@ -8,35 +8,71 @@ functions:
   vec_version:
     params: []
     section: meta
-    desc: Returns a version string of the current `sqlite-vec` version.
+    desc: Returns a version string of the current `sqlite-vec` installation.
     example: select vec_version();
   vec_debug:
     params: []
     section: meta
-    desc: x
-    example: x
-
+    desc: Returns debugging information of the current `sqlite-vec` installation.
+    example: select vec_debug();
   vec_bit:
-    params: []
+    params: [vector]
     section: constructor
-    desc: x
-    example: x
+    desc: Creates a binary vector from a BLOB.
+    example:
+      - select vec_bit(X'F0');
+      - select subtype(vec_bit(X'F0'));
+      - select vec_to_json(vec_bit(X'F0'));
   vec_f32:
-    params: []
+    params: [vector]
     section: constructor
-    desc: x
-    example: x
+    desc: |
+      Creates a float vector from a BLOB or JSON text. If a BLOB is provided,
+      the length must be divisible by 4, as a float takes up 4 bytes of space each.
+    example:
+      - select vec_float32('[.1, .2, .3, 4]');
+      - select subtype(vec_float32('[.1, .2, .3, 4]'));
+      - select vec_float32(X'AABBCCDD');
+      - select vec_to_json(vec_float32(X'AABBCCDD'));
+      - select vec_float32(X'AA');
   vec_int8:
-    params: []
+    params: [vector]
     section: constructor
-    desc: x
-    example: x
+    desc:  |
+      Creates a 8-bit integer vector from a BLOB or JSON text. If a BLOB is provided,
+      the length must be divisible by 4, as a float takes up 4 bytes of space each.
+      If JSON text is provided, each element must be an integer between -128 and 127 inclusive.
+
+    example:
+      - select vec_int8('[1, 2, 3, 4]');
+      - select subtype(vec_int8('[1, 2, 3, 4]'));
+      - select vec_int8(X'AABBCCDD');
+      - select vec_to_json(vec_int8(X'AABBCCDD'));
+      - select vec_int8('[999]');
 
   vec_add:
-    params: []
+    params: [a, b]
     section: op
-    desc: x
-    example: x
+    desc: |
+      Adds each element in vector `a` with vector `b`, returning a new vector `c`. Both vectors
+      must be of the same type, and can only be a `float32` or `int8` vector.
+    example: |
+      - select vec_add(
+          '[.1, .2, .3]',
+          '[.4, .5, .6]'
+        );
+      - |
+        select vec_to_json(
+          vec_add(
+            '[.1, .2, .3]',
+            '[.4, .5, .6]'
+          )
+        );
+      - |
+        select vec_to_json(
+          vec_int8('[1, 2, 3]'),
+          vec_int8('[4, 5, 6]')
+        )
   vec_length:
     params: []
     section: op
@@ -118,4 +154,5 @@ entrypoints:
 compile_options:
   - SQLITE_VEC_ENABLE_AVX
   - SQLITE_VEC_ENABLE_NEON
+  - SQLITE_VEC_OMIT_FS
 
