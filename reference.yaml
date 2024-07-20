@@ -93,6 +93,8 @@ functions:
 
       An error is raised if either `a` or `b` are invalid, or if they are not the same type or same length.
 
+      See also [`vec_sub()`](#vec_sub).
+
     example:
       - |
         select vec_add(
@@ -118,7 +120,14 @@ functions:
   vec_sub:
     params: [a, b]
     section: op
-    desc: x
+    desc: |
+      Subtracts every element in vector `a` with vector `b`, returning a new vector `c`. Both vectors
+      must be of the same type and same length. Only `float32` and `int8` vectors are supported.
+
+      An error is raised if either `a` or `b` are invalid, or if they are not the same type or same length.
+
+      See also [`vec_add()`](#vec_add).
+
     example:
       - |
         select vec_sub(
@@ -144,29 +153,104 @@ functions:
   vec_normalize:
     params: [vector]
     section: op
-    desc: x
-    example: select 'todo';
+    desc: |
+      Performs L2 normalization on the given vector. Only float32 vectors are currently supported.
+
+      Returns an error if the input is an invalid vector or not a float32 vector.
+    example:
+      - select vec_normalize('[2, 3, 1, -4]');
+      - |
+        select vec_to_json(
+          vec_normalize('[2, 3, 1, -4]')
+        );
+      - |
+        -- for matryoshka embeddings - slice then normalize
+        select vec_to_json(
+          vec_normalize(
+            vec_slice('[2, 3, 1, -4]', 0, 2)
+          )
+        );
   vec_slice:
     params: [vector, start, end]
     section: op
-    desc: x
-    example: select 'todo';
+    desc: |
+      Extract a subset of `vector` from the `start` element (inclusive) to the `end` element (exclusive). TODO check
+
+      This is especially useful for [Matryoshka embeddings](#TODO), also known as "adaptive length" embeddings.
+      Use with [`vec_normalize()`](#vec_normalize) to get proper results.
+
+      Returns an error in the following conditions:
+        - If `vector` is not a valid vector
+        - If `start` is less than zero or greater than or equal to `end`
+        - If `end` is greater than the length of `vector`, or less than or equal to `start`.
+        - If `vector` is a bitvector, `start` and `end` must be divisible by 8.
+    example:
+      - select vec_slice('[1, 2,3, 4]', 0, 2);
+      - |
+        select vec_to_json(
+          vec_slice('[1, 2,3, 4]', 0, 2)
+        );
+      - |
+        select vec_to_json(
+          vec_slice('[1, 2,3, 4]', 2, 4)
+        );
+      - |
+        select vec_to_json(
+          vec_slice('[1, 2,3, 4]', -1, 4)
+        );
+      - |
+        select vec_to_json(
+          vec_slice('[1, 2,3, 4]', 0, 5)
+        );
+      - |
+        select vec_to_json(
+          vec_slice('[1, 2,3, 4]', 0, 0)
+        );
   vec_to_json:
     params: [vector]
     section: op
-    desc: x
-    example: select 'todo';
+    desc: |
+      Represents a vector as JSON text. The input vector can be a vector BLOB or JSON text.
+
+      Returns an error if `vector` is an invalid vector, or when memory cannot be allocated.
+    example:
+      - select vec_to_json(X'AABBCCDD');
+      - select vec_to_json(vec_int8(X'AABBCCDD'));
+      - select vec_to_json(vec_bit(X'AABBCCDD'));
+      - select vec_to_json('[1,2,3,4]');
+      - select vec_to_json('invalid');
 
   vec_distance_cosine:
     params: [a, b]
     section: distance
-    desc: x
-    example: select 'todo';
+    desc: |
+      Calculates the cosine distance between vectors `a` and `b`. Only valid for float32 or int8 vectors.
+
+      Returns an error under the following conditions:
+        - `a` or `b` are invalid vectors
+        - `a` or `b` do not share the same vector element types (ex float32 or int8)
+        - `a` or `b` are bit vectors. Use [`vec_distance_hamming()`](#vec_distance_hamming) for distance calculations between two bitvectors.
+        - `a` or `b` do not have the same length.
+    example:
+      - select vec_distance_cosine('[1, 1]', '[2, 2]');
+      - select vec_distance_cosine('[1, 1]', '[-2, -2]');
+      - select vec_distance_cosine('[1.1, 2.2, 3.3]', '[4.4, 5.5, 6.6]');
+      - select vec_distance_cosine(X'AABBCCDD', X'00112233');
   vec_distance_hamming:
     params: [a, b]
     section: distance
-    desc: x
-    example: select 'todo';
+    desc: |
+      Calculates the hamming distance between two bitvectors `a` and `b`. Only valid for bitvectors.
+
+      Returns an error under the following conditions:
+      - `a` or `b` are not bitvectors
+      - `a` and `b` do not share the same length
+      - Memory cannot be allocated
+    example:
+      - select vec_distance_hamming(vec_bit(X'00'), vec_bit(X'FF'));
+      - select vec_distance_hamming(vec_bit(X'FF'), vec_bit(X'FF'));
+      - select vec_distance_hamming(vec_bit(X'F0'), vec_bit(X'44'));
+      - select vec_distance_hamming(X'F0', X'00');
   vec_distance_l2:
     params: [a, b]
     section: distance
