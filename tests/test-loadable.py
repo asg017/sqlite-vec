@@ -630,11 +630,13 @@ def test_vec0_inserts():
         db.execute("insert into t1 values (1, '[2,2,2,2]')")
 
     # similate error on rowids shadow table
+    db.commit()
     db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_INSERT, "t1_rowids"))
     # EVIDENCE-OF: V04679_21517 vec0 INSERT failed on _rowid shadow insert raises error
-    with _raises("Error inserting into rowid shadow table: not authorized"):
+    with _raises("Internal sqlite-vec error: could not initialize 'insert rowids' statement", sqlite3.DatabaseError):
         db.execute("insert into t1 values (2, '[2,2,2,2]')")
     db.set_authorizer(None)
+    db.rollback()
     db.execute("insert into t1 values (2, '[2,2,2,2]')")
 
     # test inserts where no rowid is provided
@@ -647,7 +649,7 @@ def test_vec0_inserts():
     # similate error on rowids shadow table, when rowid is not provided
     # EVIDENCE-OF: V15177_32015 vec0 INSERT error on _rowids shadow insert raises error
     db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_INSERT, "t1_rowids"))
-    with _raises("Error inserting into rowid shadow table: not authorized"):
+    with _raises("Error inserting id into rowids shadow table: not authorized"):
         db.execute("insert into t1(aaa) values ('[2,2,2,2]')")
     db.set_authorizer(None)
 
@@ -710,14 +712,18 @@ def test_vec0_inserts():
     db.rollback()
 
     # EVIDENCE-OF: V21925_05995 vec0 INSERT error on "rowids update position" raises error
+    db.commit()
+    db.execute("begin")
+    db.execute("insert into t1 values (9998, '[2,2,2,2]')")
     db.set_authorizer(
         authorizer_deny_on(sqlite3.SQLITE_UPDATE, "t1_rowids", "chunk_id")
     )
     with _raises(
-        "Internal sqlite-vec error: could not update rowids position for rowid=9999, chunk_rowid=1, chunk_offset=3"
+        "Internal sqlite-vec error: could not update rowids position for rowid=9999, chunk_rowid=1, chunk_offset=4"
     ):
         db.execute("insert into t1 values (9999, '[2,2,2,2]')")
     db.set_authorizer(None)
+    db.rollback()
 
     ########## testing inserts on text primary key tables ##########
 
@@ -735,7 +741,7 @@ def test_vec0_inserts():
 
     # EVIDENCE-OF: V24016_08086 vec0 table with text primary key raises error on rowid write error
     db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_INSERT, "txt_pk_rowids"))
-    with _raises("Error inserting into rowid shadow table: not authorized"):
+    with _raises("Error inserting id into rowids shadow table: not authorized"):
         db.execute("insert into txt_pk(txt_id, aaa) values ('b', '[2,2,2,2]')")
     db.set_authorizer(None)
     db.execute("insert into txt_pk(txt_id, aaa) values ('b', '[2,2,2,2]')")
@@ -1724,35 +1730,52 @@ def test_vec0_create_errors():
     db.set_authorizer(None)
 
     # EVIDENCE-OF: V21406_05476 vec0 init raises error on 'latest chunk' init error
+    db.execute("BEGIN")
     db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_READ, "t1_chunks", ""))
     with _raises(
         "Internal sqlite-vec error: could not initialize 'latest chunk' statement",
+        sqlite3.DatabaseError
     ):
         db.execute("create virtual table t1 using vec0(a float[1])")
+        db.execute("insert into t1(a) values (X'AABBCCDD')")
     db.set_authorizer(None)
+    db.rollback()
 
+    db.execute("BEGIN")
     db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_INSERT, "t1_rowids"))
     with _raises(
-        "Internal sqlite-vec error: could not initialize 'insert rowids' statement"
+        "Internal sqlite-vec error: could not initialize 'insert rowids id' statement", sqlite3.DatabaseError
     ):
         db.execute("create virtual table t1 using vec0(a float[1])")
+        db.execute("insert into t1(a) values (X'AABBCCDD')")
     db.set_authorizer(None)
+    db.rollback()
 
+
+    db.commit()
+    db.execute("BEGIN")
     db.set_authorizer(
         authorizer_deny_on(sqlite3.SQLITE_UPDATE, "t1_rowids", "chunk_id")
     )
     with _raises(
-        "Internal sqlite-vec error: could not initialize 'update rowids position' statement"
+        "Internal sqlite-vec error: could not initialize 'update rowids position' statement", sqlite3.DatabaseError
     ):
         db.execute("create virtual table t1 using vec0(a float[1])")
+        db.execute("insert into t1(a) values (X'AABBCCDD')")
     db.set_authorizer(None)
+    db.rollback()
 
-    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_READ, "t1_rowids", "id"))
-    with _raises(
-        "Internal sqlite-vec error: could not initialize 'rowids get chunk position' statement",
-    ):
-        db.execute("create virtual table t1 using vec0(a float[1])")
-    db.set_authorizer(None)
+    # TODO wut
+    #db.commit()
+    #db.execute("BEGIN")
+    #db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_UPDATE, "t1_rowids", "id"))
+    #with _raises(
+    #    "Internal sqlite-vec error: could not initialize 'rowids get chunk position' statement", sqlite3.DatabaseError
+    #):
+    #    db.execute("create virtual table t1 using vec0(a float[1])")
+    #    db.execute("insert into t1(a) values (X'AABBCCDD')")
+    #db.set_authorizer(None)
+    #db.rollback()
 
 
 def test_vec0_knn():

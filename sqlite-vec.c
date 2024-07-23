@@ -3037,29 +3037,9 @@ struct vec0_vtab {
    * Must be cleaned up with sqlite3_finalize().
    */
   sqlite3_stmt *stmtRowidsGetChunkPosition;
-
-  /**
-   * Cached SQLite BLOBs for every possible vector column for the table.
-   * Defined for all vectors up to index numVectorColumns (always <=
-   * VEC0_MAX_VECTOR_COLUMNS).
-   *
-   * Defined from:
-   *  db: p->schemaName
-   *  table: p->shadowVectorChunksNames[i]
-   *  column: "vectors"
-   *
-   * Opened at vec0_init() time.
-   * Must be cleaned up with sqlite3_blob_close() at xDisconnect.
-   *
-   */
-  sqlite3_blob *vectorBlobs[VEC0_MAX_VECTOR_COLUMNS];
 };
 
 void vec0_free_resources(vec0_vtab *p) {
-  for (int i = 0; i < p->numVectorColumns; i++) {
-    sqlite3_blob_close(p->vectorBlobs[i]);
-    p->vectorBlobs[i] = NULL;
-  }
   sqlite3_finalize(p->stmtLatestChunk);
   p->stmtLatestChunk = NULL;
   sqlite3_finalize(p->stmtRowidsInsertRowid);
@@ -3120,6 +3100,62 @@ int vec0_column_idx_to_vector_idx(vec0_vtab *pVtab, int column_idx) {
   return column_idx - VEC0_COLUMN_VECTORN_START;
 }
 
+int vec0_get_chunk_position(vec0_vtab * p, i64 rowid, sqlite3_value ** id, i64 *chunk_id, i64 * chunk_offset) {
+  int rc;
+
+  if(!p->stmtRowidsGetChunkPosition) {
+    const char * zSql = sqlite3_mprintf("SELECT id, chunk_id, chunk_offset "
+                           "FROM " VEC0_SHADOW_ROWIDS_NAME " WHERE rowid = ?",
+                           p->schemaName, p->tableName);
+    if (!zSql) {
+      rc = SQLITE_NOMEM;
+      goto cleanup;
+    }
+    rc = sqlite3_prepare_v2(p->db, zSql, -1, &p->stmtRowidsGetChunkPosition, 0);
+    sqlite3_free((void *)zSql);
+    if (rc != SQLITE_OK) {
+      vtab_set_error(&p->base,
+          VEC_INTERAL_ERROR
+          "could not initialize 'rowids get chunk position' statement");
+      goto cleanup;
+    }
+  }
+
+  sqlite3_bind_int64(p->stmtRowidsGetChunkPosition, 1, rowid);
+  rc = sqlite3_step(p->stmtRowidsGetChunkPosition);
+  // special case: when no results, return SQLITE_EMPTY to convene "that chunk position doesnt exist"
+  if(rc == SQLITE_DONE) {
+    rc = SQLITE_EMPTY;
+    goto cleanup;
+  }
+  if (rc != SQLITE_ROW) {
+    goto cleanup;
+  }
+
+  if(id) {
+    sqlite3_value *value = sqlite3_column_value(p->stmtRowidsGetChunkPosition, 0);
+    *id = sqlite3_value_dup(value);
+    if(!*id) {
+      rc = SQLITE_NOMEM;
+      goto cleanup;
+    }
+  }
+
+  if(chunk_id) {
+    *chunk_id = sqlite3_column_int64(p->stmtRowidsGetChunkPosition, 1);
+  }
+  if(chunk_offset) {
+    *chunk_offset = sqlite3_column_int64(p->stmtRowidsGetChunkPosition, 2);
+  }
+
+  rc = SQLITE_OK;
+
+  cleanup:
+    sqlite3_reset(p->stmtRowidsGetChunkPosition);
+    sqlite3_clear_bindings(p->stmtRowidsGetChunkPosition);
+    return rc;
+}
+
 /**
  * @brief Return the id value from the _rowids table where _rowids.rowid =
  * rowid.
@@ -3132,23 +3168,9 @@ int vec0_column_idx_to_vector_idx(vec0_vtab *pVtab, int column_idx) {
  */
 int vec0_get_id_value_from_rowid(vec0_vtab *pVtab, i64 rowid,
                                  sqlite3_value **out) {
-  int rc;
-  // PERF: different stmt than stmtRowidsGetChunkPosition?
+  // PERF: different strategy than get_chunk_position?
   // TODO: test / evidence-of
-  sqlite3_bind_int64(pVtab->stmtRowidsGetChunkPosition, 1, rowid);
-  rc = sqlite3_step(pVtab->stmtRowidsGetChunkPosition);
-  if (rc != SQLITE_ROW) {
-    goto cleanup;
-  }
-  sqlite3_value *value =
-      sqlite3_column_value(pVtab->stmtRowidsGetChunkPosition, 0);
-  *out = sqlite3_value_dup(value);
-  rc = SQLITE_OK;
-
-cleanup:
-  sqlite3_reset(pVtab->stmtRowidsGetChunkPosition);
-  sqlite3_clear_bindings(pVtab->stmtRowidsGetChunkPosition);
-  return rc;
+  return vec0_get_chunk_position( (vec0_vtab *) pVtab, rowid, out, NULL, NULL);
 }
 
 int vec0_rowid_from_id(vec0_vtab *p, sqlite3_value *valueId, i64 *rowid) {
@@ -3222,36 +3244,35 @@ int vec0_result_id(vec0_vtab *p, sqlite3_context *context, i64 rowid) {
  */
 int vec0_get_vector_data(vec0_vtab *pVtab, i64 rowid, int vector_column_idx,
                          void **outVector, int *outVectorSize) {
+  vec0_vtab *p = pVtab;
   int rc;
   i64 chunk_id;
   i64 chunk_offset;
   size_t size;
   void *buf = NULL;
   int blobOffset;
+  sqlite3_blob * vectorBlob = NULL;
   assert((vector_column_idx >= 0) &&
          (vector_column_idx < pVtab->numVectorColumns));
 
-  sqlite3_bind_int64(pVtab->stmtRowidsGetChunkPosition, 1, rowid);
-  rc = sqlite3_step(pVtab->stmtRowidsGetChunkPosition);
-  if (rc == SQLITE_DONE) {
-    // TODO error message on callers
-    rc = SQLITE_EMPTY;
+  rc = vec0_get_chunk_position(pVtab, rowid, NULL, &chunk_id, &chunk_offset);
+  if(rc == SQLITE_EMPTY) {
+    vtab_set_error(&pVtab->base, "Could not find a row with rowid %lld", rowid);
     goto cleanup;
   }
-  if (rc != SQLITE_ROW) {
-    vtab_set_error(&pVtab->base, "Could not find a row with id %lld", rowid);
-    rc = SQLITE_ERROR;
+  if(rc != SQLITE_OK) {
     goto cleanup;
   }
 
-  chunk_id = sqlite3_column_int64(pVtab->stmtRowidsGetChunkPosition, 1);
-  chunk_offset = sqlite3_column_int64(pVtab->stmtRowidsGetChunkPosition, 2);
+  rc = sqlite3_blob_open(p->db, p->schemaName,
+                           p->shadowVectorChunksNames[vector_column_idx], "vectors", chunk_id, 0,
+                           &vectorBlob);
 
-  rc = sqlite3_blob_reopen(pVtab->vectorBlobs[vector_column_idx], chunk_id);
   if (rc != SQLITE_OK) {
+    // TODO evidence-of
     vtab_set_error(
         &pVtab->base,
-        "Could not fetch vector data for %lld, reopening blob failed", rowid);
+        "Could not fetch vector data for %lld, opening blob failed", rowid);
     rc = SQLITE_ERROR;
     goto cleanup;
   }
@@ -3261,12 +3282,11 @@ int vec0_get_vector_data(vec0_vtab *pVtab, i64 rowid, int vector_column_idx,
 
   buf = sqlite3_malloc(size);
   if (!buf) {
-    rc = SQLITE_ERROR;
+    rc = SQLITE_NOMEM;
     goto cleanup;
   }
 
-  rc = sqlite3_blob_read(pVtab->vectorBlobs[vector_column_idx], buf, size,
-                         blobOffset);
+  rc = sqlite3_blob_read(vectorBlob, buf, size, blobOffset);
   if (rc != SQLITE_OK) {
     sqlite3_free(buf);
     buf = NULL;
@@ -3285,47 +3305,235 @@ int vec0_get_vector_data(vec0_vtab *pVtab, i64 rowid, int vector_column_idx,
   rc = SQLITE_OK;
 
 cleanup:
-  sqlite3_reset(pVtab->stmtRowidsGetChunkPosition);
-  sqlite3_clear_bindings(pVtab->stmtRowidsGetChunkPosition);
-
+  sqlite3_blob_close(vectorBlob);
   return rc;
 }
 
-/**
- * @brief For the given rowid, found the chunk_id and chunk_offset for that row.
- *
- * @param p: vec0 table
- * @param rowid: rowid of row to lookup
- * @param chunk_id: Output chunk_id of the row, refs _chunks.rowid
- * @param chunk_offset: Output chunk_offset of the row
- * @return int: SQLITE_OK on success, error code on failure
- */
-int vec0_get_chunk_position(vec0_vtab *p, i64 rowid, i64 *chunk_id,
-                            i64 *chunk_offset) {
+int vec0_get_latest_chunk_rowid(vec0_vtab *p, i64 *chunk_rowid) {
   int rc;
-  sqlite3_bind_int64(p->stmtRowidsGetChunkPosition, 1, rowid);
+  const char * zSql;
+  // lazy initialize stmtLatestChunk when needed. May be cleared during xSync()
+  if(!p->stmtLatestChunk) {
+    zSql = sqlite3_mprintf("SELECT max(rowid) FROM " VEC0_SHADOW_CHUNKS_NAME,
+                           p->schemaName, p->tableName);
+    if (!zSql) {
+      rc = SQLITE_NOMEM;
+      goto cleanup;
+    }
+    rc = sqlite3_prepare_v2(p->db, zSql, -1, &p->stmtLatestChunk, 0);
+    sqlite3_free((void *)zSql);
+    if (rc != SQLITE_OK) {
+      // IMP: V21406_05476
+      vtab_set_error(&p->base, VEC_INTERAL_ERROR "could not initialize 'latest chunk' statement");
+      goto cleanup;
+    }
+  }
 
-  rc = sqlite3_step(p->stmtRowidsGetChunkPosition);
+  rc = sqlite3_step(p->stmtLatestChunk);
   if (rc != SQLITE_ROW) {
-    vtab_set_error(&p->base, "Could not find chunk position for %lld", rowid);
+    // IMP: V31559_15629
+    vtab_set_error(&p->base, VEC_INTERAL_ERROR "Could not find latest chunk");
+    rc = SQLITE_ERROR;
     goto cleanup;
   }
-  *chunk_id = sqlite3_column_int64(p->stmtRowidsGetChunkPosition, 1);
-  *chunk_offset = sqlite3_column_int64(p->stmtRowidsGetChunkPosition, 2);
-
-  rc = sqlite3_step(p->stmtRowidsGetChunkPosition);
+  *chunk_rowid = sqlite3_column_int64(p->stmtLatestChunk, 0);
+  rc = sqlite3_step(p->stmtLatestChunk);
   if (rc != SQLITE_DONE) {
-    vtab_set_error(&p->base, "Could not find chunk position for %lld", rowid);
+    vtab_set_error(&p->base,
+                   VEC_INTERAL_ERROR
+                   "unknown result code when closing out stmtLatestChunk. "
+                   "Please file an issue: " REPORT_URL,
+                   p->schemaName, p->shadowChunksName);
     goto cleanup;
   }
-
   rc = SQLITE_OK;
 
-cleanup:
-  sqlite3_reset(p->stmtRowidsGetChunkPosition);
-  sqlite3_clear_bindings(p->stmtRowidsGetChunkPosition);
+
+  cleanup:
+    if(p->stmtLatestChunk) {
+      sqlite3_reset(p->stmtLatestChunk);
+    }
+   return rc;
+}
+
+int vec0_rowids_insert_rowid(vec0_vtab *p, i64 rowid) {
+  int rc = SQLITE_OK;
+  int entered = 0;
+  UNUSED_PARAMETER(entered); // temporary
+  if(!p->stmtRowidsInsertRowid) {
+    const char * zSql = sqlite3_mprintf("INSERT INTO " VEC0_SHADOW_ROWIDS_NAME "(rowid)"
+                           "VALUES (?);",
+                           p->schemaName, p->tableName);
+    if (!zSql) {
+      rc = SQLITE_NOMEM;
+      goto cleanup;
+    }
+    rc = sqlite3_prepare_v2(p->db, zSql, -1, &p->stmtRowidsInsertRowid, 0);
+    sqlite3_free((void *)zSql);
+    if (rc != SQLITE_OK) {
+      vtab_set_error(&p->base, VEC_INTERAL_ERROR "could not initialize 'insert rowids' statement");
+      goto cleanup;
+    }
+  }
+
+
+  #ifdef SQLITE_THREADSAFE
+    if (sqlite3_mutex_enter) {
+      sqlite3_mutex_enter(sqlite3_db_mutex(p->db));
+      entered = 1;
+    }
+#endif
+    sqlite3_bind_int64(p->stmtRowidsInsertRowid, 1, rowid);
+    rc = sqlite3_step(p->stmtRowidsInsertRowid);
+
+    if (rc != SQLITE_DONE) {
+      if (sqlite3_extended_errcode(p->db) == SQLITE_CONSTRAINT_PRIMARYKEY) {
+        // IMP: V17090_01160
+        vtab_set_error(&p->base, "UNIQUE constraint failed on %s primary key",
+                       p->tableName);
+      } else {
+        // IMP: V04679_21517
+        vtab_set_error(
+            &p->base, "Error inserting rowid into rowids shadow table: %s",
+            sqlite3_errmsg(sqlite3_db_handle(p->stmtRowidsInsertId)));
+      }
+      rc = SQLITE_ERROR;
+      goto cleanup;
+    }
+
+
+    rc = SQLITE_OK;
+
+  cleanup:
+    if(p->stmtRowidsInsertRowid) {
+      sqlite3_reset(p->stmtRowidsInsertRowid);
+      sqlite3_clear_bindings(p->stmtRowidsInsertRowid);
+    }
+
+    #ifdef SQLITE_THREADSAFE
+    if (sqlite3_mutex_leave && entered) {
+      sqlite3_mutex_leave(sqlite3_db_mutex(p->db));
+    }
+    #endif
+    return rc;
+
+}
+
+int vec0_rowids_insert_id(vec0_vtab *p, sqlite3_value * idValue, i64 * rowid) {
+  int rc = SQLITE_OK;
+  int entered = 0;
+  UNUSED_PARAMETER(entered); // temporary
+  if(!p->stmtRowidsInsertId) {
+    const char * zSql = sqlite3_mprintf("INSERT INTO " VEC0_SHADOW_ROWIDS_NAME "(id)"
+                           "VALUES (?);",
+         p->schemaName, p->tableName);
+    if (!zSql) {
+      rc = SQLITE_NOMEM;
+      goto complete;
+    }
+    rc = sqlite3_prepare_v2(p->db, zSql, -1, &p->stmtRowidsInsertId, 0);
+    sqlite3_free((void *)zSql);
+    if (rc != SQLITE_OK) {
+      vtab_set_error(&p->base, VEC_INTERAL_ERROR
+                          "could not initialize 'insert rowids id' statement");
+      goto complete;
+    }
+  }
+
+  #ifdef SQLITE_THREADSAFE
+  if (sqlite3_mutex_enter) {
+    sqlite3_mutex_enter(sqlite3_db_mutex(p->db));
+    entered = 1;
+  }
+  #endif
+
+  if(idValue) {
+    sqlite3_bind_value(p->stmtRowidsInsertId, 1, idValue);
+  }
+  rc = sqlite3_step(p->stmtRowidsInsertId);
+
+  if (rc != SQLITE_DONE) {
+    if (sqlite3_extended_errcode(p->db) == SQLITE_CONSTRAINT_UNIQUE) {
+      // IMP: V20497_04568
+      vtab_set_error(&p->base, "UNIQUE constraint failed on %s primary key",
+                      p->tableName);
+    } else {
+      // IMP: V24016_08086
+      // IMP: V15177_32015
+      vtab_set_error(
+          &p->base, "Error inserting id into rowids shadow table: %s",
+          sqlite3_errmsg(sqlite3_db_handle(p->stmtRowidsInsertId)));
+    }
+    rc = SQLITE_ERROR;
+    goto complete;
+  }
+
+  *rowid = sqlite3_last_insert_rowid(p->db);
+  rc = SQLITE_OK;
+
+  complete:
+  if(p->stmtRowidsInsertId) {
+    sqlite3_reset(p->stmtRowidsInsertId);
+    sqlite3_clear_bindings(p->stmtRowidsInsertId);
+  }
+
+#ifdef SQLITE_THREADSAFE
+    if (sqlite3_mutex_leave && entered) {
+      sqlite3_mutex_leave(sqlite3_db_mutex(p->db));
+    }
+#endif
+    return rc;
+}
+
+int vec0_rowids_update_position(vec0_vtab * p, i64 rowid, i64 chunk_rowid, i64 chunk_offset) {
+  int rc = SQLITE_OK;
+
+  if(!p->stmtRowidsUpdatePosition) {
+const char * zSql = sqlite3_mprintf(" UPDATE " VEC0_SHADOW_ROWIDS_NAME
+                           " SET chunk_id = ?, chunk_offset = ?"
+                           " WHERE rowid = ?",
+                           p->schemaName, p->tableName);
+    if (!zSql) {
+      rc = SQLITE_NOMEM;
+      goto cleanup;
+    }
+    rc = sqlite3_prepare_v2(p->db, zSql, -1, &p->stmtRowidsUpdatePosition,
+                            0);
+    sqlite3_free((void *)zSql);
+    if (rc != SQLITE_OK) {
+      vtab_set_error(&p->base,
+          VEC_INTERAL_ERROR
+          "could not initialize 'update rowids position' statement");
+      goto cleanup;
+    }
+  }
+
+  sqlite3_bind_int64(p->stmtRowidsUpdatePosition, 1, chunk_rowid);
+  sqlite3_bind_int64(p->stmtRowidsUpdatePosition, 2, chunk_offset);
+  sqlite3_bind_int64(p->stmtRowidsUpdatePosition, 3, rowid);
+  rc = sqlite3_step(p->stmtRowidsUpdatePosition);
+  if (rc != SQLITE_DONE) {
+    // IMP: V21925_05995
+    vtab_set_error(&p->base,
+                   VEC_INTERAL_ERROR
+                   "could not update rowids position for rowid=%lld, "
+                   "chunk_rowid=%lld, chunk_offset=%lld",
+                   rowid, chunk_rowid, chunk_offset);
+    rc = SQLITE_ERROR;
+    goto cleanup;
+  }
+  rc = SQLITE_OK;
+
+  cleanup:
+  if(p->stmtRowidsUpdatePosition) {
+    sqlite3_reset(p->stmtRowidsUpdatePosition);
+    sqlite3_clear_bindings(p->stmtRowidsUpdatePosition);
+  }
 
   return rc;
+
+
+
 }
 
 /**
@@ -3745,112 +3953,6 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     rc = vec0_new_chunk(pNew, NULL);
     if (rc != SQLITE_OK) {
       *pzErr = sqlite3_mprintf("Could not create create an initial chunk");
-      goto error;
-    }
-  }
-
-  // init stmtLatestChunk
-  {
-    zSql = sqlite3_mprintf("SELECT max(rowid) FROM " VEC0_SHADOW_CHUNKS_NAME,
-                           pNew->schemaName, pNew->tableName);
-    if (!zSql) {
-      goto error;
-    }
-    rc = sqlite3_prepare_v2(pNew->db, zSql, -1, &pNew->stmtLatestChunk, 0);
-    sqlite3_free((void *)zSql);
-    if (rc != SQLITE_OK) {
-      // IMP: V21406_05476
-      *pzErr = sqlite3_mprintf(VEC_INTERAL_ERROR
-                               "could not initialize 'latest chunk' statement");
-      goto error;
-    }
-  }
-
-  // init stmtRowidsInsertRowid
-  {
-    zSql = sqlite3_mprintf("INSERT INTO " VEC0_SHADOW_ROWIDS_NAME "(rowid)"
-                           "VALUES (?);",
-                           pNew->schemaName, pNew->tableName);
-    if (!zSql) {
-      goto error;
-    }
-    rc =
-        sqlite3_prepare_v2(pNew->db, zSql, -1, &pNew->stmtRowidsInsertRowid, 0);
-    sqlite3_free((void *)zSql);
-    if (rc != SQLITE_OK) {
-      *pzErr = sqlite3_mprintf(
-          VEC_INTERAL_ERROR "could not initialize 'insert rowids' statement");
-      goto error;
-    }
-  }
-
-  // init stmtRowidsInsertId
-  {
-    zSql = sqlite3_mprintf("INSERT INTO " VEC0_SHADOW_ROWIDS_NAME "(id)"
-                           "VALUES (?);",
-                           pNew->schemaName, pNew->tableName);
-    if (!zSql) {
-      goto error;
-    }
-    rc = sqlite3_prepare_v2(pNew->db, zSql, -1, &pNew->stmtRowidsInsertId, 0);
-    sqlite3_free((void *)zSql);
-    if (rc != SQLITE_OK) {
-      *pzErr =
-          sqlite3_mprintf(VEC_INTERAL_ERROR
-                          "could not initialize 'insert rowids id' statement");
-      goto error;
-    }
-  }
-
-  // init stmtRowidsUpdatePosition
-  {
-    zSql = sqlite3_mprintf(" UPDATE " VEC0_SHADOW_ROWIDS_NAME
-                           " SET chunk_id = ?, chunk_offset = ?"
-                           " WHERE rowid = ?",
-                           pNew->schemaName, pNew->tableName);
-    if (!zSql) {
-      goto error;
-    }
-    rc = sqlite3_prepare_v2(pNew->db, zSql, -1, &pNew->stmtRowidsUpdatePosition,
-                            0);
-    sqlite3_free((void *)zSql);
-    if (rc != SQLITE_OK) {
-      *pzErr = sqlite3_mprintf(
-          VEC_INTERAL_ERROR
-          "could not initialize 'update rowids position' statement");
-      goto error;
-    }
-  }
-
-  // init stmtRowidsGetChunkPosition
-  {
-    zSql = sqlite3_mprintf("SELECT id, chunk_id, chunk_offset "
-                           "FROM " VEC0_SHADOW_ROWIDS_NAME " WHERE rowid = ?",
-                           pNew->schemaName, pNew->tableName);
-    if (!zSql) {
-      goto error;
-    }
-    rc = sqlite3_prepare_v2(pNew->db, zSql, -1,
-                            &pNew->stmtRowidsGetChunkPosition, 0);
-    sqlite3_free((void *)zSql);
-    if (rc != SQLITE_OK) {
-      *pzErr = sqlite3_mprintf(
-          VEC_INTERAL_ERROR
-          "could not initialize 'rowids get chunk position' statement");
-      goto error;
-    }
-  }
-
-  // init vectorBlobs[..]
-  for (int i = 0; i < pNew->numVectorColumns; i++) {
-    // there should always be a vector chunk with id=1
-    rc = sqlite3_blob_open(db, pNew->schemaName,
-                           pNew->shadowVectorChunksNames[i], "vectors", 1, 0,
-                           &pNew->vectorBlobs[i]);
-    if (rc != SQLITE_OK) {
-      *pzErr = sqlite3_mprintf(VEC_INTERAL_ERROR
-                               "could not initialize 'vector chunk' blob at %d",
-                               i);
       goto error;
     }
   }
@@ -5038,82 +5140,16 @@ int vec0Update_InsertRowidStep(vec0_vtab *p, sqlite3_value *idValue,
       return SQLITE_ERROR;
     }
 
-#ifdef SQLITE_THREADSAFE
-    if (sqlite3_mutex_enter) {
-      sqlite3_mutex_enter(sqlite3_db_mutex(p->db));
-    }
-#endif
-
-    sqlite3_bind_value(p->stmtRowidsInsertId, 1, idValue);
-    rc = sqlite3_step(p->stmtRowidsInsertId);
-
-    if (rc != SQLITE_DONE) {
-      if (sqlite3_extended_errcode(p->db) == SQLITE_CONSTRAINT_UNIQUE) {
-        // IMP: V20497_04568
-        vtab_set_error(&p->base, "UNIQUE constraint failed on %s primary key",
-                       p->tableName);
-      } else {
-        // IMP: V24016_08086
-        vtab_set_error(
-            &p->base, "Error inserting into rowid shadow table: %s",
-            sqlite3_errmsg(sqlite3_db_handle(p->stmtRowidsInsertId)));
-      }
-      rc = SQLITE_ERROR;
-      goto complete;
-    }
-
-    *rowid = sqlite3_last_insert_rowid(p->db);
-    rc = SQLITE_OK;
-
-  complete:
-    sqlite3_reset(p->stmtRowidsInsertId);
-    sqlite3_clear_bindings(p->stmtRowidsInsertId);
-#ifdef SQLITE_THREADSAFE
-    if (sqlite3_mutex_leave) {
-      sqlite3_mutex_leave(sqlite3_db_mutex(p->db));
-    }
-#endif
-    return rc;
+    return vec0_rowids_insert_id(p, idValue, rowid);
   }
 
   // Option 1: User supplied a i64 rowid
   if (sqlite3_value_type(idValue) == SQLITE_INTEGER) {
     i64 suppliedRowid = sqlite3_value_int64(idValue);
-
-#ifdef SQLITE_THREADSAFE
-    if (sqlite3_mutex_enter) {
-      sqlite3_mutex_enter(sqlite3_db_mutex(p->db));
+    rc = vec0_rowids_insert_rowid(p, suppliedRowid);
+    if(rc == SQLITE_OK) {
+      *rowid = suppliedRowid;
     }
-#endif
-    sqlite3_bind_int64(p->stmtRowidsInsertRowid, 1, suppliedRowid);
-    rc = sqlite3_step(p->stmtRowidsInsertRowid);
-
-    if (rc != SQLITE_DONE) {
-      if (sqlite3_extended_errcode(p->db) == SQLITE_CONSTRAINT_PRIMARYKEY) {
-        // IMP: V17090_01160
-        vtab_set_error(&p->base, "UNIQUE constraint failed on %s primary key",
-                       p->tableName);
-      } else {
-        // IMP: V04679_21517
-        vtab_set_error(
-            &p->base, "Error inserting into rowid shadow table: %s",
-            sqlite3_errmsg(sqlite3_db_handle(p->stmtRowidsInsertId)));
-      }
-      rc = SQLITE_ERROR;
-      goto complete2;
-    }
-
-    *rowid = suppliedRowid;
-    rc = SQLITE_OK;
-
-  complete2:
-    sqlite3_reset(p->stmtRowidsInsertRowid);
-    sqlite3_clear_bindings(p->stmtRowidsInsertRowid);
-#ifdef SQLITE_THREADSAFE
-    if (sqlite3_mutex_leave) {
-      sqlite3_mutex_leave(sqlite3_db_mutex(p->db));
-    }
-#endif
     return rc;
   }
 
@@ -5126,34 +5162,8 @@ int vec0Update_InsertRowidStep(vec0_vtab *p, sqlite3_value *idValue,
                    p->tableName);
     return SQLITE_ERROR;
   }
-#ifdef SQLITE_THREADSAFE
-  if (sqlite3_mutex_enter) {
-    sqlite3_mutex_enter(sqlite3_db_mutex(p->db));
-  }
-#endif
-
-  // no need to bind a value to ?1 here: needs to be NULL
-  // so we can get the next autoincremented rowid value.
-  rc = sqlite3_step(p->stmtRowidsInsertId);
-  if (rc != SQLITE_DONE) {
-    // IMP: V15177_32015
-    vtab_set_error(&p->base, "Error inserting into rowid shadow table: %s",
-                   sqlite3_errmsg(sqlite3_db_handle(p->stmtRowidsInsertId)));
-    rc = SQLITE_ERROR;
-    goto complete3;
-  }
-  *rowid = sqlite3_last_insert_rowid(p->db);
-  rc = SQLITE_OK;
-
-complete3:
-  sqlite3_reset(p->stmtRowidsInsertId);
-  sqlite3_clear_bindings(p->stmtRowidsInsertId);
-#ifdef SQLITE_THREADSAFE
-  if (sqlite3_mutex_leave) {
-    sqlite3_mutex_leave(sqlite3_db_mutex(p->db));
-  }
-#endif
-  return rc;
+  // NULL to get next auto-incremented value
+  return vec0_rowids_insert_id(p, NULL, rowid);
 }
 
 /**
@@ -5183,23 +5193,11 @@ int vec0Update_InsertNextAvailableStep(
   i64 validitySize;
   *chunk_offset = -1;
 
-  rc = sqlite3_step(p->stmtLatestChunk);
-  if (rc != SQLITE_ROW) {
-    // IMP: V31559_15629
-    vtab_set_error(&p->base, VEC_INTERAL_ERROR "Could not find latest chunk");
-    rc = SQLITE_ERROR;
+  rc = vec0_get_latest_chunk_rowid(p, chunk_rowid);
+  if(rc != SQLITE_OK) {
     goto cleanup;
   }
-  *chunk_rowid = sqlite3_column_int64(p->stmtLatestChunk, 0);
-  rc = sqlite3_step(p->stmtLatestChunk);
-  if (rc != SQLITE_DONE) {
-    vtab_set_error(&p->base,
-                   VEC_INTERAL_ERROR
-                   "unknown result code when closing out stmtLatestChunk. "
-                   "Please file an issue: " REPORT_URL,
-                   p->schemaName, p->shadowChunksName);
-    goto cleanup;
-  }
+
 
   rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowChunksName, "validity",
                          *chunk_rowid, 1, blobChunksValidity);
@@ -5313,7 +5311,6 @@ done:
   rc = SQLITE_OK;
 
 cleanup:
-  sqlite3_reset(p->stmtLatestChunk);
   return rc;
 }
 
@@ -5373,6 +5370,8 @@ int vec0Update_InsertWriteFinalStep(vec0_vtab *p, i64 chunk_rowid,
                                     sqlite3_blob *blobChunksValidity,
                                     const unsigned char *bufferChunksValidity) {
   int rc;
+  sqlite3_blob *blobChunksRowids = NULL;
+
 
   // mark the validity bit for this row in the chunk's validity bitmap
   // Get the byte offset of the bitmap
@@ -5429,7 +5428,6 @@ int vec0Update_InsertWriteFinalStep(vec0_vtab *p, i64 chunk_rowid,
     sqlite3_blob_close(blobVectors);
   }
 
-  sqlite3_blob *blobChunksRowids = NULL;
 
   // write the new rowid to the rowids column of the _chunks table
   rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowChunksName, "rowids",
@@ -5451,7 +5449,6 @@ int vec0Update_InsertWriteFinalStep(vec0_vtab *p, i64 chunk_rowid,
         "rowids blob size mismatch on %s.%s.%lld. Expected %lld, actual %lld",
         p->schemaName, p->shadowChunksName, chunk_rowid, expected, actual);
     rc = SQLITE_ERROR;
-    sqlite3_blob_close(blobChunksRowids);
     goto cleanup;
   }
   rc = sqlite3_blob_write(blobChunksRowids, &rowid, sizeof(i64),
@@ -5461,35 +5458,16 @@ int vec0Update_InsertWriteFinalStep(vec0_vtab *p, i64 chunk_rowid,
         &p->base, VEC_INTERAL_ERROR "could not write rowids blob on %s.%s.%lld",
         p->schemaName, p->shadowChunksName, chunk_rowid);
     rc = SQLITE_ERROR;
-    sqlite3_blob_close(blobChunksRowids);
     goto cleanup;
   }
-  sqlite3_blob_close(blobChunksRowids);
 
   // Now with all the vectors inserted, go back and update the _rowids table
   // with the new chunk_rowid/chunk_offset values
+  rc = vec0_rowids_update_position(p, rowid, chunk_rowid, chunk_offset);
 
-  sqlite3_bind_int64(p->stmtRowidsUpdatePosition, 1, chunk_rowid);
-  sqlite3_bind_int64(p->stmtRowidsUpdatePosition, 2, chunk_offset);
-  sqlite3_bind_int64(p->stmtRowidsUpdatePosition, 3, rowid);
-  rc = sqlite3_step(p->stmtRowidsUpdatePosition);
-  if (rc != SQLITE_DONE) {
-    // IMP: V21925_05995
-    vtab_set_error(&p->base,
-                   VEC_INTERAL_ERROR
-                   "could not update rowids position for rowid=%lld, "
-                   "chunk_rowid=%lld, chunk_offset=%lld",
-                   rowid, chunk_rowid, chunk_offset);
-    rc = SQLITE_ERROR;
-    goto cleanup;
-  }
-
-  rc = SQLITE_OK;
-
-cleanup:
-  sqlite3_reset(p->stmtRowidsUpdatePosition);
-  sqlite3_clear_bindings(p->stmtRowidsUpdatePosition);
-  return rc;
+  cleanup:
+    sqlite3_blob_close(blobChunksRowids);
+    return rc;
 }
 
 /**
@@ -5728,7 +5706,7 @@ int vec0Update_Delete(sqlite3_vtab *pVTab, sqlite_int64 rowid) {
   // 5. Delete value in _rowids table
 
   // 1. get chunk_id and chunk_offset from _rowids
-  rc = vec0_get_chunk_position(p, rowid, &chunk_id, &chunk_offset);
+  rc = vec0_get_chunk_position(p, rowid, NULL, &chunk_id, &chunk_offset);
   if (rc != SQLITE_OK) {
     return rc;
   }
@@ -5841,7 +5819,7 @@ int vec0Update_UpdateOnRowid(sqlite3_vtab *pVTab, int argc,
   i64 rowid = sqlite3_value_int64(argv[0]);
 
   // 1. get chunk_id and chunk_offset from _rowids
-  rc = vec0_get_chunk_position(p, rowid, &chunk_id, &chunk_offset);
+  rc = vec0_get_chunk_position(p, rowid, NULL, &chunk_id, &chunk_offset);
   if (rc != SQLITE_OK) {
     return rc;
   }
@@ -5911,6 +5889,44 @@ static int vec0ShadowName(const char *zName) {
   return 0;
 }
 
+static int vec0Begin(sqlite3_vtab *pVTab) {
+  UNUSED_PARAMETER(pVTab);
+  return SQLITE_OK;
+}
+static int vec0Sync(sqlite3_vtab *pVTab) {
+  UNUSED_PARAMETER(pVTab);
+  vec0_vtab *p = (vec0_vtab *)pVTab;
+  if(p->stmtLatestChunk) {
+    sqlite3_finalize(p->stmtLatestChunk);
+    p->stmtLatestChunk = NULL;
+  }
+  if(p->stmtRowidsInsertRowid) {
+    sqlite3_finalize(p->stmtRowidsInsertRowid);
+    p->stmtRowidsInsertRowid = NULL;
+  }
+  if(p->stmtRowidsInsertId) {
+    sqlite3_finalize(p->stmtRowidsInsertId);
+    p->stmtRowidsInsertId = NULL;
+  }
+  if(p->stmtRowidsUpdatePosition) {
+    sqlite3_finalize(p->stmtRowidsUpdatePosition);
+    p->stmtRowidsUpdatePosition = NULL;
+  }
+  if(p->stmtRowidsGetChunkPosition) {
+    sqlite3_finalize(p->stmtRowidsGetChunkPosition);
+    p->stmtRowidsGetChunkPosition = NULL;
+  }
+  return SQLITE_OK;
+}
+static int vec0Commit(sqlite3_vtab *pVTab) {
+  UNUSED_PARAMETER(pVTab);
+  return SQLITE_OK;
+}
+static int vec0Rollback(sqlite3_vtab *pVTab) {
+  UNUSED_PARAMETER(pVTab);
+  return SQLITE_OK;
+}
+
 static sqlite3_module vec0Module = {
     /* iVersion      */ 3,
     /* xCreate       */ vec0Create,
@@ -5926,10 +5942,10 @@ static sqlite3_module vec0Module = {
     /* xColumn       */ vec0Column,
     /* xRowid        */ vec0Rowid,
     /* xUpdate       */ vec0Update,
-    /* xBegin        */ 0,
-    /* xSync         */ 0,
-    /* xCommit       */ 0,
-    /* xRollback     */ 0,
+    /* xBegin        */ vec0Begin,
+    /* xSync         */ vec0Sync,
+    /* xCommit       */ vec0Commit,
+    /* xRollback     */ vec0Rollback,
     /* xFindFunction */ 0,
     /* xRename       */ 0, // https://github.com/asg017/sqlite-vec/issues/43
     /* xSavepoint    */ 0,
