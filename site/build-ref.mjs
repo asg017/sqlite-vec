@@ -6,6 +6,22 @@ import { readFileSync, writeFileSync } from "node:fs";
 import * as v from "valibot";
 import { table } from "table";
 
+const HEADER = `---
+outline: 2
+---
+
+# API Reference
+
+A complete reference to all the SQL scalar functions, table functions, and virtual tables inside \`sqlite-vec\`.
+
+::: warning
+sqlite-vec is pre-v1, so expect breaking changes.
+:::
+
+[[toc]]
+
+`;
+
 const REF_PATH = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../reference.yaml"
@@ -15,32 +31,25 @@ const EXT_PATH = resolve(
   "../dist/vec0"
 );
 
-const DocSchema = v.object({
-  sections: v.record(
-    v.string(),
-    v.object({
-      title: v.string(),
-      desc: v.string(),
-    })
-  ),
-  functions: v.record(
-    v.string(),
-    v.object({
-      params: v.array(v.string()),
-      desc: v.string(),
-      section: v.string(),
-      example: v.union([v.string(), v.array(v.string())]),
-    })
-  ),
-  /*table_functions: v.record(
+const DocSchema = v.objectWithRest(
+  {
+    sections: v.record(
+      v.string(),
+      v.object({
+        title: v.string(),
+        desc: v.string(),
+      })
+    ),
+  },
+  v.record(
     v.string(),
     v.object({
       params: v.array(v.string()),
       desc: v.string(),
       example: v.union([v.string(), v.array(v.string())]),
     })
-  ),*/
-});
+  )
+);
 
 const tableConfig = {
   border: {
@@ -78,7 +87,7 @@ function formatSingleValue(value) {
   if (value instanceof Uint8Array) {
     let s = "X'";
     for (const v of value) {
-      s += v.toString(16).toUpperCase();
+      s += v.toString(16).toUpperCase().padStart(2, "0");
     }
     s += "'";
     return `-- ${s}`;
@@ -87,12 +96,13 @@ function formatSingleValue(value) {
     return "-- " + JSON.stringify(value, null, 2);
 }
 function formatValue(value) {
-  if (typeof value === "string" || typeof value === "number") return value;
+  if (typeof value === "string") return `'${value}'`;
+  if (typeof value === "number") return value;
   if (value === null) return "NULL";
   if (value instanceof Uint8Array) {
     let s = "X'";
     for (const v of value) {
-      s += v.toString(16);
+      s += v.toString(16).toUpperCase().padStart(2, "0");
     }
     s += "'";
     return s;
@@ -125,7 +135,11 @@ function renderExamples(db, name, example) {
     results = null;
     try {
       stmt = db.prepare(sql);
-      stmt.raw(true);
+      try {
+        stmt.raw(true);
+      } catch (err) {
+        1;
+      }
     } catch (error) {
       console.error(`Error preparing statement for ${name}:`);
       console.error(error);
@@ -157,37 +171,27 @@ function renderExamples(db, name, example) {
   return md;
 }
 
-let md = `# API Reference
-
-::: warning
-sqlite-vec is pre-v1, so expect breaking changes.
-:::
-
-[[toc]]
-
-`;
+let md = HEADER;
 const doc = v.parse(DocSchema, load(readFileSync(REF_PATH, "utf8")));
 
 const db = new Database();
 db.loadExtension(EXT_PATH);
 
-let lastSection = null;
-for (const [name, { params, desc, example, section }] of Object.entries(
-  doc.functions
-)) {
-  const headerText = `\`${name}(${(params ?? []).join(", ")})\` {#${name}}`;
+for (const section in doc.sections) {
+  md += `## ${doc.sections[section].title} {#${section}} \n\n`;
+  md += doc.sections[section].desc;
+  md += "\n\n";
 
-  if (lastSection != section) {
-    md += `## ${doc.sections[section].title} {#${section}} \n\n`;
-    md += doc.sections[section].desc;
-    md += "\n\n";
-    lastSection = section;
+  for (const [name, { params, desc, example }] of Object.entries(
+    doc[section]
+  )) {
+    const headerText = `\`${name}(${(params ?? []).join(", ")})\` {#${name}}`;
+
+    md += "### " + headerText + "\n\n";
+
+    md += desc + "\n\n";
+    md += renderExamples(db, name, example);
   }
-
-  md += "### " + headerText + "\n\n";
-
-  md += desc + "\n\n";
-  md += renderExamples(db, name, example);
 }
 
 writeFileSync("api-reference.md", md, "utf8");

@@ -1,33 +1,45 @@
 sections:
-  meta:
-    title: Meta
-    desc: TODO
   constructors:
     title: Constructors
-    desc: TODO
+    desc: |
+      SQL functions that "construct" vectors with different element types.
+
+      Currently, only `float32`, `int8`, and `bit` vectors are supported.
+
   op:
     title: Operations
-    desc: TODO
+    desc: |
+      Different operations and utilities for working with vectors.
   distance:
     title: Distance functions
-    desc: TODO
+    desc: Various algorithms to calculate distance between two vectors.
   quantization:
     title: Quantization
-    desc: TODO
-functions:
+    desc: Various techniques to "compress" a vector by reducing precision and accuracy.
+  numpy:
+    title: "NumPy Utilities"
+    desc: Functions to read data from or work with [NumPy arrays](https://numpy.org/doc/stable/reference/generated/numpy.array.html).
+  meta:
+    title: Meta
+    desc: Helper functions to debug `sqlite-vec` installations.
+  entrypoints:
+    title: Entrypoints
+    desc: All the named entrypoints that load in different `sqlite-vec` functions and options.
+#  vec0:
+#    title: "vec0 Virtual Table"
+#    desc: TODO
+meta:
   vec_version:
     params: []
-    section: meta
     desc: Returns a version string of the current `sqlite-vec` installation.
     example: select vec_version();
   vec_debug:
     params: []
-    section: meta
     desc: Returns debugging information of the current `sqlite-vec` installation.
     example: select vec_debug();
+constructors:
   vec_f32:
     params: [vector]
-    section: constructors
     desc: |
       Creates a float vector from a BLOB or JSON text. If a BLOB is provided,
       the length must be divisible by 4, as a float takes up 4 bytes of space each.
@@ -42,7 +54,6 @@ functions:
       - select vec_f32(X'AA');
   vec_int8:
     params: [vector]
-    section: constructors
     desc: |
       Creates a 8-bit integer vector from a BLOB or JSON text. If a BLOB is provided,
       the length must be divisible by 4, as a float takes up 4 bytes of space each.
@@ -60,19 +71,18 @@ functions:
 
   vec_bit:
     params: [vector]
-    section: constructors
     desc: |
       Creates a binary vector from a BLOB.
 
-      The returned value is a BLOB with 4 bytes per element, with a special [subtype](https://www.sqlite.org/c3ref/result_subtype.html)
+      The returned value is a BLOB with 1 byte per 8 elements, with a special [subtype](https://www.sqlite.org/c3ref/result_subtype.html)
       of `224`.
     example:
       - select vec_bit(X'F0');
       - select subtype(vec_bit(X'F0'));
       - select vec_to_json(vec_bit(X'F0'));
+op:
   vec_length:
     params: [vector]
-    section: op
     desc: |
       Returns the number of elements in the given vector.
       The vector can be `JSON`, `BLOB`, or the result of a [constructor function](#constructors).
@@ -84,9 +94,20 @@ functions:
       - select vec_length(vec_int8(X'AABBCCDD'));
       - select vec_length(vec_bit(X'AABBCCDD'));
       - select vec_length(X'CCDD');
+  vec_type:
+    params: [vector]
+    desc: |
+      Returns the name of the type of `vector` as text. One of `'float32'`, `'int8'`, or `'bit'`.
+
+      This function will return an error if `vector` is invalid.
+    example:
+      - select vec_type('[.1, .2]');
+      - select vec_type(X'AABBCCDD');
+      - select vec_type(vec_int8(X'AABBCCDD'));
+      - select vec_type(vec_bit(X'AABBCCDD'));
+      - select vec_type(X'CCDD');
   vec_add:
     params: [a, b]
-    section: op
     desc: |
       Adds every element in vector `a` with vector `b`, returning a new vector `c`. Both vectors
       must be of the same type and same length. Only `float32` and `int8` vectors are supported.
@@ -119,7 +140,6 @@ functions:
       - select vec_add(vec_bit(X'AA'), vec_bit(X'BB'));
   vec_sub:
     params: [a, b]
-    section: op
     desc: |
       Subtracts every element in vector `a` with vector `b`, returning a new vector `c`. Both vectors
       must be of the same type and same length. Only `float32` and `int8` vectors are supported.
@@ -152,7 +172,6 @@ functions:
       - select vec_sub(vec_bit(X'AA'), vec_bit(X'BB'));
   vec_normalize:
     params: [vector]
-    section: op
     desc: |
       Performs L2 normalization on the given vector. Only float32 vectors are currently supported.
 
@@ -172,7 +191,6 @@ functions:
         );
   vec_slice:
     params: [vector, start, end]
-    section: op
     desc: |
       Extract a subset of `vector` from the `start` element (inclusive) to the `end` element (exclusive). TODO check
 
@@ -208,7 +226,6 @@ functions:
         );
   vec_to_json:
     params: [vector]
-    section: op
     desc: |
       Represents a vector as JSON text. The input vector can be a vector BLOB or JSON text.
 
@@ -219,10 +236,45 @@ functions:
       - select vec_to_json(vec_bit(X'AABBCCDD'));
       - select vec_to_json('[1,2,3,4]');
       - select vec_to_json('invalid');
+  vec_each:
+    params: [vector]
+    desc: |
+      A table function to iterate through every element in a vector. One row id returned per element in a vector.
 
+      ```sql
+      CREATE TABLE vec_each(
+        rowid int,    -- The
+        vector HIDDEN -- input parameter: A well-formed vector value
+      )
+      ```
+
+      Returns an error if `vector` is not a valid vector.
+    example:
+      - select rowid, value from vec_each('[1,2,3,4]');
+      - select rowid, value from vec_each(X'AABBCCDD00112233');
+      - select rowid, value from vec_each(vec_int8(X'AABBCCDD'));
+      - select rowid, value from vec_each(vec_bit(X'F0'));
+
+distance:
+  vec_distance_L2:
+    params: [a, b]
+    desc: |
+      Calculates the L2 euclidian distance between vectors `a` and `b`. Only valid for float32 or int8 vectors.
+
+      Returns an error under the following conditions:
+      - `a` or `b` are invalid vectors
+      - `a` or `b` do not share the same vector element types (ex float32 or int8)
+      - `a` or `b` are bit vectors. Use [`vec_distance_hamming()`](#vec_distance_hamming) for distance calculations between two bitvectors.
+      - `a` or `b` do not have the same length.
+    example:
+      - select vec_distance_L2('[1, 1]', '[2, 2]');
+      - select vec_distance_L2('[1, 1]', '[-2, -2]');
+      - select vec_distance_L2('[1.1, 2.2, 3.3]', '[4.4, 5.5, 6.6]');
+      - select vec_distance_L2(X'AABBCCDD', X'00112233');
+      - select vec_distance_L2('[1, 1]', vec_int8('[2, 2]'));
+      - select vec_distance_L2(vec_bit(X'AA'), vec_bit(X'BB'));
   vec_distance_cosine:
     params: [a, b]
-    section: distance
     desc: |
       Calculates the cosine distance between vectors `a` and `b`. Only valid for float32 or int8 vectors.
 
@@ -236,9 +288,10 @@ functions:
       - select vec_distance_cosine('[1, 1]', '[-2, -2]');
       - select vec_distance_cosine('[1.1, 2.2, 3.3]', '[4.4, 5.5, 6.6]');
       - select vec_distance_cosine(X'AABBCCDD', X'00112233');
+      - select vec_distance_cosine('[1, 1]', vec_int8('[2, 2]'));
+      - select vec_distance_cosine(vec_bit(X'AA'), vec_bit(X'BB'));
   vec_distance_hamming:
     params: [a, b]
-    section: distance
     desc: |
       Calculates the hamming distance between two bitvectors `a` and `b`. Only valid for bitvectors.
 
@@ -250,32 +303,83 @@ functions:
       - select vec_distance_hamming(vec_bit(X'00'), vec_bit(X'FF'));
       - select vec_distance_hamming(vec_bit(X'FF'), vec_bit(X'FF'));
       - select vec_distance_hamming(vec_bit(X'F0'), vec_bit(X'44'));
-      - select vec_distance_hamming(X'F0', X'00');
-  vec_distance_l2:
-    params: [a, b]
-    section: distance
+      - select vec_distance_hamming('[1, 1]', '[0, 0]');
+
+quantization:
+  vec_quantize_binary:
+    params: [vector]
+    desc: |
+      Quantize a float32 or int8 vector into a bitvector.
+      For every element in the vector, a `1` is assigned to positive numbers and a `0` is assigned to negative numbers.
+      These values are then packed into a bit vector.
+
+      Returns an error if `vector` is invalid, or if `vector` is not a float32 or int8 vector.
+    example:
+      - select vec_quantize_binary('[1, 2, 3, 4, 5, 6, 7, 8]');
+      - select vec_quantize_binary('[1, 2, 3, 4, -5, -6, -7, -8]');
+      - select vec_quantize_binary('[-1, -2, -3, -4, -5, -6, -7, -8]');
+      - select vec_quantize_binary('[-1, -2, -3, -4, -5, -6, -7, -8]');
+      - select vec_quantize_binary(vec_int8(X'11223344'));
+      - select vec_quantize_binary(vec_bit(X'FF'));
+  vec_quantize_i8:
+    params: [vector, "[start]", "[end]"]
     desc: x
     example: select 'todo';
 
-  vec_quantize_binary:
+numpy:
+  vec_npy_each:
     params: [vector]
-    section: quantization
-    desc: x
-    example: select 'todo';
-  vec_quantize_i8:
-    params: [vector, "[start]", "[end]"]
-    section: quantization
-    desc: x
-    example: select 'todo';
+    desc: |
+      xxx
+    example:
+      - |
+        -- db.execute('select quote(?)', [to_npy(np.array([[1.0], [2.0], [3.0]], dtype=np.float32))]).fetchone()
+        select
+          rowid,
+          vector,
+          vec_type(vector),
+          vec_to_json(vector)
+        from vec_npy_each(
+          X'934E554D5059010076007B276465736372273A20273C6634272C2027666F727472616E5F6F72646572273A2046616C73652C20277368617065273A2028332C2031292C207D202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020200A0000803F0000004000004040'
+        )
+      - |
+        -- db.execute('select quote(?)', [to_npy(np.array([[1.0], [2.0], [3.0]], dtype=np.float32))]).fetchone()
+        select
+          rowid,
+          vector,
+          vec_type(vector),
+          vec_to_json(vector)
+        from vec_npy_each(
+          X'934E554D5059010076007B276465736372273A20273C6634272C2027666F727472616E5F6F72646572273A2046616C73652C20277368617065273A2028332C2031292C207D202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020200A0000803F0000004000004040'
+        )
+
+vec0:
+  vec0:
+    params: []
+    desc: TODO
+    example:
+      - |
+        create virtual table vec_items using vec0(
+          contents_embedding float[4]
+        );
+      - |
+        insert into vec_items(rowid, contents_embedding)
+        values (1, '[1, 1, 1, 1]'),
+          (2, '[2, 2, 2, 2]'),
+          (3, '[3, 3, 3, 3]');
+
+entrypoints:
+  {}
+  #sqlite3_vec_init:
+  #  desc: |
+  #    asdf
+  #sqlite3_vec_fs_read_init:
+  #  desc: |
+  #    asdf
 #table_functions:
 #  vec_each:
 #    columns: [rowid, value]
 #    inputs: ["vector"]
-#    desc:
-#    example:
-#  vec_npy_each:
-#    columns: [rowid, vector]
-#    inputs: ["input"]
 #    desc:
 #    example:
 #virtual_tables:

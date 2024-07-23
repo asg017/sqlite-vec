@@ -1,4 +1,10 @@
+---
+outline: 2
+---
+
 # API Reference
+
+A complete reference to all the SQL scalar functions, table functions, and virtual tables inside `sqlite-vec`.
 
 ::: warning
 sqlite-vec is pre-v1, so expect breaking changes.
@@ -6,40 +12,12 @@ sqlite-vec is pre-v1, so expect breaking changes.
 
 [[toc]]
 
-## Meta {#meta} 
-
-TODO
-
-### `vec_version()` {#vec_version}
-
-Returns a version string of the current `sqlite-vec` installation.
-
-```sql
-select vec_version();
--- 'v0.0.1-alpha.36'
-
-
-```
-
-### `vec_debug()` {#vec_debug}
-
-Returns debugging information of the current `sqlite-vec` installation.
-
-```sql
-select vec_debug();
-/*
-'Version: v0.0.1-alpha.36
-Date: 2024-07-16T23:06:41Z-0700
-Commit: e507bc0230de6dc44c7ff3b4895785edd734f31d
-Build flags: avx '
-*/
-
-
-```
-
 ## Constructors {#constructors} 
 
-TODO
+SQL functions that "construct" vectors with different element types.
+
+Currently, only `float32`, `int8`, and `bit` vectors are supported.
+
 
 ### `vec_f32(vector)` {#vec_f32}
 
@@ -52,7 +30,7 @@ of `223`.
 
 ```sql
 select vec_f32('[.1, .2, .3, 4]');
--- X'CDCCCC3DCDCC4C3E9A99993E008040'
+-- X'CDCCCC3DCDCC4C3E9A99993E00008040'
 
 select subtype(vec_f32('[.1, .2, .3, 4]'));
 -- 223
@@ -81,7 +59,7 @@ of `225`.
 
 ```sql
 select vec_int8('[1, 2, 3, 4]');
--- X'1234'
+-- X'01020304'
 
 select subtype(vec_int8('[1, 2, 3, 4]'));
 -- 225
@@ -102,7 +80,7 @@ select vec_int8('[999]');
 
 Creates a binary vector from a BLOB.
 
-The returned value is a BLOB with 4 bytes per element, with a special [subtype](https://www.sqlite.org/c3ref/result_subtype.html)
+The returned value is a BLOB with 1 byte per 8 elements, with a special [subtype](https://www.sqlite.org/c3ref/result_subtype.html)
 of `224`.
 
 
@@ -121,7 +99,8 @@ select vec_to_json(vec_bit(X'F0'));
 
 ## Operations {#op} 
 
-TODO
+Different operations and utilities for working with vectors.
+
 
 ### `vec_length(vector)` {#vec_length}
 
@@ -150,6 +129,32 @@ select vec_length(X'CCDD');
 
 ```
 
+### `vec_type(vector)` {#vec_type}
+
+Returns the name of the type of `vector` as text. One of `'float32'`, `'int8'`, or `'bit'`.
+
+This function will return an error if `vector` is invalid.
+
+
+```sql
+select vec_type('[.1, .2]');
+-- 'float32'
+
+select vec_type(X'AABBCCDD');
+-- 'float32'
+
+select vec_type(vec_int8(X'AABBCCDD'));
+-- 'int8'
+
+select vec_type(vec_bit(X'AABBCCDD'));
+-- 'bit'
+
+select vec_type(X'CCDD');
+-- ❌ invalid float32 vector BLOB length. Must be divisible by 4, found 2
+
+
+```
+
 ### `vec_add(a, b)` {#vec_add}
 
 Adds every element in vector `a` with vector `b`, returning a new vector `c`. Both vectors
@@ -165,7 +170,7 @@ select vec_add(
   '[.1, .2, .3]',
   '[.4, .5, .6]'
 );
--- X'0003F3333333F6766663F'
+-- X'0000003F3333333F6766663F'
 
 select vec_to_json(
   vec_add(
@@ -243,7 +248,7 @@ Returns an error if the input is an invalid vector or not a float32 vector.
 
 ```sql
 select vec_normalize('[2, 3, 1, -4]');
--- X'BAF4BA3E8B37C3FBAF43A3EBAF43ABF'
+-- X'BAF4BA3E8B370C3FBAF43A3EBAF43ABF'
 
 select vec_to_json(
   vec_normalize('[2, 3, 1, -4]')
@@ -277,7 +282,7 @@ Returns an error in the following conditions:
 
 ```sql
 select vec_slice('[1, 2,3, 4]', 0, 2);
--- X'00803F00040'
+-- X'0000803F00000040'
 
 select vec_to_json(
   vec_slice('[1, 2,3, 4]', 0, 2)
@@ -333,9 +338,132 @@ select vec_to_json('invalid');
 
 ```
 
+### `vec_each(vector)` {#vec_each}
+
+A table function to iterate through every element in a vector. One row id returned per element in a vector.
+
+```sql
+CREATE TABLE vec_each(
+  rowid int,    -- The
+  vector HIDDEN -- input parameter: A well-formed vector value
+)
+```
+
+Returns an error if `vector` is not a valid vector.
+
+
+```sql
+select rowid, value from vec_each('[1,2,3,4]');
+/*
+┌───────┬───────┐
+│ rowid │ value │
+├───────┼───────┤
+│ 0     │ 1     │
+├───────┼───────┤
+│ 1     │ 2     │
+├───────┼───────┤
+│ 2     │ 3     │
+├───────┼───────┤
+│ 3     │ 4     │
+└───────┴───────┘
+
+*/
+
+
+select rowid, value from vec_each(X'AABBCCDD00112233');
+/*
+┌───────┬──────────────────────┐
+│ rowid │ value                │
+├───────┼──────────────────────┤
+│ 0     │ -1844071490169864200 │
+├───────┼──────────────────────┤
+│ 1     │ 3.773402568185702e-8 │
+└───────┴──────────────────────┘
+
+*/
+
+
+select rowid, value from vec_each(vec_int8(X'AABBCCDD'));
+/*
+┌───────┬───────┐
+│ rowid │ value │
+├───────┼───────┤
+│ 0     │ -86   │
+├───────┼───────┤
+│ 1     │ -69   │
+├───────┼───────┤
+│ 2     │ -52   │
+├───────┼───────┤
+│ 3     │ -35   │
+└───────┴───────┘
+
+*/
+
+
+select rowid, value from vec_each(vec_bit(X'F0'));
+/*
+┌───────┬───────┐
+│ rowid │ value │
+├───────┼───────┤
+│ 0     │ 1     │
+├───────┼───────┤
+│ 1     │ 1     │
+├───────┼───────┤
+│ 2     │ 1     │
+├───────┼───────┤
+│ 3     │ 1     │
+├───────┼───────┤
+│ 4     │ 0     │
+├───────┼───────┤
+│ 5     │ 0     │
+├───────┼───────┤
+│ 6     │ 0     │
+├───────┼───────┤
+│ 7     │ 0     │
+└───────┴───────┘
+
+*/
+
+
+
+```
+
 ## Distance functions {#distance} 
 
-TODO
+Various algorithms to calculate distance between two vectors.
+
+### `vec_distance_L2(a, b)` {#vec_distance_L2}
+
+Calculates the L2 euclidian distance between vectors `a` and `b`. Only valid for float32 or int8 vectors.
+
+Returns an error under the following conditions:
+- `a` or `b` are invalid vectors
+- `a` or `b` do not share the same vector element types (ex float32 or int8)
+- `a` or `b` are bit vectors. Use [`vec_distance_hamming()`](#vec_distance_hamming) for distance calculations between two bitvectors.
+- `a` or `b` do not have the same length.
+
+
+```sql
+select vec_distance_L2('[1, 1]', '[2, 2]');
+-- 1.4142135381698608
+
+select vec_distance_L2('[1, 1]', '[-2, -2]');
+-- 4.242640495300293
+
+select vec_distance_L2('[1.1, 2.2, 3.3]', '[4.4, 5.5, 6.6]');
+-- 5.7157673835754395
+
+select vec_distance_L2(X'AABBCCDD', X'00112233');
+-- 1844071490169864200
+
+select vec_distance_L2('[1, 1]', vec_int8('[2, 2]'));
+-- ❌ Vector type mistmatch. First vector has type float32, while the second has type int8.
+
+select vec_distance_L2(vec_bit(X'AA'), vec_bit(X'BB'));
+-- ❌ Cannot calculate L2 distance between two bitvectors.
+
+
+```
 
 ### `vec_distance_cosine(a, b)` {#vec_distance_cosine}
 
@@ -361,6 +489,12 @@ select vec_distance_cosine('[1.1, 2.2, 3.3]', '[4.4, 5.5, 6.6]');
 select vec_distance_cosine(X'AABBCCDD', X'00112233');
 -- 2
 
+select vec_distance_cosine('[1, 1]', vec_int8('[2, 2]'));
+-- ❌ Vector type mistmatch. First vector has type float32, while the second has type int8.
+
+select vec_distance_cosine(vec_bit(X'AA'), vec_bit(X'BB'));
+-- ❌ Cannot calculate cosine distance between two bitvectors.
+
 
 ```
 
@@ -384,34 +518,43 @@ select vec_distance_hamming(vec_bit(X'FF'), vec_bit(X'FF'));
 select vec_distance_hamming(vec_bit(X'F0'), vec_bit(X'44'));
 -- 4
 
-select vec_distance_hamming(X'F0', X'00');
--- ❌ Error reading 1st vector: invalid float32 vector BLOB length. Must be divisible by 4, found 1
-
-
-```
-
-### `vec_distance_l2(a, b)` {#vec_distance_l2}
-
-x
-
-```sql
-select 'todo';
--- 'todo'
+select vec_distance_hamming('[1, 1]', '[0, 0]');
+-- ❌ Cannot calculate hamming distance between two float32 vectors.
 
 
 ```
 
 ## Quantization {#quantization} 
 
-TODO
+Various techniques to "compress" a vector by reducing precision and accuracy.
 
 ### `vec_quantize_binary(vector)` {#vec_quantize_binary}
 
-x
+Quantize a float32 or int8 vector into a bitvector.
+For every element in the vector, a `1` is assigned to positive numbers and a `0` is assigned to negative numbers.
+These values are then packed into a bit vector.
+
+Returns an error if `vector` is invalid, or if `vector` is not a float32 or int8 vector.
+
 
 ```sql
-select 'todo';
--- 'todo'
+select vec_quantize_binary('[1, 2, 3, 4, 5, 6, 7, 8]');
+-- X'FF'
+
+select vec_quantize_binary('[1, 2, 3, 4, -5, -6, -7, -8]');
+-- X'0F'
+
+select vec_quantize_binary('[-1, -2, -3, -4, -5, -6, -7, -8]');
+-- X'00'
+
+select vec_quantize_binary('[-1, -2, -3, -4, -5, -6, -7, -8]');
+-- X'00'
+
+select vec_quantize_binary(vec_int8(X'11223344'));
+-- ❌ Binary quantization requires vectors with a length divisible by 8
+
+select vec_quantize_binary(vec_bit(X'FF'));
+-- ❌ Can only binary quantize float or int8 vectors
 
 
 ```
@@ -426,4 +569,98 @@ select 'todo';
 
 
 ```
+
+## NumPy Utilities {#numpy} 
+
+Functions to read data from or work with [NumPy arrays](https://numpy.org/doc/stable/reference/generated/numpy.array.html).
+
+### `vec_npy_each(vector)` {#vec_npy_each}
+
+xxx
+
+
+```sql
+-- db.execute('select quote(?)', [to_npy(np.array([[1.0], [2.0], [3.0]], dtype=np.float32))]).fetchone()
+select
+  rowid,
+  vector,
+  vec_type(vector),
+  vec_to_json(vector)
+from vec_npy_each(
+  X'934E554D5059010076007B276465736372273A20273C6634272C2027666F727472616E5F6F72646572273A2046616C73652C20277368617065273A2028332C2031292C207D202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020200A0000803F0000004000004040'
+)
+/*
+┌───────┬─────────────┬──────────────────┬─────────────────────┐
+│ rowid │ vector      │ vec_type(vector) │ vec_to_json(vector) │
+├───────┼─────────────┼──────────────────┼─────────────────────┤
+│ 0     │ X'0000803F' │ 'float32'        │ '[1.000000]'        │
+├───────┼─────────────┼──────────────────┼─────────────────────┤
+│ 1     │ X'00000040' │ 'float32'        │ '[2.000000]'        │
+├───────┼─────────────┼──────────────────┼─────────────────────┤
+│ 2     │ X'00004040' │ 'float32'        │ '[3.000000]'        │
+└───────┴─────────────┴──────────────────┴─────────────────────┘
+
+*/
+
+
+-- db.execute('select quote(?)', [to_npy(np.array([[1.0], [2.0], [3.0]], dtype=np.float32))]).fetchone()
+select
+  rowid,
+  vector,
+  vec_type(vector),
+  vec_to_json(vector)
+from vec_npy_each(
+  X'934E554D5059010076007B276465736372273A20273C6634272C2027666F727472616E5F6F72646572273A2046616C73652C20277368617065273A2028332C2031292C207D202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020200A0000803F0000004000004040'
+)
+/*
+┌───────┬─────────────┬──────────────────┬─────────────────────┐
+│ rowid │ vector      │ vec_type(vector) │ vec_to_json(vector) │
+├───────┼─────────────┼──────────────────┼─────────────────────┤
+│ 0     │ X'0000803F' │ 'float32'        │ '[1.000000]'        │
+├───────┼─────────────┼──────────────────┼─────────────────────┤
+│ 1     │ X'00000040' │ 'float32'        │ '[2.000000]'        │
+├───────┼─────────────┼──────────────────┼─────────────────────┤
+│ 2     │ X'00004040' │ 'float32'        │ '[3.000000]'        │
+└───────┴─────────────┴──────────────────┴─────────────────────┘
+
+*/
+
+
+
+```
+
+## Meta {#meta} 
+
+Helper functions to debug `sqlite-vec` installations.
+
+### `vec_version()` {#vec_version}
+
+Returns a version string of the current `sqlite-vec` installation.
+
+```sql
+select vec_version();
+-- 'v0.0.1-alpha.36'
+
+
+```
+
+### `vec_debug()` {#vec_debug}
+
+Returns debugging information of the current `sqlite-vec` installation.
+
+```sql
+select vec_debug();
+/*
+'Version: v0.0.1-alpha.36
+Date: 2024-07-16T23:06:41Z-0700
+Commit: e507bc0230de6dc44c7ff3b4895785edd734f31d
+Build flags: avx '
+*/
+
+
+```
+
+## Entrypoints {#entrypoints} 
+
+All the named entrypoints that load in different `sqlite-vec` functions and options.
 
