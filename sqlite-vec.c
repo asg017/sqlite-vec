@@ -1964,6 +1964,7 @@ int parse_primary_key_definition(const char *source, int source_length,
 enum Vec0DistanceMetrics {
   VEC0_DISTANCE_METRIC_L2 = 1,
   VEC0_DISTANCE_METRIC_COSINE = 2,
+  VEC0_DISTANCE_METRIC_L1 = 3,
 };
 
 struct VectorColumnDefinition {
@@ -2108,6 +2109,8 @@ int parse_vector_column(const char *source, int source_length,
       int valueLength = token.end - token.start;
       if (sqlite3_strnicmp(value, "l2", valueLength) == 0) {
         distanceMetric = VEC0_DISTANCE_METRIC_L2;
+      }else if (sqlite3_strnicmp(value, "l1", valueLength) == 0) {
+        distanceMetric = VEC0_DISTANCE_METRIC_L1;
       } else if (sqlite3_strnicmp(value, "cosine", valueLength) == 0) {
         distanceMetric = VEC0_DISTANCE_METRIC_COSINE;
       } else {
@@ -4733,6 +4736,11 @@ int vec0Filter_knn_chunks_iter(vec0_vtab *p, sqlite3_stmt *stmtChunks,
                                          &vector_column->dimensions);
           break;
         }
+        case VEC0_DISTANCE_METRIC_L1: {
+          result = distance_l1_f32(base_i, (f32 *)queryVector,
+                                         &vector_column->dimensions);
+          break;
+        }
         case VEC0_DISTANCE_METRIC_COSINE: {
           result = distance_cosine_float(base_i, (f32 *)queryVector,
                                          &vector_column->dimensions);
@@ -4747,6 +4755,11 @@ int vec0Filter_knn_chunks_iter(vec0_vtab *p, sqlite3_stmt *stmtChunks,
         switch (vector_column->distance_metric) {
         case VEC0_DISTANCE_METRIC_L2: {
           result = distance_l2_sqr_int8(base_i, (i8 *)queryVector,
+                                        &vector_column->dimensions);
+          break;
+        }
+        case VEC0_DISTANCE_METRIC_L1: {
+          result = distance_l1_int8(base_i, (i8 *)queryVector,
                                         &vector_column->dimensions);
           break;
         }
@@ -6887,7 +6900,7 @@ __declspec(dllexport)
     //{"vec_version",         _static_text_func,    0, DEFAULT_FLAGS,                                          (void *) SQLITE_VEC_VERSION },
     //{"vec_debug",           _static_text_func,    0, DEFAULT_FLAGS,                                          (void *) SQLITE_VEC_DEBUG_STRING },
     {"vec_distance_l2",     vec_distance_l2,      2, DEFAULT_FLAGS | SQLITE_SUBTYPE,                         },
-    {"vec_distance_l1",     vec_distance_l1,      2, DEFAULT_FLAGS | SQLITE_SUBTYPE,                         NULL },
+    {"vec_distance_l1",     vec_distance_l1,      2, DEFAULT_FLAGS | SQLITE_SUBTYPE,                         },
     {"vec_distance_hamming",vec_distance_hamming, 2, DEFAULT_FLAGS | SQLITE_SUBTYPE,                         },
     {"vec_distance_cosine", vec_distance_cosine,  2, DEFAULT_FLAGS | SQLITE_SUBTYPE,                         },
     {"vec_length",          vec_length,           1, DEFAULT_FLAGS | SQLITE_SUBTYPE,                         },
