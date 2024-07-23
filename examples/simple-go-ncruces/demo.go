@@ -22,6 +22,7 @@ func main() {
 	stmt.Step()
 
 	log.Printf("sqlite_version=%s, vec_version=%s\n", stmt.ColumnText(0), stmt.ColumnText(1))
+	stmt.Close()
 
 
 	err = db.Exec("CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[4])")
