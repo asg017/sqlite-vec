@@ -2290,6 +2290,15 @@ def test_vec0_distance_metric():
       {"rowid": 1, "distance": 2},
   ]
 
+
+def test_vec0_vacuum():
+    db = connect(EXT_PATH)
+    db.execute('create virtual table vec_t using vec0(a float[1]);')
+    db.execute("begin")
+    db.execute("insert into vec_t(a) values (X'AABBCCDD')")
+    db.commit()
+    db.execute("vacuum")
+
 def rowids_value(buffer: bytearray) -> List[int]:
     assert (len(buffer) % 8) == 0
     n = int(len(buffer) / 8)
