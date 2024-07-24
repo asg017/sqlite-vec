@@ -3432,7 +3432,7 @@ int vec0_result_id(vec0_vtab *p, sqlite3_context *context, i64 rowid) {
 int vec0_get_vector_data(vec0_vtab *pVtab, i64 rowid, int vector_column_idx,
                          void **outVector, int *outVectorSize) {
   vec0_vtab *p = pVtab;
-  int rc;
+  int rc, brc;
   i64 chunk_id;
   i64 chunk_offset;
   size_t size;
@@ -3492,7 +3492,13 @@ int vec0_get_vector_data(vec0_vtab *pVtab, i64 rowid, int vector_column_idx,
   rc = SQLITE_OK;
 
 cleanup:
-  sqlite3_blob_close(vectorBlob);
+  brc = sqlite3_blob_close(vectorBlob);
+  if((rc == SQLITE_OK) && (brc != SQLITE_OK) ) {
+      vtab_set_error(
+        &p->base, VEC_INTERAL_ERROR "unknown error, could not close vector blob, please file an issue");
+      return brc;
+    }
+
   return rc;
 }
 
@@ -4799,6 +4805,7 @@ int vec0Filter_knn_chunks_iter(vec0_vtab *p, sqlite3_stmt *stmtChunks,
       topk_distances[i] = tmp_topk_distances[i];
     }
     k_used = used;
+    // blobVectors is always opened with read-only permissions, so this never fails.
     sqlite3_blob_close(blobVectors);
     blobVectors = NULL;
   }
@@ -4821,6 +4828,7 @@ cleanup:
   sqlite3_free(bmRowids);
   sqlite3_free(baseVectors);
   sqlite3_free(chunk_distances);
+  // blobVectors is always opened with read-only permissions, so this never fails.
   sqlite3_blob_close(blobVectors);
   return rc;
 }
@@ -5467,10 +5475,15 @@ done:
 
     // blobChunksValidity and pValidity are stale, pointing to the previous
     // (full) chunk. to re-assign them
-    sqlite3_blob_close(*blobChunksValidity);
+    rc = sqlite3_blob_close(*blobChunksValidity);
     sqlite3_free((void *)*bufferChunksValidity);
     *blobChunksValidity = NULL;
     *bufferChunksValidity = NULL;
+    if(rc != SQLITE_OK) {
+      vtab_set_error(&p->base, VEC_INTERAL_ERROR "unknown error, blobChunksValidity could not be closed, please file an issue.");
+      rc = SQLITE_ERROR;
+      goto cleanup;
+    }
 
     rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowChunksName,
                            "validity", *chunk_rowid, 1, blobChunksValidity);
@@ -5566,7 +5579,7 @@ int vec0Update_InsertWriteFinalStep(vec0_vtab *p, i64 chunk_rowid,
                                     void *vectorDatas[],
                                     sqlite3_blob *blobChunksValidity,
                                     const unsigned char *bufferChunksValidity) {
-  int rc;
+  int rc, brc;
   sqlite3_blob *blobChunksRowids = NULL;
 
 
@@ -5606,6 +5619,7 @@ int vec0Update_InsertWriteFinalStep(vec0_vtab *p, i64 chunk_rowid,
           p->schemaName, p->shadowVectorChunksNames[i], chunk_rowid, expected,
           actual);
       rc = SQLITE_ERROR;
+      // already error, can ignore result code
       sqlite3_blob_close(blobVectors);
       goto cleanup;
     };
@@ -5619,10 +5633,19 @@ int vec0Update_InsertWriteFinalStep(vec0_vtab *p, i64 chunk_rowid,
                      "could not write vector blob on %s.%s.%lld",
                      p->schemaName, p->shadowVectorChunksNames[i], chunk_rowid);
       rc = SQLITE_ERROR;
+      // already error, can ignore result code
       sqlite3_blob_close(blobVectors);
       goto cleanup;
     }
-    sqlite3_blob_close(blobVectors);
+    rc = sqlite3_blob_close(blobVectors);
+    if(rc != SQLITE_OK) {
+      vtab_set_error(&p->base,
+                     VEC_INTERAL_ERROR
+                     "could not close vector blob on %s.%s.%lld",
+                     p->schemaName, p->shadowVectorChunksNames[i], chunk_rowid);
+      rc = SQLITE_ERROR;
+      goto cleanup;
+    }
   }
 
 
@@ -5663,7 +5686,13 @@ int vec0Update_InsertWriteFinalStep(vec0_vtab *p, i64 chunk_rowid,
   rc = vec0_rowids_update_position(p, rowid, chunk_rowid, chunk_offset);
 
   cleanup:
-    sqlite3_blob_close(blobChunksRowids);
+    brc = sqlite3_blob_close(blobChunksRowids);
+    if((rc == SQLITE_OK) && (brc != SQLITE_OK) ) {
+      vtab_set_error(
+        &p->base, VEC_INTERAL_ERROR "could not close rowids blob on %s.%s.%lld",
+        p->schemaName, p->shadowChunksName, chunk_rowid);
+      return brc;
+    }
     return rc;
 }
 
@@ -5794,8 +5823,13 @@ cleanup:
   for (int i = 0; i < numReadVectors; i++) {
     cleanups[i](vectorDatas[i]);
   }
-  sqlite3_blob_close(blobChunksValidity);
   sqlite3_free((void *)bufferChunksValidity);
+  int brc = sqlite3_blob_close(blobChunksValidity);
+  if((rc == SQLITE_OK) && (brc != SQLITE_OK) ) {
+    vtab_set_error(
+      &p->base, VEC_INTERAL_ERROR "unknown error, blobChunksValidity could not be closed, please file an issue");
+    return brc;
+  }
   return rc;
 }
 
