@@ -14,6 +14,10 @@ from dataclasses import dataclass
 
 from typing import List
 
+import duckdb
+import pyarrow as pa
+from sentence_transformers.util import semantic_search
+
 
 @dataclass
 class BenchResult:
@@ -52,13 +56,13 @@ def topk(
 
 
 def ivecs_read(fname):
-    a = np.fromfile(fname, dtype="int32")
+    a = np.fromfile(fname, dtype="int32",)
     d = a[0]
     return a.reshape(-1, d + 1)[:, 1:].copy()
 
 
-def fvecs_read(fname):
-    return ivecs_read(fname).view("float32")
+def fvecs_read(fname, sample):
+    return ivecs_read(fname).view("float32")[:sample]
 
 
 def bench_hnsw(base, query):
@@ -80,8 +84,6 @@ def bench_hnsw(base, query):
     for idx, q in enumerate(query):
         t0 = time.time()
         result = p.knn_query(q, k=5)
-        if idx < 5:
-            print(result[0])
         results.append(result)
         times.append(time.time() - t0)
     print(time.time() - t)
@@ -131,7 +133,7 @@ def bench_sqlite_vec(base, query, page_size, chunk_size, k) -> BenchResult:
     db = sqlite3.connect(":memory:")
     db.execute(f"PRAGMA page_size = {page_size}")
     db.enable_load_extension(True)
-    db.load_extension("./dist/vec0")
+    db.load_extension("../../dist/vec0")
     db.execute(
         f"""
           create virtual table vec_sift1m using vec0(
@@ -171,12 +173,12 @@ def bench_sqlite_vec(base, query, page_size, chunk_size, k) -> BenchResult:
     return BenchResult(f"sqlite-vec vec0 ({page_size}|{chunk_size})", build_time, times)
 
 
-def bench_sqlite_normal(base, query, page_size, k) -> BenchResult:
-    print(f"sqlite-normal")
+def bench_sqlite_vec_scalar(base, query, page_size, k) -> BenchResult:
+    print(f"sqlite-vec-scalar")
 
     db = sqlite3.connect(":memory:")
     db.enable_load_extension(True)
-    db.load_extension("./dist/vec0")
+    db.load_extension("../../dist/vec0")
     db.execute(f"PRAGMA page_size={page_size}")
     db.execute(f"create table sift1m(vector);")
 
@@ -207,8 +209,102 @@ def bench_sqlite_normal(base, query, page_size, k) -> BenchResult:
             [q.tobytes(), k],
         ).fetchall()
         times.append(time.time() - t0)
-    return BenchResult(f"sqlite-vec normal ({page_size})", build_time, times)
+    return BenchResult(f"sqlite-vec-scalar ({page_size})", build_time, times)
 
+def bench_libsql(base, query, page_size, k) -> BenchResult:
+    print(f"libsql")
+    dimensions = base.shape[1]
+
+    db = sqlite3.connect(":memory:")
+    db.enable_load_extension(True)
+    assert db.execute("select 'vector' in (select name from pragma_function_list)").fetchone()[0] == 1
+    db.execute(f"PRAGMA page_size={page_size}")
+    db.execute(f"create table vectors(vector f32_blob({dimensions}));")
+
+    # TODO: only does DiskANN?
+    #db.execute("CREATE INDEX vectors_idx ON vectors (libsql_vector_idx(vector, 'metric=cosine'))")
+
+    t = time.time()
+    with db:
+        db.executemany(
+            "insert into vectors(vector) values (?)",
+            list(map(lambda x: [x.tobytes()], base)),
+        )
+    build_time = time.time() - t
+    times = []
+    results = []
+    t = time.time()
+    for (
+        idx,
+        q,
+    ) in enumerate(query):
+        t0 = time.time()
+        result = db.execute(
+            """
+              select
+                rowid,
+                vector_distance_cos(?, vector) as distance
+              FROM vectors
+              order by 2
+              limit ?
+            """,
+            [q.tobytes(), k],
+        ).fetchall()
+        times.append(time.time() - t0)
+    return BenchResult(f"libsql ({page_size})", build_time, times)
+
+
+def register_np(db, array, name):
+    ptr = array.__array_interface__["data"][0]
+    nvectors, dimensions = array.__array_interface__["shape"]
+    element_type = array.__array_interface__["typestr"]
+
+    assert element_type == "<f4"
+
+    name_escaped = db.execute("select printf('%w', ?)", [name]).fetchone()[0]
+
+    db.execute(
+        "insert into temp.vec_static_blobs(name, data) select ?, vec_static_blob_from_raw(?, ?, ?, ?)",
+        [name, ptr, element_type, dimensions, nvectors],
+    )
+
+    db.execute(
+        f'create virtual table "{name_escaped}" using vec_static_blob_entries({name_escaped})'
+    )
+
+def bench_sqlite_vec_static(base, query, k) -> BenchResult:
+    print(f"sqlite-vec static")
+
+    db = sqlite3.connect(":memory:")
+    db.enable_load_extension(True)
+    db.load_extension("../../dist/vec0")
+
+
+
+    t = time.time()
+    register_np(db, base, "base")
+    build_time = time.time() - t
+
+    times = []
+    results = []
+    for (
+        idx,
+        q,
+    ) in enumerate(query):
+        t0 = time.time()
+        result = db.execute(
+            """
+              select
+                rowid
+              from base
+              where vector match ?
+                and k = ?
+              order by distance
+            """,
+            [q.tobytes(), k],
+        ).fetchall()
+        times.append(time.time() - t0)
+    return BenchResult(f"sqlite-vec static", build_time, times)
 
 def bench_faiss(base, query, k) -> BenchResult:
     dimensions = base.shape[1]
@@ -245,6 +341,45 @@ def bench_lancedb(base, query, k) -> BenchResult:
         result = tbl.search(q).limit(k).to_arrow()
         times.append(time.time() - t0)
     return BenchResult("lancedb", build_time, times)
+
+def bench_duckdb(base, query, k) -> BenchResult:
+    dimensions = base.shape[1]
+    db = duckdb.connect(":memory:")
+    db.execute(f"CREATE TABLE t(vector float[{dimensions}])")
+
+    t0 = time.time()
+    pa_base = pa.Table.from_arrays([pa.array(list(base))], names=['vector'])
+    pa_base
+    db.execute(f"INSERT INTO t(vector) SELECT vector::float[{dimensions}] FROM pa_base")
+    build_time = time.time() - t0
+    times = []
+    for q in query:
+        t0 = time.time()
+        result = db.execute(
+            f"""
+              SELECT
+                rowid,
+                array_cosine_similarity(vector, ?::float[{dimensions}])
+              FROM t
+              ORDER BY 2 DESC
+              LIMIT ?
+            """, [q, k]).fetchall()
+        times.append(time.time() - t0)
+    return BenchResult("duckdb", build_time, times)
+
+def bench_sentence_transformers(base, query, k) -> BenchResult:
+    print("sentence-transformers")
+    dimensions = base.shape[1]
+    t0 = time.time()
+    build_time = time.time() - t0
+
+    times = []
+    for q in query:
+        t0 = time.time()
+        result = semantic_search(q, base, top_k=k)
+        times.append(time.time() - t0)
+
+    return BenchResult("sentence-transformers", build_time, times)
 
 
 # def bench_chroma(base, query, k):
@@ -297,23 +432,65 @@ from rich.console import Console
 from rich.table import Table
 
 
-def suite(name, base, query, k):
+def suite(name, base, query, k, benchmarks):
     print(f"Starting benchmark suite: {name} {base.shape}, k={k}")
     results = []
-    # n = bench_chroma(base[:40000], query, k=k)
-    # n = bench_usearch_npy(base, query, k=k)
-    # n = bench_usearch_special(base, query, k=k)
-    results.append(bench_faiss(base, query, k=k))
-    results.append(bench_hnsw_bf(base, query, k=k))
-    # n = bench_sqlite_vec(base, query, 4096, 1024, k=k)
-    # n = bench_sqlite_vec(base, query, 32768, 1024, k=k)
-    results.append(bench_sqlite_vec(base, query, 32768, 256, k=k))
-    # n = bench_sqlite_vec(base, query, 16384, 64, k=k)
-    # n = bench_sqlite_vec(base, query, 16384, 32, k=k)
-    results.append(bench_sqlite_normal(base, query, 8192, k=k))
-    results.append(bench_lancedb(base, query, k=k))
-    results.append(bench_numpy(base, query, k=k))
-    # h = bench_hnsw(base, query)
+
+    for b in benchmarks.split(","):
+        if b == "faiss":
+            results.append(bench_faiss(base, query, k=k))
+        elif b == "vec-static":
+          results.append(bench_sqlite_vec_static(base, query, k=k))
+        elif b.startswith("vec-scalar"):
+            _, page_size = b.split('.')
+            results.append(bench_sqlite_vec_scalar(base, query, page_size, k=k))
+        elif b.startswith("libsql"):
+            _, page_size = b.split('.')
+            results.append(bench_libsql(base, query, page_size, k=k))
+        elif b.startswith("vec-vec0"):
+            _, page_size, chunk_size = b.split('.')
+            results.append(bench_sqlite_vec(base, query, int(page_size), int(chunk_size), k=k))
+        elif b == "usearch":
+            results.append(bench_usearch_npy(base, query, k=k))
+        elif b == "hnswlib":
+            results.append(bench_hnsw_bf(base, query, k=k))
+        elif b == "numpy":
+            results.append(bench_numpy(base, query, k=k))
+        elif b == "duckdb":
+            results.append(bench_duckdb(base, query, k=k))
+        elif b == "sentence-transformers":
+            results.append(bench_sentence_transformers(base, query, k=k))
+        else:
+            raise Exception(f"unknown benchmark {b}")
+
+    #results.append(bench_sqlite_vec(base, query, 32768, 512, k=k))
+    #results.append(bench_sqlite_vec(base, query, 32768, 256, k=k))
+
+
+    #results.append(bench_sqlite_vec_expo(base, query, k=k))
+
+      # n = bench_chroma(base[:40000], query, k=k)
+
+      # n = bench_usearch_special(base, query, k=k)
+
+
+
+      # n = bench_sqlite_vec(base, query, 4096, 1024, k=k)
+      # n = bench_sqlite_vec(base, query, 32768, 1024, k=k)
+
+
+
+      # blessed
+
+      ###   #for pgsz in [4096, 8192, 16384, 32768, 65536]:
+      ###   #    for chunksz in [8, 32, 128, 512, 1024, 2048]:
+      ###   #      results.append(bench_sqlite_vec(base, query, pgsz, chunksz, k=k))
+      ###   # n = bench_sqlite_vec(base, query, 16384, 64, k=k)
+      ###   # n = bench_sqlite_vec(base, query, 16384, 32, k=k)
+      ###   results.append(bench_sqlite_normal(base, query, 8192, k=k))
+      ###   results.append(bench_lancedb(base, query, k=k))
+
+      ###   #h = bench_hnsw(base, query)
 
     table = Table(
         title=f"{name}: {base.shape[0]:,} {base.shape[1]}-dimension vectors, k={k}"
@@ -322,7 +499,7 @@ def suite(name, base, query, k):
     table.add_column("Tool")
     table.add_column("Build Time (ms)", justify="right")
     table.add_column("Query time (ms)", justify="right")
-    for res in results:
+    for res in sorted(results, key=lambda x: np.mean(x.query_times_ms)):
         table.add_row(
             res.tool, duration(res.build_time_ms), duration(np.mean(res.query_times_ms))
         )
@@ -354,12 +531,16 @@ def parse_args():
         type=int,
         required=False,
         help="Number of entries in base to use. Defaults all",
+        default=-1
     )
     parser.add_argument(
         "--qsample",
         type=int,
         required=False,
         help="Number of queries to use. Defaults all",
+    )
+    parser.add_argument(
+        "-x", help="type of runs to make", default="faiss,vec-scalar.4096,vec-static,vec-vec0.4096.16,usearch,duckdb,hnswlib,numpy"
     )
 
     args = parser.parse_args()
@@ -369,35 +550,27 @@ def parse_args():
 from pathlib import Path
 
 
-def cli_read_input(input):
+def cli_read_input(input, sample):
     input_path = Path(input)
     if input_path.suffix == ".fvecs":
-        return fvecs_read(input_path)
+        return fvecs_read(input_path, sample)
     if input_path.suffx == ".npy":
-        return np.fromfile(input_path, dtype="float32")
+        return np.fromfile(input_path, dtype="float32", count=sample)
     raise Exception("unknown filetype", input)
 
 
 def cli_read_query(query, base):
     if query is None:
         return base[np.random.choice(base.shape[0], 100, replace=False), :]
-    return cli_read_input(query)
+    return cli_read_input(query, -1)
 
 
 def main():
     args = parse_args()
-    base = cli_read_input(args.input)[: args.sample]
+    print(args)
+    base = cli_read_input(args.input, args.sample)
     queries = cli_read_query(args.query, base)[: args.qsample]
-    suite(args.name, base, queries, args.k)
-
-    from sys import argv
-
-    # base = fvecs_read("sift/sift_base.fvecs")  # [:100000]
-    # query = fvecs_read("sift/sift_query.fvecs")[:100]
-    # print(base.shape)
-    # k = int(argv[1]) if len(argv) > 1 else 5
-    # suite("sift1m", base, query, k)
-
+    suite(args.name, base, queries, args.k, args.x)
 
 if __name__ == "__main__":
     main()
