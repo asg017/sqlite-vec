@@ -88,110 +88,6 @@ enum VectorElementType {
   SQLITE_VEC_ELEMENT_TYPE_INT8 = 223 + 2,
 };
 
-#ifdef SQLITE_VEC_ENABLE_AVX
-#include <immintrin.h>
-#define PORTABLE_ALIGN32 __attribute__((aligned(32)))
-#define PORTABLE_ALIGN64 __attribute__((aligned(64)))
-
-static f32 l2_sqr_float_avx(const void *pVect1v, const void *pVect2v,
-                            const void *qty_ptr) {
-  f32 *pVect1 = (f32 *)pVect1v;
-  f32 *pVect2 = (f32 *)pVect2v;
-  size_t qty = *((size_t *)qty_ptr);
-  f32 PORTABLE_ALIGN32 TmpRes[8];
-  size_t qty16 = qty >> 4;
-
-  const f32 *pEnd1 = pVect1 + (qty16 << 4);
-
-  __m256 diff, v1, v2;
-  __m256 sum = _mm256_set1_ps(0);
-
-  while (pVect1 < pEnd1) {
-    v1 = _mm256_loadu_ps(pVect1);
-    pVect1 += 8;
-    v2 = _mm256_loadu_ps(pVect2);
-    pVect2 += 8;
-    diff = _mm256_sub_ps(v1, v2);
-    sum = _mm256_add_ps(sum, _mm256_mul_ps(diff, diff));
-
-    v1 = _mm256_loadu_ps(pVect1);
-    pVect1 += 8;
-    v2 = _mm256_loadu_ps(pVect2);
-    pVect2 += 8;
-    diff = _mm256_sub_ps(v1, v2);
-    sum = _mm256_add_ps(sum, _mm256_mul_ps(diff, diff));
-  }
-
-  _mm256_store_ps(TmpRes, sum);
-  return sqrt(TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3] + TmpRes[4] +
-              TmpRes[5] + TmpRes[6] + TmpRes[7]);
-}
-#endif
-
-#ifdef SQLITE_VEC_ENABLE_NEON
-#include <arm_neon.h>
-
-#define PORTABLE_ALIGN32 __attribute__((aligned(32)))
-
-// thx https://github.com/nmslib/hnswlib/pull/299/files
-static f32 l2_sqr_float_neon(const void *pVect1v, const void *pVect2v,
-                             const void *qty_ptr) {
-  f32 *pVect1 = (f32 *)pVect1v;
-  f32 *pVect2 = (f32 *)pVect2v;
-  size_t qty = *((size_t *)qty_ptr);
-  size_t qty16 = qty >> 4;
-
-  const f32 *pEnd1 = pVect1 + (qty16 << 4);
-
-  float32x4_t diff, v1, v2;
-  float32x4_t sum0 = vdupq_n_f32(0);
-  float32x4_t sum1 = vdupq_n_f32(0);
-  float32x4_t sum2 = vdupq_n_f32(0);
-  float32x4_t sum3 = vdupq_n_f32(0);
-
-  while (pVect1 < pEnd1) {
-    v1 = vld1q_f32(pVect1);
-    pVect1 += 4;
-    v2 = vld1q_f32(pVect2);
-    pVect2 += 4;
-    diff = vsubq_f32(v1, v2);
-    sum0 = vfmaq_f32(sum0, diff, diff);
-
-    v1 = vld1q_f32(pVect1);
-    pVect1 += 4;
-    v2 = vld1q_f32(pVect2);
-    pVect2 += 4;
-    diff = vsubq_f32(v1, v2);
-    sum1 = vfmaq_f32(sum1, diff, diff);
-
-    v1 = vld1q_f32(pVect1);
-    pVect1 += 4;
-    v2 = vld1q_f32(pVect2);
-    pVect2 += 4;
-    diff = vsubq_f32(v1, v2);
-    sum2 = vfmaq_f32(sum2, diff, diff);
-
-    v1 = vld1q_f32(pVect1);
-    pVect1 += 4;
-    v2 = vld1q_f32(pVect2);
-    pVect2 += 4;
-    diff = vsubq_f32(v1, v2);
-    sum3 = vfmaq_f32(sum3, diff, diff);
-  }
-
-  f32 sum_scalar =
-      vaddvq_f32(vaddq_f32(vaddq_f32(sum0, sum1), vaddq_f32(sum2, sum3)));
-  const f32 *pEnd2 = pVect1 + (qty - (qty16 << 4));
-  while (pVect1 < pEnd2) {
-    f32 diff = *pVect1 - *pVect2;
-    sum_scalar += diff * diff;
-    pVect1++;
-    pVect2++;
-  }
-
-  return sqrt(sum_scalar);
-}
-
 static f32 l2_sqr_int8_neon(const void *pVect1v, const void *pVect2v,
                             const void *qty_ptr) {
   i8 *pVect1 = (i8 *)pVect1v;
@@ -326,48 +222,43 @@ static double l1_f32_neon(const void *pVect1v, const void *pVect2v,
 }
 #endif
 
-static f32 l2_sqr_float(const void *pVect1v, const void *pVect2v,
-                        const void *qty_ptr) {
-  f32 *pVect1 = (f32 *)pVect1v;
-  f32 *pVect2 = (f32 *)pVect2v;
-  size_t qty = *((size_t *)qty_ptr);
-
-  f32 res = 0;
-  for (size_t i = 0; i < qty; i++) {
-    f32 t = *pVect1 - *pVect2;
-    pVect1++;
-    pVect2++;
-    res += t * t;
+static float l2_sqr_float_impl(const float* A, const float* B, size_t n) {
+  float s;
+  size_t i;
+  if (n > 16)
+    return l2_sqr_float_impl(A, B, n / 2) +
+           l2_sqr_float_impl(A + n / 2, B + n / 2, n - n / 2);
+  for (s = i = 0; i < n; ++i) {
+    float t = A[i] - B[i];
+    s += t * t;
   }
-  return sqrt(res);
+  return s;
+}
+
+static float l2_sqr_float(const void* pVect1v,
+                          const void* pVect2v,
+                          const void* qty_ptr) {
+  return sqrtf(l2_sqr_float_impl((f32*)pVect1v, (f32*)pVect2v, *(size_t*)qty_ptr));
+}
+
+static f32 l2_sqr_int8_impl(const i8* A, const i8* B, size_t n) {
+  float s;
+  size_t i;
+  if (n > 16)
+    return l2_sqr_int8_impl(A, B, n / 2) +
+           l2_sqr_int8_impl(A + n / 2, B + n / 2, n - n / 2);
+  for (s = i = 0; i < n; ++i) {
+    float t = A[i] - B[i];
+    s += t * t;
+  }
+  return s;
 }
 
 static f32 l2_sqr_int8(const void *pA, const void *pB, const void *pD) {
-  i8 *a = (i8 *)pA;
-  i8 *b = (i8 *)pB;
-  size_t d = *((size_t *)pD);
-
-  f32 res = 0;
-  for (size_t i = 0; i < d; i++) {
-    f32 t = *a - *b;
-    a++;
-    b++;
-    res += t * t;
-  }
-  return sqrt(res);
+  return sqrtf(l2_sqr_int8_impl((i8*)pA, (i8*)pB, *(size_t*)pD));
 }
 
 static f32 distance_l2_sqr_float(const void *a, const void *b, const void *d) {
-#ifdef SQLITE_VEC_ENABLE_NEON
-  if ((*(const size_t *)d) > 16) {
-    return l2_sqr_float_neon(a, b, d);
-  }
-#endif
-#ifdef SQLITE_VEC_ENABLE_AVX
-  if (((*(const size_t *)d) % 16 == 0)) {
-    return l2_sqr_float_avx(a, b, d);
-  }
-#endif
   return l2_sqr_float(a, b, d);
 }
 
