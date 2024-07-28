@@ -1,0 +1,15 @@
+@name=gist
+@input=data/gist/gist_base.fvecs
+@queries=data/gist/gist_query.fvecs
+@sample=500000
+@qsample=20
+@k=20
+
+faiss
+usearch
+vec-static
+#duckdb
+#vec-vec0.8192.1024
+#vec-vec0.8192.2048
+#vec-scalar.8192
+#numpy

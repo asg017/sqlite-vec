@@ -1,18 +1,28 @@
 @name=sift1m
-@i=../../sift/sift_base.fvecs
-@q=../../sift/sift_query.fvecs
+@input=data/sift/sift_base.fvecs
+@queries=data/sift/sift_query.fvecs
 @qsample=100
+@k=20
 
-libsql.4096
-libsql.8192
 faiss
-vec-scalar.4096
-vec-static
-vec-vec0.4096.16
-vec-vec0.8192.1024
-vec-vec0.4096.2048
 usearch
 duckdb
-hnswlib
+vec-static
+vec-vec0.8192.1024
+vec-vec0.8192.2048
+vec-scalar.8192
 numpy
 
+# #libsql.4096
+# #libsql.8192
+# faiss
+# vec-scalar.4096
+# vec-static
+# vec-vec0.4096.16
+# vec-vec0.8192.1024
+# vec-vec0.4096.2048
+# usearch
+# duckdb
+# hnswlib
+# numpy
+# chroma

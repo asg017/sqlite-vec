@@ -1,22 +1,12 @@
 import numpy as np
 import numpy.typing as npt
 import time
-import hnswlib
 import sqlite3
-import faiss
-import lancedb
 import pandas as pd
-
-# import chromadb
-from usearch.index import Index, search, MetricKind
-
 from dataclasses import dataclass
-
-from typing import List
-
-import duckdb
-import pyarrow as pa
-from sentence_transformers.util import semantic_search
+from rich.console import Console
+from rich.table import Table
+from typing import List, Optional
 
 
 @dataclass
@@ -66,6 +56,7 @@ def fvecs_read(fname, sample):
 
 
 def bench_hnsw(base, query):
+    import hnswlib
     t0 = time.time()
     p = hnswlib.Index(space="ip", dim=128)  # possible options are l2, cosine or ip
 
@@ -92,6 +83,7 @@ def bench_hnsw(base, query):
 
 
 def bench_hnsw_bf(base, query, k) -> BenchResult:
+    import hnswlib
     print("hnswlib-bf")
     dimensions = base.shape[1]
     t0 = time.time()
@@ -115,7 +107,7 @@ def bench_hnsw_bf(base, query, k) -> BenchResult:
 
 
 def bench_numpy(base, query, k) -> BenchResult:
-    print("numpy")
+    print("numpy...")
     times = []
     results = []
     for idx, q in enumerate(query):
@@ -128,7 +120,7 @@ def bench_numpy(base, query, k) -> BenchResult:
 
 def bench_sqlite_vec(base, query, page_size, chunk_size, k) -> BenchResult:
     dimensions = base.shape[1]
-    print(f"sqlite-vec {page_size} {chunk_size}")
+    print(f"sqlite-vec {page_size} {chunk_size}...")
 
     db = sqlite3.connect(":memory:")
     db.execute(f"PRAGMA page_size = {page_size}")
@@ -169,12 +161,13 @@ def bench_sqlite_vec(base, query, page_size, chunk_size, k) -> BenchResult:
             """,
             [q.tobytes(), k],
         ).fetchall()
+        assert len(result) == k
         times.append(time.time() - t0)
     return BenchResult(f"sqlite-vec vec0 ({page_size}|{chunk_size})", build_time, times)
 
 
 def bench_sqlite_vec_scalar(base, query, page_size, k) -> BenchResult:
-    print(f"sqlite-vec-scalar")
+    print(f"sqlite-vec-scalar...")
 
     db = sqlite3.connect(":memory:")
     db.enable_load_extension(True)
@@ -208,11 +201,12 @@ def bench_sqlite_vec_scalar(base, query, page_size, k) -> BenchResult:
             """,
             [q.tobytes(), k],
         ).fetchall()
+        assert len(result) == k
         times.append(time.time() - t0)
     return BenchResult(f"sqlite-vec-scalar ({page_size})", build_time, times)
 
 def bench_libsql(base, query, page_size, k) -> BenchResult:
-    print(f"libsql")
+    print(f"libsql ...")
     dimensions = base.shape[1]
 
     db = sqlite3.connect(":memory:")
@@ -273,7 +267,7 @@ def register_np(db, array, name):
     )
 
 def bench_sqlite_vec_static(base, query, k) -> BenchResult:
-    print(f"sqlite-vec static")
+    print(f"sqlite-vec static...")
 
     db = sqlite3.connect(":memory:")
     db.enable_load_extension(True)
@@ -303,12 +297,14 @@ def bench_sqlite_vec_static(base, query, k) -> BenchResult:
             """,
             [q.tobytes(), k],
         ).fetchall()
+        assert len(result) == k
         times.append(time.time() - t0)
     return BenchResult(f"sqlite-vec static", build_time, times)
 
 def bench_faiss(base, query, k) -> BenchResult:
+    import faiss
     dimensions = base.shape[1]
-    print("faiss")
+    print("faiss...")
     t = time.time()
     index = faiss.IndexFlatL2(dimensions)
     index.add(base)
@@ -321,11 +317,12 @@ def bench_faiss(base, query, k) -> BenchResult:
         distances, rowids = index.search(x=np.array([q]), k=k)
         results.append(rowids)
         times.append(time.time() - t0)
-    print("faiss avg", duration(np.mean(times)))
     return BenchResult("faiss", build_time, times)
 
 
 def bench_lancedb(base, query, k) -> BenchResult:
+    import lancedb
+    print('lancedb...')
     dimensions = base.shape[1]
     db = lancedb.connect("a")
     data = [{"vector": row.reshape(1, -1)[0]} for row in base]
@@ -343,6 +340,9 @@ def bench_lancedb(base, query, k) -> BenchResult:
     return BenchResult("lancedb", build_time, times)
 
 def bench_duckdb(base, query, k) -> BenchResult:
+    import duckdb
+    import pyarrow as pa
+    print("duckdb...")
     dimensions = base.shape[1]
     db = duckdb.connect(":memory:")
     db.execute(f"CREATE TABLE t(vector float[{dimensions}])")
@@ -368,6 +368,7 @@ def bench_duckdb(base, query, k) -> BenchResult:
     return BenchResult("duckdb", build_time, times)
 
 def bench_sentence_transformers(base, query, k) -> BenchResult:
+    from sentence_transformers.util import semantic_search
     print("sentence-transformers")
     dimensions = base.shape[1]
     t0 = time.time()
@@ -382,28 +383,29 @@ def bench_sentence_transformers(base, query, k) -> BenchResult:
     return BenchResult("sentence-transformers", build_time, times)
 
 
-# def bench_chroma(base, query, k):
-#    chroma_client = chromadb.Client()
-#    collection = chroma_client.create_collection(name="my_collection")
-#
-#    t = time.time()
-#    # chroma doesn't allow for more than 41666 vectors to be inserted at once (???)
-#    i = 0
-#    collection.add(embeddings=base, ids=[str(x) for x in range(len(base))])
-#    print("chroma build time: ", duration(time.time() - t))
-#    times = []
-#    for q in query:
-#        t0 = time.time()
-#        result = collection.query(
-#            query_embeddings=[q.tolist()],
-#            n_results=k,
-#        )
-#        print(result)
-#        times.append(time.time() - t0)
-#    print("chroma avg", duration(np.mean(times)))
+def bench_chroma(base, query, k):
+   import chromadb
+   from chromadb.utils.batch_utils import create_batches
+   chroma_client = chromadb.EphemeralClient()
+   collection = chroma_client.create_collection(name="my_collection")
 
+   t = time.time()
+   for batch in create_batches(api=chroma_client, ids=[str(x) for x in range(len(base))], embeddings=base.tolist()):
+      collection.add(*batch)
+   build_time = time.time() - t
+   times = []
+   for q in query:
+       t0 = time.time()
+       result = collection.query(
+           query_embeddings=[q.tolist()],
+           n_results=k,
+       )
+       times.append(time.time() - t0)
+   #print("chroma avg", duration(np.mean(times)))
+   return BenchResult("chroma", build_time, times)
 
 def bench_usearch_npy(base, query, k) -> BenchResult:
+    from usearch.index import Index, search, MetricKind
     times = []
     for q in query:
         t0 = time.time()
@@ -414,6 +416,7 @@ def bench_usearch_npy(base, query, k) -> BenchResult:
 
 
 def bench_usearch_special(base, query, k) -> BenchResult:
+    from usearch.index import Index, search, MetricKind
     dimensions = base.shape[1]
     index = Index(ndim=dimensions)
     t = time.time()
@@ -425,18 +428,14 @@ def bench_usearch_special(base, query, k) -> BenchResult:
         t0 = time.time()
         result = index.search(q, exact=True)
         times.append(time.time() - t0)
-    return BenchResult("usuearch index exact=True", build_time, times)
-
-
-from rich.console import Console
-from rich.table import Table
+    return BenchResult("usuearch index", build_time, times)
 
 
 def suite(name, base, query, k, benchmarks):
     print(f"Starting benchmark suite: {name} {base.shape}, k={k}")
     results = []
 
-    for b in benchmarks.split(","):
+    for b in benchmarks:
         if b == "faiss":
             results.append(bench_faiss(base, query, k=k))
         elif b == "vec-static":
@@ -460,6 +459,8 @@ def suite(name, base, query, k, benchmarks):
             results.append(bench_duckdb(base, query, k=k))
         elif b == "sentence-transformers":
             results.append(bench_sentence_transformers(base, query, k=k))
+        elif b == "chroma":
+            results.append(bench_chroma(base, query, k=k))
         else:
             raise Exception(f"unknown benchmark {b}")
 
@@ -565,12 +566,58 @@ def cli_read_query(query, base):
     return cli_read_input(query, -1)
 
 
-def main():
-    args = parse_args()
-    print(args)
-    base = cli_read_input(args.input, args.sample)
-    queries = cli_read_query(args.query, base)[: args.qsample]
-    suite(args.name, base, queries, args.k, args.x)
 
+@dataclass
+class Config:
+    name: str
+    input: str
+    k: int
+    queries: str
+    qsample: int
+    tests: List[str]
+    sample: Optional[int]
+
+def parse_config_file(path:str) -> Config:
+  name = None
+  input = None
+  k = None
+  queries = None
+  qsample = None
+  sample = None
+  tests = []
+
+  for line in open(path, 'r'):
+    line = line.strip()
+    if not line or line.startswith('#'):
+      continue
+    elif line.startswith('@name='):
+      name = line.removeprefix('@name=')
+    elif line.startswith('@k='):
+      k = line.removeprefix('@k=')
+    elif line.startswith('@input='):
+      input = line.removeprefix('@input=')
+    elif line.startswith('@queries='):
+      queries = line.removeprefix('@queries=')
+    elif line.startswith('@qsample='):
+      qsample = line.removeprefix('@qsample=')
+    elif line.startswith('@sample='):
+      sample = line.removeprefix('@sample=')
+    elif line.startswith('@'):
+        raise Exception(f"unknown config line '{line}'")
+    else:
+      tests.append(line)
+  return Config(name, input, int(k), queries, int(qsample), tests, int(sample) if sample is not None else None)
+
+
+
+from sys import argv
 if __name__ == "__main__":
-    main()
+    config = parse_config_file(argv[1])
+    print(config)
+    #args = parse_args()
+    #print(args)
+    base = cli_read_input(config.input, config.sample)
+    queries = cli_read_query(config.queries, base)[: config.qsample]
+    suite(config.name, base, queries, config.k, config.tests)
+
+    #main()
