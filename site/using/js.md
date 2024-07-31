@@ -56,41 +56,48 @@ accessor to bind as a parameter to `sqlite-vec` SQL functions.
 ```js
 // TODO
 const embedding = new Float32Array([0.1, 0.2, 0.3, 0.4]);
-const stmt = db.prepare("INSERT INTO vss_demo VALUES (?)");
-stmt.run(embedding.buffer);
+const stmt = db.prepare("select vec_length(?)");
+console.log(stmt.run(embedding.buffer));
 ```
 
 ## Node.js
 
-Here's a quick recipe of using `sqlite-vec` with [`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3) in Node.js.
+Here's a quick recipe of using `sqlite-vec` with
+[`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3) in Node.js.
 
 ```js
-
 ```
 
-See [`simple-node/demo.mjs`](https://github.com/asg017/sqlite-vec/blob/main/examples/simple-node/demo.mjs)
+See
+[`simple-node/demo.mjs`](https://github.com/asg017/sqlite-vec/blob/main/examples/simple-node/demo.mjs)
 for a more complete Node.js demo.
 
 ## Deno
 
-Here's a quick recipe of using `sqlite-vec` with [`jsr:@db/sqlite`](https://jsr.io/@db/sqlite) in Deno. It will only work on Deno version `1.44` or greater, because of a bug in previous Deno version.
+Here's a quick recipe of using `sqlite-vec` with
+[`jsr:@db/sqlite`](https://jsr.io/@db/sqlite) in Deno. It will only work on Deno
+version `1.44` or greater, because of a bug in previous Deno version.
 
- Keep in mind, the `better-sqlite3` example above also works in Deno, you just need to prefix the `better-sqlite3` import with `npm:`, like `import * from "npm:better-sqlite3"`.
+Keep in mind, the `better-sqlite3` example above also works in Deno, you just
+need to prefix the `better-sqlite3` import with `npm:`, like
+`import * from "npm:better-sqlite3"`.
 
 ```ts
-
 ```
 
-See [`simple-deno/demo.ts`](https://github.com/asg017/sqlite-vec/blob/main/examples/simple-deno/demo.ts)
+See
+[`simple-deno/demo.ts`](https://github.com/asg017/sqlite-vec/blob/main/examples/simple-deno/demo.ts)
 for a more complete Deno demo.
 
 ## Bun
 
-Here's a quick recipe of using `sqlite-vec` with [`bun:sqlite`](https://bun.sh/docs/api/sqlite) in Bun.  The `better-sqlite3` example above also works with Bun.
+Here's a quick recipe of using `sqlite-vec` with
+[`bun:sqlite`](https://bun.sh/docs/api/sqlite) in Bun. The `better-sqlite3`
+example above also works with Bun.
 
 ```ts
-
 ```
 
-See [`simple-bun/demo.ts`](https://github.com/asg017/sqlite-vec/blob/main/examples/simple-bun/demo.ts)
+See
+[`simple-bun/demo.ts`](https://github.com/asg017/sqlite-vec/blob/main/examples/simple-bun/demo.ts)
 for a more complete Bun demo.

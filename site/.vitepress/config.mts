@@ -1,6 +1,6 @@
-import { defineConfig, DefaultTheme, HeadConfig } from "vitepress";
+import { DefaultTheme, defineConfig, HeadConfig } from "vitepress";
 import { readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const PROJECT = "sqlite-vec";
@@ -105,8 +105,12 @@ function nav(): DefaultTheme.NavItem[] {
               link: `https://crates.io/crates/${PROJECT}`,
             },
             {
-              text: "Golang: Go module",
-              link: `https://pkg.go.dev/github.com/asg017/${PROJECT}/bindings/go/cgo`,
+              text: "Golang: Go module (CGO)",
+              link: `https://pkg.go.dev/github.com/asg017/${PROJECT}-go-bindings/cgo`,
+            },
+            {
+              text: "Golang: Go module (WASM ncruces)",
+              link: `https://pkg.go.dev/github.com/asg017/${PROJECT}-go-bindings/ncruces`,
             },
             {
               text: "Datasette: Plugin",
@@ -139,16 +143,7 @@ function sidebar(): DefaultTheme.SidebarItem[] {
         },
       ],
     },
-    {
-      text: "Features",
-      collapsed: true,
-      items: [
-        { text: "Vector formats", link: "/vector-formats" },
-        { text: "KNN queries", link: "/knn" },
-        { text: "vec0 virtual vables", link: "/vec0" },
-        { text: "Static blobs", link: "/numpy" },
-      ],
-    },
+
     {
       text: "Using with...",
       collapsed: true,
@@ -159,9 +154,19 @@ function sidebar(): DefaultTheme.SidebarItem[] {
         { text: "Rust", link: "/rust" },
         { text: "Go", link: "/go" },
         { text: "C/C++", link: "/c" },
-        { text: "WebAssembly (Browser)", link: "/wasm" },
+        { text: "Browser (WASM)", link: "/wasm" },
         { text: "Datasette", link: "/datasette" },
         { text: "sqlite-utils", link: "/sqlite-utils" },
+      ],
+    },
+    {
+      text: "Features",
+      collapsed: true,
+      items: [
+        { text: "Vector formats", link: "/features/vector-formats" },
+        { text: "KNN queries", link: "/features/knn" },
+        { text: "vec0 virtual vables", link: "/features/vec0" },
+        { text: "Static blobs", link: "/features/static-blobs" },
       ],
     },
     guides,
@@ -171,10 +176,6 @@ function sidebar(): DefaultTheme.SidebarItem[] {
         { text: "Compiling", link: "/compiling" },
         { text: "API Reference", link: "/api-reference" },
       ],
-    },
-    {
-      text: "Sponsors",
-      link: "/sponsors",
     },
     {
       text: "See also",

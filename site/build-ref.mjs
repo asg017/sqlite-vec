@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { load } from "js-yaml";
 import { fileURLToPath } from "node:url";
-import { resolve, dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 import { readFileSync, writeFileSync } from "node:fs";
 import * as v from "valibot";
 import { table } from "table";
@@ -24,11 +24,11 @@ sqlite-vec is pre-v1, so expect breaking changes.
 
 const REF_PATH = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "../reference.yaml"
+  "../reference.yaml",
 );
 const EXT_PATH = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "../dist/vec0"
+  "../dist/vec0",
 );
 
 const DocSchema = v.objectWithRest(
@@ -38,7 +38,7 @@ const DocSchema = v.objectWithRest(
       v.object({
         title: v.string(),
         desc: v.string(),
-      })
+      }),
     ),
   },
   v.record(
@@ -47,8 +47,8 @@ const DocSchema = v.objectWithRest(
       params: v.array(v.string()),
       desc: v.string(),
       example: v.union([v.string(), v.array(v.string())]),
-    })
-  )
+    }),
+  ),
 );
 
 const tableConfig = {
@@ -92,8 +92,9 @@ function formatSingleValue(value) {
     s += "'";
     return `-- ${s}`;
   }
-  if (typeof value === "object" || Array.isArray(value))
+  if (typeof value === "object" || Array.isArray(value)) {
     return "-- " + JSON.stringify(value, null, 2);
+  }
 }
 function formatValue(value) {
   if (typeof value === "string") return `'${value}'`;
@@ -107,8 +108,9 @@ function formatValue(value) {
     s += "'";
     return s;
   }
-  if (typeof value === "object" || Array.isArray(value))
+  if (typeof value === "object" || Array.isArray(value)) {
     return JSON.stringify(value, null, 2);
+  }
 }
 function tableize(stmt, results) {
   const columnNames = stmt.columns().map((c) => c.name);
@@ -159,10 +161,9 @@ function renderExamples(db, name, example) {
       continue;
     }
 
-    const result =
-      results.length > 1 || stmt.columns().length > 1
-        ? `/*\n${tableize(stmt, results)}\n*/\n`
-        : formatSingleValue(results[0][0]);
+    const result = results.length > 1 || stmt.columns().length > 1
+      ? `/*\n${tableize(stmt, results)}\n*/\n`
+      : formatSingleValue(results[0][0]);
     md += result + "\n\n";
   }
 
@@ -182,9 +183,11 @@ for (const section in doc.sections) {
   md += doc.sections[section].desc;
   md += "\n\n";
 
-  for (const [name, { params, desc, example }] of Object.entries(
-    doc[section]
-  )) {
+  for (
+    const [name, { params, desc, example }] of Object.entries(
+      doc[section],
+    )
+  ) {
     const headerText = `\`${name}(${(params ?? []).join(", ")})\` {#${name}}`;
 
     md += "### " + headerText + "\n\n";

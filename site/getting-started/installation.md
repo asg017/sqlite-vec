@@ -31,8 +31,11 @@ gem install sqlite-vec
 cargo add sqlite-vec
 ```
 
-```bash [Go]
-go get -u github.com/asg017/sqlite-vec/bindings/go/cgo
+```bash [Go (CGO)]
+go get -u github.com/asg017/sqlite-vec-go-bindings/cgo
+```
+```bash [Go (ncruces WASM)]
+go get -u github.com/asg017/sqlite-vec-go-bindings/ncruces
 ```
 
 ```bash [Datasette]
@@ -45,5 +48,31 @@ sqlite-utils install sqlite-utils-sqlite-vec
 
 :::
 
+## Pre-compiled extensions
+
 Alternatively, you can download pre-compiled loadable extensions from the
 [`sqlite-vec` Github Releases](https://github.com/asg017/sqlite-vec/releases/latest).
+
+There's also an `install.sh` script that will automatically download the appropriate pre-compiled extension from Github Releases to your machine.
+
+
+```sh
+# yolo
+curl -L https://github.com/asg017/sqlite-vec/releases/download/latest/install.sh | sh
+```
+
+```sh
+# ok lets play it safe
+curl -o install.sh -L https://github.com/asg017/sqlite-vec/releases/download/latest/install.sh
+# inspect your scripts
+cat install.sh
+# TODO Test if execute permissions?
+./install.sh
+```
+
+
+## Compiling
+
+`sqlite-vec` is a single `sqlite-vec.c` and `sqlite-vec.h`, and can be easily compiled for different platforms, or statically linked into larger applications.
+
+See [*Compiling `sqlite-vec`*](#compiling) for more information.

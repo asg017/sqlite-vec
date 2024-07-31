@@ -639,7 +639,7 @@ Returns a version string of the current `sqlite-vec` installation.
 
 ```sql
 select vec_version();
--- 'v0.0.1-alpha.36'
+-- 'v0.0.1-alpha.37'
 
 
 ```
@@ -651,9 +651,9 @@ Returns debugging information of the current `sqlite-vec` installation.
 ```sql
 select vec_debug();
 /*
-'Version: v0.0.1-alpha.36
-Date: 2024-07-16T23:06:41Z-0700
-Commit: e507bc0230de6dc44c7ff3b4895785edd734f31d
+'Version: v0.0.1-alpha.37
+Date: 2024-07-23T14:09:43Z-0700
+Commit: 77f9b0374c8129056b344854de2dff6b103e5729
 Build flags: avx '
 */
 
