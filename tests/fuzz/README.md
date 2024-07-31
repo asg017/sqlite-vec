@@ -4,7 +4,6 @@ ASAN_OPTIONS=detect_leaks=1 ./targets/vec0_create \
   ./corpus/vec0-create
 ```
 
-
 ```
 export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
 export LDFLAGS="-L/opt/homebrew/opt/llvm/lib"
