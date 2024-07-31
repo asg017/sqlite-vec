@@ -328,7 +328,7 @@ quantization:
 
 numpy:
   vec_npy_each:
-    params: [vector]
+    params: [npy_array]
     desc: |
       xxx
     example:
