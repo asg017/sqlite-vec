@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"database/sql"
-	"encoding/binary"
 	"fmt"
 	"log"
 
@@ -11,15 +9,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-
-func serializeFloat32(vector []float32) ([]byte, error) {
-	buf := new(bytes.Buffer)
-	err := binary.Write(buf, binary.LittleEndian, vector)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
 func main() {
 	sqlite_vec.Auto()
 	db, err := sql.Open("sqlite3", ":memory:")
@@ -51,7 +40,7 @@ func main() {
 	q := []float32{0.3, 0.3, 0.3, 0.3}
 
 	for id, values := range items {
-		v, err := serializeFloat32(values)
+		v, err := sqlite_vec.SerializeFloat32(values)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -61,7 +50,7 @@ func main() {
 		}
 	}
 
-	query, err := serializeFloat32(q)
+	query, err := sqlite_vec.SerializeFloat32(q)
 	if err != nil {
 		log.Fatal(err)
 	}

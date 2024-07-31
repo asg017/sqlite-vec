@@ -1,0 +1,54 @@
+<html>
+  <body>
+    <h1>sqlite-vec articles.db demo</h1>
+
+    <script type="module">
+      import { default as init } from "https://cdn.jsdelivr.net/npm/sqlite-vec-wasm-demo@latest/sqlite3.mjs";
+      import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers";
+
+      const sqlite3 = await init();
+
+
+      const extractor = await pipeline(
+        "feature-extraction",
+        "Xenova/all-MiniLM-L6-v2",
+      );
+
+      const dbContents = await fetch("articles.db").then((r) => r.arrayBuffer());
+      const db = new sqlite3.oo1.DB();
+      const p = sqlite3.wasm.allocFromTypedArray(dbContents);
+      const rc = sqlite3.capi.sqlite3_deserialize(
+        db.pointer,
+        "main",
+        p,
+        dbContents.byteLength,
+        dbContents.byteLength,
+        sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE,
+      );
+      db.checkRc(rc);
+
+      const query = "sports";
+      const queryEmbedding = await extractor([query], {
+        pooling: "mean",
+        normalize: true,
+      });
+      const rows = db
+        .selectObjects(
+          `
+              select
+                article_id,
+                headline,
+                distance
+              from vec_articles
+              left join articles on articles.id = vec_articles.article_id
+              where headline_embedding match ?
+                and k = 8;
+            `,
+          queryEmbedding.data.buffer,
+        );
+
+      const output = document.body.appendChild(document.createElement('pre'));
+      output.innerText = JSON.stringify(rows, null, 2);
+    </script>
+  </body>
+</html>

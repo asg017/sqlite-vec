@@ -7,7 +7,7 @@ db.loadExtension("../../dist/vec0");
 
 const { sqlite_version, vec_version } = db
   .prepare(
-    "select sqlite_version() as sqlite_version, vec_version() as vec_version;"
+    "select sqlite_version() as sqlite_version, vec_version() as vec_version;",
   )
   .get();
 
@@ -25,7 +25,7 @@ const query = [0.3, 0.3, 0.3, 0.3];
 db.exec("CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[4])");
 
 const insertStmt = db.prepare(
-  "INSERT INTO vec_items(rowid, embedding) VALUES (?, vec_f32(?))"
+  "INSERT INTO vec_items(rowid, embedding) VALUES (?, vec_f32(?))",
 );
 
 const insertVectors = db.transaction((items) => {
@@ -46,7 +46,7 @@ const rows = db
   WHERE embedding MATCH ?
   ORDER BY distance
   LIMIT 3
-`
+`,
   )
   .all(new Float32Array(query));
 
