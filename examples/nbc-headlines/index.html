@@ -9,11 +9,6 @@
       const sqlite3 = await init();
 
 
-      const extractor = await pipeline(
-        "feature-extraction",
-        "Xenova/all-MiniLM-L6-v2",
-      );
-
       const dbContents = await fetch("articles.db").then((r) => r.arrayBuffer());
       const db = new sqlite3.oo1.DB();
       const p = sqlite3.wasm.allocFromTypedArray(dbContents);
@@ -26,6 +21,13 @@
         sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE,
       );
       db.checkRc(rc);
+
+      const extractor = await pipeline(
+        "feature-extraction",
+        "Xenova/all-MiniLM-L6-v2",
+      );
+
+
 
       const query = "sports";
       const queryEmbedding = await extractor([query], {
