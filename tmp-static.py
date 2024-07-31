@@ -5,6 +5,7 @@ db = sqlite3.connect(":memory:")
 
 db.enable_load_extension(True)
 db.load_extension("./dist/vec0")
+db.execute("select load_extension('./dist/vec0', 'sqlite3_vec_raw_init')")
 db.enable_load_extension(False)
 
 x = np.array([[0.1, 0.2, 0.3, 0.4], [0.9, 0.8, 0.7, 0.6]], dtype=np.float32)
