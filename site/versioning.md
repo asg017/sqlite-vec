@@ -27,7 +27,7 @@ a "breaking change":
 ### Changes to the C API
 
 Currently there is no "official" C API for `sqlite-vec`. However, there are
-entrypoints defined in C that C developers or developers using FFI can call. Any
+entrypoints defined in C that C developers or developers using FFI can call. Any changes to these entrypoints would be a breaking change.
 
 ### Compile-time options
 
