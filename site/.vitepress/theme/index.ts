@@ -13,7 +13,7 @@ export default {
       // https://vitepress.dev/guide/extending-default-theme#layout-slots
       "layout-top": () =>
         h("marquee", { class: "banner", scrollamount: "10" }, [
-          "🚧🚧🚧 sqlite-vec is still in beta, and this documentation is incomplete! Watch the repo for updates 🚧🚧🚧",
+          "🚧🚧🚧 This documentation is a work-in-progress! 🚧🚧🚧",
         ]),
       //"home-hero-image": () => h(HeroImg),
       "aside-ads-before": () => h(Sponsors),

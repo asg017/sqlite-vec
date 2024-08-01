@@ -24,7 +24,7 @@ It's not possibly to dynamically load a SQLite extension into a WASM build of SQ
 
 ## The `sqlite-vec-wasm-demo` NPM package
 
-A **demonstration** of `sqlite-vec` in WASM is provided with the `sqlite-vec-wasm-demo` NPM package. This package is a demonstration and may change at any time. It doesn't follow the [Semantic version of `sqlite-vec`](../versioning.md).
+A **demonstration** of `sqlite-vec` in WASM is provided with the `sqlite-vec-wasm-demo` NPM package. This package is a demonstration and may change at any time. It doesn't follow the [Semantic version of `sqlite-vec`](./versioning.md).
 
 
 See
