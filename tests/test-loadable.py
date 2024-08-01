@@ -264,7 +264,16 @@ def test_vec_static_blob_entries():
             "v": "[0.300000,0.300000,0.300000,0.300000]",
         },
     ]
+def test_limits():
+    db = connect(EXT_PATH)
+    with _raises("vec0 constructor error: Dimension on vector column too large, provided 8193, maximum 8192"):
+      db.execute("create virtual table v using vec0(a float[8193])")
+    with _raises("vec0 constructor error: chunk_size too large"):
+      db.execute("create virtual table v using vec0(a float[4], chunk_size=8200)")
+    db.execute('create virtual table v using vec0(a float[1])')
 
+    with _raises("k value in knn query too large, provided 8193 and the limit is 4096"):
+      db.execute("select * from v where a match '[0.1]' and k = 8193")
 
 def test_funcs():
     funcs = list(

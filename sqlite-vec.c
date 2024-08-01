@@ -1391,7 +1391,7 @@ static void vec_quantize_int8(sqlite3_context *context, int argc,
       (sqlite3_stricmp((const char *)sqlite3_value_text(argv[1]), "unit") !=
        0)) {
     sqlite3_result_error(
-        context, "2nd argument to vec_quantize_i8() must be 'unit'.", -1);
+        context, "2nd argument to vec_quantize_int8() must be 'unit'.", -1);
     sqlite3_free(out);
     goto cleanup;
   }
@@ -3939,6 +3939,15 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
                                  VEC0_MAX_VECTOR_COLUMNS);
         goto error;
       }
+      #define SQLITE_VEC_VEC0_MAX_DIMENSIONS 8192
+      if(c.dimensions > SQLITE_VEC_VEC0_MAX_DIMENSIONS) {
+        sqlite3_free(c.name);
+        *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR
+                                 "Dimension on vector column too large, provided %lld, maximum %lld",
+                                 (i64) c.dimensions,
+                                 SQLITE_VEC_VEC0_MAX_DIMENSIONS);
+        goto error;
+      }
       memcpy(&pNew->vector_columns[numVectorColumns], &c, sizeof(c));
       numVectorColumns++;
       continue;
@@ -3988,6 +3997,12 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
           // IMP: V14110_30948
           *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR
                                    "chunk_size must be divisible by 8");
+          goto error;
+        }
+        #define SQLITE_VEC_CHUNK_SIZE_MAX 4096
+        if (chunk_size > SQLITE_VEC_CHUNK_SIZE_MAX) {
+          *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR
+                                   "chunk_size too large");
           goto error;
         }
       } else {
@@ -4904,6 +4919,13 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
   if (k < 0) {
     vtab_set_error(
         &p->base, "k value in knn queries must be greater than or equal to 0.");
+    rc = SQLITE_ERROR;
+    goto cleanup;
+  }
+  #define SQLITE_VEC_VEC0_K_MAX  4096
+  if(k > SQLITE_VEC_VEC0_K_MAX) {
+    vtab_set_error(
+        &p->base, "k value in knn query too large, provided %lld and the limit is %lld", k, SQLITE_VEC_VEC0_K_MAX);
     rc = SQLITE_ERROR;
     goto cleanup;
   }
