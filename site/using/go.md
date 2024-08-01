@@ -107,7 +107,10 @@ If vectors are provided as a list of floats, use `SerializeFloat32(list)` to ser
 values := []float32{0.1, 0.1, 0.1, 0.1}
 v, err := sqlite_vec.SerializeFloat32(values)
 if err != nil {
-  log.Fatal(err)
+	log.Fatal(err)
 }
-stmt.BindInt(1, id)
+_, err = db.Exec("INSERT INTO vec_items(rowid, embedding) VALUES (?, ?)", id, v)
+if err != nil {
+	log.Fatal(err)
+}
 ```
