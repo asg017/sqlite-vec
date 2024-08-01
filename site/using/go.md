@@ -1,6 +1,6 @@
 # Using `sqlite-vec` in Go
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/asg017/sqlite-vec-go-bindings/cgo.svg)](https://pkg.go.dev/github.com/asg017/sqlite-vec-go-bindings/cgo) [![Go Reference](https://pkg.go.dev/badge/github.com/asg017/sqlite-vec-go-bindings/ncruces.svg)](https://pkg.go.dev/github.com/asg017/sqlite-vec-go-bindings/ncruces)
+
 
 There are two ways you can embed `sqlite-vec` into Go applications: a CGO option
 for libraries like
@@ -8,7 +8,9 @@ for libraries like
 WASM-based option with
 [`github.com/ncruces/go-sqlite3`](https://github.com/ncruces/go-sqlite3).
 
-## Option 1: CGO
+## Option 1: CGO {#cgo}
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/asg017/sqlite-vec-go-bindings/cgo.svg)](https://pkg.go.dev/github.com/asg017/sqlite-vec-go-bindings/cgo)
 
 If using [`github.com/mattn/go-sqlite3`](https://github.com/mattn/go-sqlite3) or another CGO-based SQLite library, then use the `github.com/asg017/sqlite-vec-go-bindings/cgo` module to embed `sqlite-vec` into your Go application.
 
@@ -44,11 +46,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("sqlite_version=%s, vec_version=%s\n",vecVersion)
+	log.Printf("vec_version=%s\n",vecVersion)
 }
 ```
 
-## Option 2: WASM based with `ncruces/go-sqlite3`
+See
+[`simple-go-cgo/demo.go`](https://github.com/asg017/sqlite-vec/blob/main/examples/simple-go-cgo/demo.go)
+for a more complete Go CGO demo.
+
+## Option 2: WASM based with `ncruces/go-sqlite3` {#ncruces}
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/asg017/sqlite-vec-go-bindings/ncruces.svg)](https://pkg.go.dev/github.com/asg017/sqlite-vec-go-bindings/ncruces)
 
 [`github.com/ncruces/go-sqlite3`](https://github.com/ncruces/go-sqlite3) is an alternative SQLite Go driver that avoids CGO by using a custom WASM build of SQLite. To use `sqlite-vec` from this library, use the specicial WASM binary provided in `github.com/asg017/sqlite-vec-go-bindings/ncruces`.
 
@@ -73,7 +81,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	stmt, _, err := db.Prepare(`SELECT sqlite_version(), vec_version()`)
+	stmt, _, err := db.Prepare(`SELECT vec_version()`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -84,13 +92,22 @@ func main() {
 }
 ```
 
+See
+[`simple-go-ncruces/demo.go`](https://github.com/asg017/sqlite-vec/blob/main/examples/simple-go-ncruces/demo.go)
+for a more complete Go ncruces demo.
+
 The `github.com/asg017/sqlite-vec-go-bindings/ncruces` package embeds a custom WASM build of SQLite, so there's no need to use `github.com/ncruces/go-sqlite3/embed`.
 
-## Working with vectors in Go
 
+## Working with vectors in Go
 
 If vectors are provided as a list of floats, use `SerializeFloat32(list)` to serialize them into the compact BLOB format that `sqlite-vec` expects.
 
 ```go
-TODO
+values := []float32{0.1, 0.1, 0.1, 0.1}
+v, err := sqlite_vec.SerializeFloat32(values)
+if err != nil {
+  log.Fatal(err)
+}
+stmt.BindInt(1, id)
 ```

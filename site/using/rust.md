@@ -34,7 +34,9 @@ fn main()-> Result<()> {
 }
 ```
 
-A full [`sqlite-vec` Rust demo](#TODO) is also available.
+See
+[`simple-rust/demo.rs`](https://github.com/asg017/sqlite-vec/blob/main/examples/simple-rust/demo.rs)
+for a more complete Rust demo.
 
 ## Working with vectors in Rust
 

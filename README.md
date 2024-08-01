@@ -1,21 +1,21 @@
 # `sqlite-vec`
 
-[![](https://dcbadge.vercel.app/api/server/VCtQ8cGhUs)](https://discord.gg/VCtQ8cGhUs)
+[![](https://dcbadge.vercel.app/api/server/VCtQ8cGhUs)](https://discord.gg/Ve7WeCJFXk)
 
 An extremely small, "fast enough" vector search SQLite extension that runs
-anywhere! A successor to [sqlite-vss](https://github.com/asg017/sqlite-vss)
+anywhere! A successor to [`sqlite-vss`](https://github.com/asg017/sqlite-vss)
 
 <!-- deno-fmt-ignore-start -->
 
 > [!IMPORTANT]
-> _`sqlite-vec` is a work-in-progress and not ready for general usage! I plan to launch a "beta" version in the next month or so. Watch this repo for updates, and read [this blog post](https://alexgarcia.xyz/blog/2024/building-new-vector-search-sqlite/index.html) for more info._
+> _`sqlite-vec` is a pre-v1, so expect breaking changes!_
 
 <!-- deno-fmt-ignore-end -->
 
 - Store and query float, int8, and binary vectors in `vec0` virtual tables
-- Pre-filter vectors with `rowid IN (...)` subqueries
 - Written in pure C, no dependencies, runs anywhere SQLite runs
   (Linux/MacOS/Windows, in the browser with WASM, Raspberry Pis, etc.)
+- Pre-filter vectors with `rowid IN (...)` subqueries
 
 <p align="center">
   <a href="https://hacks.mozilla.org/2024/06/sponsoring-sqlite-vec-to-enable-more-powerful-local-ai-applications/">
@@ -39,7 +39,6 @@ See <a href="#sponsors">the Sponsors section</a> for more details.
 </i>
 </p>
 
-<!--
 ## Installing
 
 See [Installing `sqlite-vec`](https://alexgarcia.xyz/sqlite-vec/installing.html)
@@ -49,14 +48,13 @@ for more details.
 | -------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Python         | `pip install sqlite-vec`                             | [`sqlite-vec` with Python](https://alexgarcia.xyz/sqlite-vec/python.html)             | [![PyPI](https://img.shields.io/pypi/v/sqlite-vec.svg?color=blue&logo=python&logoColor=white)](https://pypi.org/project/sqlite-vec/)                                                               |
 | Node.js        | `npm install sqlite-vec`                             | [`sqlite-vec` with Node.js](https://alexgarcia.xyz/sqlite-vec/nodejs.html)            | [![npm](https://img.shields.io/npm/v/sqlite-vec.svg?color=green&logo=nodedotjs&logoColor=white)](https://www.npmjs.com/package/sqlite-vec)                                                         |
-| Ruby           | `gem install sqlite-vec`                             | [`sqlite-vec` with Ruby](https://alexgarcia.xyz/sqlite-vec/ruby.html)                 | ![Gem](https://img.shields.io/gem/v/sqlite-vec?color=red&logo=rubygems&logoColor=white)                                                                                                            |
-| Go             | `go get -u github.com/asg017/sqlite-vec/bindings/go` | [`sqlite-vec` with Go](https://alexgarcia.xyz/sqlite-vec/go.html)                     | [![Go Reference](https://pkg.go.dev/badge/github.com/asg017/sqlite-vec/bindings/go.svg)](https://pkg.go.dev/github.com/asg017/sqlite-vec/bindings/go)                                              |
+| Ruby           | `gem install sqlite-vec`                             | [`sqlite-vec` with Ruby](https://alexgarcia.xyz/sqlite-vec/ruby.html)                 | ![Gem](https://img.shields.io/gem/v/sqlite-vec?color=red&logo=rubygems&logoColor=white)                                                                       |
+| Go             | `go get -u github.com/asg017/sqlite-vec/bindings/go` | [`sqlite-vec` with Go](https://alexgarcia.xyz/sqlite-vec/go.html)                     | [![Go Reference](https://pkg.go.dev/badge/github.com/asg017/sqlite-vec-go-bindings/cgo.svg)](https://pkg.go.dev/github.com/asg017/asg017/sqlite-vec-go-bindings/cgo)                                              |
 | Rust           | `cargo add sqlite-vec`                               | [`sqlite-vec` with Rust](https://alexgarcia.xyz/sqlite-vec/rust.html)                 | [![Crates.io](https://img.shields.io/crates/v/sqlite-vec?logo=rust)](https://crates.io/crates/sqlite-vec)                                                                                          |
 | Datasette      | `datasette install datasette-sqlite-vec`             | [`sqlite-vec` with Datasette](https://alexgarcia.xyz/sqlite-vec/datasette.html)       | [![Datasette](https://img.shields.io/pypi/v/datasette-sqlite-vec.svg?color=B6B6D9&label=Datasette+plugin&logoColor=white&logo=python)](https://datasette.io/plugins/datasette-sqlite-vec)          |
 | `sqlite-utils` | `sqlite-utils install sqlite-utils-sqlite-vec`       | [`sqlite-vec` with sqlite-utils](https://alexgarcia.xyz/sqlite-vec/sqlite-utils.html) | [![sqlite-utils](https://img.shields.io/pypi/v/sqlite-utils-sqlite-vec.svg?color=B6B6D9&label=sqlite-utils+plugin&logoColor=white&logo=python)](https://datasette.io/plugins/datasette-sqlite-vec) |
 | Github Release |                                                      |                                                                                       | ![GitHub tag (latest SemVer pre-release)](https://img.shields.io/github/v/tag/asg017/sqlite-vec?color=lightgrey&include_prereleases&label=Github+release&logo=github)                              |
 
--->
 
 ## Sample usage
 
@@ -76,7 +74,7 @@ insert into vec_examples(rowid, sample_embedding)
     (4, '[-0.710, 0.330, 0.656, 0.041, -0.990, 0.726, 0.385, -0.958]');
 
 
--- KNN style query goes brrrr
+-- KNN style query
 select
   rowid,
   distance
@@ -93,27 +91,6 @@ limit 2;
 └───────┴──────────────────┘
 */
 ```
-
-## Roadmap
-
-Not currently implemented, but planned in the future (after initial `v0.1.0`
-version):
-
-- Approximate nearest neighbors search (DiskANN, IVF, maybe HNSW?)
-- Metadata filtering + custom internal partitioning
-- More vector types (float16, int16, sparse, etc.) and distance functions
-
-Additionally, there will be pre-compiled and pre-packaged packages of
-`sqlite-vec` for the following platforms:
-
-- `pip` for Python
-- `npm` for Node.js / Deno / Bun
-- `gem` for Ruby
-- `cargo` for Rust
-- A single `.c` and `.h` amalgammation for C/C++
-- Go module for Golang (requires CGO)
-- Datasette and sqlite-utils plugins
-- Pre-compiled loadable extensions on Github releases
 
 ## Sponsors
 

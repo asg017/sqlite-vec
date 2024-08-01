@@ -9,7 +9,7 @@ Ruby developers can use `sqlite-vec` with the [`sqlite-vec` Gem](https://rubygem
 gem install sqlite-vec
 ```
 
-You can then use `SqliteVss.load()` to load `sqlite-vss` SQL functions in a given SQLite connection.
+You can then use `SqliteVec.load()` to load `sqlite-vec` SQL functions in a given SQLite connection.
 
 ```ruby
 require 'sqlite3'
@@ -25,6 +25,9 @@ puts result.first.first
 
 ```
 
+See
+[`simple-ruby/demo.rb`](https://github.com/asg017/sqlite-vec/blob/main/examples/simple-ruby/demo.rb)
+for a more complete Ruby demo.
 
 ## Working with vectors in Ruby
 

@@ -54,10 +54,9 @@ and use
 accessor to bind as a parameter to `sqlite-vec` SQL functions.
 
 ```js
-// TODO
 const embedding = new Float32Array([0.1, 0.2, 0.3, 0.4]);
 const stmt = db.prepare("select vec_length(?)");
-console.log(stmt.run(embedding.buffer));
+console.log(stmt.run(embedding.buffer)); // 4
 ```
 
 ## Node.js
@@ -66,6 +65,19 @@ Here's a quick recipe of using `sqlite-vec` with
 [`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3) in Node.js.
 
 ```js
+import * as sqliteVec from "sqlite-vec";
+import Database from "better-sqlite3";
+
+const db = new Database(":memory:");
+sqliteVec.load(db);
+
+const embedding = new Float32Array([0.1, 0.2, 0.3, 0.4]);
+const { result } = db
+  .prepare("select vec_length(?)",)
+  .get(embedding);
+
+console.log(result); // 4
+
 ```
 
 See
@@ -76,13 +88,26 @@ for a more complete Node.js demo.
 
 Here's a quick recipe of using `sqlite-vec` with
 [`jsr:@db/sqlite`](https://jsr.io/@db/sqlite) in Deno. It will only work on Deno
-version `1.44` or greater, because of a bug in previous Deno version.
+version `1.44` or greater, because of a bug in previous Deno versions.
 
 Keep in mind, the `better-sqlite3` example above also works in Deno, you just
 need to prefix the `better-sqlite3` import with `npm:`, like
 `import * from "npm:better-sqlite3"`.
 
 ```ts
+import { Database } from "jsr:@db/sqlite@0.11";
+import * as sqliteVec from "npm:sqlite-vec@0.0.1-alpha.9";
+
+const db = new Database(":memory:");
+db.enableLoadExtension = true;
+sqliteVec.load(db);
+db.enableLoadExtension = false;
+
+const embedding = new Float32Array([0.1, 0.2, 0.3, 0.4]);
+const [result] = db
+  .prepare("select vec_length(?)")
+  .value<[string]>(new Uint8Array(embedding.buffer)!);
+console.log(result); // 4
 ```
 
 See
@@ -96,6 +121,22 @@ Here's a quick recipe of using `sqlite-vec` with
 example above also works with Bun.
 
 ```ts
+import { Database } from "bun:sqlite";
+import * as sqliteVec from "sqlite-vec";
+
+// MacOS *might* have to do this, as the builtin SQLite library on MacOS doesn't allow extensions
+Database.setCustomSQLite("/usr/local/opt/sqlite3/lib/libsqlite3.dylib");
+
+const db = new Database(":memory:");
+sqliteVec.load(db);
+
+const embedding = new Float32Array([0.1, 0.2, 0.3, 0.4]);
+const { result } = db
+  .prepare("select vec_length(?)",)
+  .get(embedding);
+
+console.log(result); // 4
+
 ```
 
 See

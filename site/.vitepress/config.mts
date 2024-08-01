@@ -62,7 +62,7 @@ const guides = {
       ],
     },
 
-    {
+    /* {
       text: "Build with sqlite-vec",
       items: [
         { text: "Semantic Search", link: "/guides/semantic-search" },
@@ -70,7 +70,7 @@ const guides = {
         { text: "Retrival Augmented Generation (RAG)", link: "/guides/rag" },
         { text: "Classifiers", link: "/guides/classifiers" },
       ],
-    },
+    },*/
   ],
 };
 
@@ -224,7 +224,7 @@ export default defineConfig({
     },
     socialLinks: [
       { icon: "github", link: `https://github.com/asg017/${PROJECT}` },
-      { icon: "discord", link: `https://discord.gg/jAeUUhVG2D` },
+      { icon: "discord", link: `https://discord.gg/Ve7WeCJFXk` },
     ],
     editLink: {
       pattern: `https://github.com/asg017/${PROJECT}/edit/main/site/:path`,

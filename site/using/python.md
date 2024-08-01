@@ -30,6 +30,10 @@ vec_version, = db.execute("select vec_version()").fetchone()
 print(f"vec_version={vec_version}")
 ```
 
+See
+[`simple-python/demo.py`](https://github.com/asg017/sqlite-vec/blob/main/examples/simple-python/demo.py)
+for a more complete Python demo.
+
 ## Working with Vectors
 
 ### Lists
