@@ -2074,7 +2074,7 @@ int parse_vector_column(const char *source, int source_length,
   // any other tokens left should be column-level options , ex `key=value`
   // ex `distance_metric=L2 distance_metric=cosine` should error
   while (1) {
-    // should be EOF or identifer (option key)
+    // should be EOF or identifier (option key)
     rc = vec0_scanner_next(&scanner, &token);
     if (rc == VEC0_TOKEN_RESULT_EOF) {
       break;
@@ -2099,7 +2099,7 @@ int parse_vector_column(const char *source, int source_length,
         return SQLITE_ERROR;
       }
 
-      // distance_metric value, an identifer (L2, cosine, etc)
+      // distance_metric value, an identifier (L2, cosine, etc)
       rc = vec0_scanner_next(&scanner, &token);
       if (rc != VEC0_TOKEN_RESULT_SOME &&
           token.token_type != TOKEN_TYPE_IDENTIFIER) {
