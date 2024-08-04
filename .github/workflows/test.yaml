@@ -1,5 +1,6 @@
 name: "Test"
 on:
+  pull_request:
   push:
     branches:
       - main
@@ -12,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: [ "3.9", "3.10", "3.11", "3.12"]
       - run: ./scripts/vendor.sh
       - run: make loadable static
       - run: pip install pytest numpy; make test-loadable
@@ -48,7 +49,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: [ "3.9", "3.10", "3.11", "3.12"]
       - run: ./scripts/vendor.sh
         shell: bash
       - run: make loadable static CC=gcc
@@ -64,7 +65,7 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: [ "3.9", "3.10", "3.11", "3.12"]
       - run: ./scripts/vendor.sh
         shell: bash
       - run: make sqlite-vec.h
@@ -74,64 +75,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-windows-x86_64-msvc-extension
-          path: dist/*
-  build-wasm32-emscripten:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: mymindstorm/setup-emsdk@v12
-        with:
-          version: "latest"
-      - run: ./scripts/vendor.sh
-      - run: make sqlite-vec.h
-      - run: make wasm
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sqlite-vec-wasm32-emscripten
-          path: dist/*
-  build-ncruces-go:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: make sqlite-vec.h
-      - uses: actions/checkout@v4
-        with:
-          repository: ncruces/go-sqlite3
-          path: go-sqlite3
-      - run: git apply ../bindings/go/ncruces/go-sqlite3.patch
-        working-directory: go-sqlite3/
-      - run: |
-          mkdir -p tools/
-          [ -d "tools/wasi-sdk" ] || curl -#L "$WASI_SDK" | tar xzC tools &
-          [ -d "tools/binaryen" ] || curl -#L "$BINARYEN" | tar xzC tools &
-          wait
-
-          mv "tools/wasi-sdk"* "tools/wasi-sdk"
-          mv "tools/binaryen"* "tools/binaryen"
-
-          sqlite3/download.sh
-          embed/build.sh
-        env:
-          WASI_SDK: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-23/wasi-sdk-23.0-x86_64-linux.tar.gz"
-          BINARYEN: "https://github.com/WebAssembly/binaryen/releases/download/version_118/binaryen-version_118-x86_64-linux.tar.gz"
-        working-directory: go-sqlite3/
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sqlite-vec-ncruces-go
-          path: go-sqlite3/embed/sqlite3.wasm
-  build-cosmopolitan:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: |
-          mkdir $HOME/cosmo
-          curl -L -o cosmocc-$COSMO_VERSION.zip https://github.com/jart/cosmopolitan/releases/download/$COSMO_VERSION/cosmocc-$COSMO_VERSION.zip
-          unzip cosmocc-$COSMO_VERSION.zip -d $HOME/cosmo
-        env:
-          COSMO_VERSION: "3.5.4"
-      - run: ./scripts/vendor.sh
-      - run: make cli CC=$HOME/cosmo/bin/cosmocc AR=$HOME/cosmo/bin/cosmoar OMIT_SIMD=1
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sqlite-vec-cosmopolitan
           path: dist/*
