@@ -14,6 +14,7 @@ dist/sqlite-amalgamation-3310100: dist/
 
 dist/t3310100: demo.c dist/sqlite-amalgamation-3310100
 	gcc \
+		-lm \
 		-DSQLITE_CORE \
 		-I dist/sqlite-amalgamation-3310100 \
 		-I ../../ \
