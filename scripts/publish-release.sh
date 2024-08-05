@@ -18,7 +18,7 @@ git tag v$VERSION
 git push origin main v$VERSION
 
 if grep -qE "alpha|beta" VERSION; then
-    gh release create v$VERSION --title=v$VERSION --prerelease --notes=""
+    gh release create v$VERSION --title=v$VERSION --prerelease
 else
     gh release create v$VERSION --title=v$VERSION
 fi
