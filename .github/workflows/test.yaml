@@ -140,4 +140,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: make test
-        working-directory: tests/test-minimum
+        working-directory: tests/minimum
