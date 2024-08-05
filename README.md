@@ -33,7 +33,7 @@ anywhere! A successor to [`sqlite-vss`](https://github.com/asg017/sqlite-vss)
 <a href="https://hacks.mozilla.org/2024/06/sponsoring-sqlite-vec-to-enable-more-powerful-local-ai-applications/">Mozilla Builders project</a>,
 with additional sponsorship from
 <a href="https://fly.io/"><img width=14px src="./.github/logos/flyio.small.ico"/> Fly.io </a>,
-<a href="https://turso.tech/"><img width=14px src="./.github/logos/turso.small.ico"/> Turso</a>, and
+<a href="https://tur.so/sqlite-vec"><img width=14px src="./.github/logos/turso.small.ico"/> Turso</a>, and
 <a href="https://sqlitecloud.io/"><img width=14px src="./.github/logos/sqlitecloud.small.svg"/> SQLite Cloud</a>.
 See <a href="#sponsors">the Sponsors section</a> for more details.
 </i>
@@ -117,7 +117,7 @@ is the main sponsor through the new Builders project.
 </picture>
 </a>
 
-<a href="https://turso.tech/">
+<a href="https://tur.so/sqlite-vec">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/turso.svg">
   <source media="(prefers-color-scheme: light)" srcset="./.github/logos/turso.svg">
