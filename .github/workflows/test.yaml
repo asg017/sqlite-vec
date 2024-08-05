@@ -137,7 +137,7 @@ jobs:
           name: sqlite-vec-cosmopolitan
           path: dist/*
   test-minimum:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - run: make sqlite-vec.h
