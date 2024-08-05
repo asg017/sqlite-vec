@@ -13,7 +13,7 @@ sqlpkg = {}
 spm = {}
 amalgamation = {include=["sqlite-vec.c", "sqlite-vec.h"]}
 
-pip = {}
+pip = { extra_init_py = "bindings/python/extra_init.py" }
 datasette = {}
 sqlite_utils = {}
 
