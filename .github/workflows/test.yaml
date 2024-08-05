@@ -135,3 +135,9 @@ jobs:
         with:
           name: sqlite-vec-cosmopolitan
           path: dist/*
+  test-minimum:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make test
+        working-directory: tests/test-minimum

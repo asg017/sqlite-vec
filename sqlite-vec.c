@@ -79,6 +79,23 @@ typedef size_t usize;
 #define UNUSED_PARAMETER(X) (void)(X)
 #endif
 
+// sqlite3_vtab_in() was added in SQLite version 3.38 (2022-02-22) https://www.sqlite.org/changes.html#version_3_38_0
+#if SQLITE_VERSION_NUMBER >= 3038000
+#define COMPILER_SUPPORTS_VTAB_IN 1
+#endif
+
+#ifndef SQLITE_SUBTYPE
+#define SQLITE_SUBTYPE 0x000100000
+#endif
+
+#ifndef SQLITE_RESULT_SUBTYPE
+#define SQLITE_RESULT_SUBTYPE 0x001000000
+#endif
+
+#ifndef SQLITE_INDEX_CONSTRAINT_LIMIT
+#define SQLITE_INDEX_CONSTRAINT_LIMIT     73
+#endif
+
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
 #define min(a, b) (((a) <= (b)) ? (a) : (b))
 
@@ -4311,11 +4328,13 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
 
   for (int i = 0; i < pIdxInfo->nConstraint; i++) {
     u8 vtabIn = 0;
-    // sqlite3_vtab_in() was added in SQLite version 3.38 (2022-02-22)
-    // ref: https://www.sqlite.org/changes.html#version_3_38_0
+
+    #if COMPILER_SUPPORTS_VTAB_IN
     if (sqlite3_libversion_number() >= 3038000) {
       vtabIn = sqlite3_vtab_in(pIdxInfo, i, -1);
     }
+    #endif
+
 #ifdef SQLITE_VEC_DEBUG
     printf("xBestIndex [%d] usable=%d iColumn=%d op=%d vtabin=%d\n", i,
            pIdxInfo->aConstraint[i].usable, pIdxInfo->aConstraint[i].iColumn,
@@ -4401,6 +4420,8 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
     sqlite3_str *idxStr = sqlite3_str_new(NULL);
     sqlite3_str_appendall(idxStr, "knn:");
 #define VEC0_IDX_KNN_ROWID_IN 'I'
+
+    #if COMPILER_SUPPORTS_VTAB_IN
     if (iRowidInTerm >= 0) {
       // already validated as  >= SQLite 3.38 bc iRowidInTerm is only >= 0 when
       // vtabIn == 1
@@ -4409,6 +4430,8 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
       pIdxInfo->aConstraintUsage[iRowidInTerm].argvIndex = 3;
       pIdxInfo->aConstraintUsage[iRowidInTerm].omit = 1;
     }
+    #endif
+
     pIdxInfo->idxNum = iMatchVectorTerm;
     pIdxInfo->idxStr = sqlite3_str_finish(idxStr);
     if (!pIdxInfo->idxStr) {
@@ -4941,6 +4964,7 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
   // handle when a `rowid in (...)` operation was provided
   // Array of all the rowids that appear in any `rowid in (...)` constraint.
   // NULL if none were provided, which means a "full" scan.
+  #if COMPILER_SUPPORTS_VTAB_IN
   if (argc > 2) {
     sqlite3_value *item;
     int rc;
@@ -4955,7 +4979,6 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
     if (rc != SQLITE_OK) {
       goto cleanup;
     }
-
     for (rc = sqlite3_vtab_in_first(argv[2], &item); rc == SQLITE_OK && item;
          rc = sqlite3_vtab_in_next(argv[2], &item)) {
       i64 rowid;
@@ -4979,6 +5002,7 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
     qsort(arrayRowidsIn->z, arrayRowidsIn->length, arrayRowidsIn->element_size,
           _cmp);
   }
+  #endif
 
   char *zSql;
   zSql = sqlite3_mprintf("select chunk_id, validity, rowids "
@@ -6882,13 +6906,6 @@ static sqlite3_module vec_static_blob_entriesModule = {
   "Commit: " SQLITE_VEC_SOURCE "\n"                                            \
   "Build flags: " SQLITE_VEC_DEBUG_BUILD
 
-#ifndef SQLITE_SUBTYPE
-#define SQLITE_SUBTYPE 0x000100000
-#endif
-
-#ifndef SQLITE_RESULT_SUBTYPE
-#define SQLITE_RESULT_SUBTYPE 0x001000000
-#endif
 
 #ifdef _WIN32
 __declspec(dllexport)
