@@ -551,7 +551,9 @@ static const char jsonIsSpaceX[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
+#ifdef SQLITE_OMIT_JSON
 #define jsonIsspace(x) (jsonIsSpaceX[(unsigned char)x])
+#endif
 
 typedef void (*vector_cleanup)(void *p);
 
