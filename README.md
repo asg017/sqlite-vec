@@ -41,7 +41,7 @@ See <a href="#sponsors">the Sponsors section</a> for more details.
 
 ## Installing
 
-See [Installing `sqlite-vec`](https://alexgarcia.xyz/sqlite-vec/installing.html)
+See [Installing `sqlite-vec`](https://alexgarcia.xyz/sqlite-vec/installation.html)
 for more details.
 
 | Language       | Install                                              | More Info                                                                             |                                                                                                                                                                                                    |
