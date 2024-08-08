@@ -534,6 +534,7 @@ static f32 distance_hamming(const void *a, const void *b, const void *d) {
   return distance_hamming_u8((u8 *)a, (u8 *)b, dimensions / CHAR_BIT);
 }
 
+#ifdef SQLITE_OMIT_JSON
 // from SQLite source:
 // https://github.com/sqlite/sqlite/blob/a509a90958ddb234d1785ed7801880ccb18b497e/src/json.c#L153
 static const char jsonIsSpaceX[] = {
@@ -551,7 +552,7 @@ static const char jsonIsSpaceX[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
-#ifdef SQLITE_OMIT_JSON
+
 #define jsonIsspace(x) (jsonIsSpaceX[(unsigned char)x])
 #endif
 
