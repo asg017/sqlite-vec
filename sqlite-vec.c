@@ -1292,6 +1292,7 @@ char *vec_type_name(enum VectorElementType elementType) {
   case SQLITE_VEC_ELEMENT_TYPE_BIT:
     return "bit";
   }
+  return "";
 }
 
 static void vec_type(sqlite3_context *context, int argc, sqlite3_value **argv) {
@@ -2003,6 +2004,7 @@ size_t vector_byte_size(enum VectorElementType element_type,
   case SQLITE_VEC_ELEMENT_TYPE_BIT:
     return dimensions / CHAR_BIT;
   }
+  return 0;
 }
 
 size_t vector_column_byte_size(struct VectorColumnDefinition column) {
@@ -3060,6 +3062,7 @@ static int vec_npy_eachColumn(sqlite3_vtab_cursor *cur,
   case VEC_NPY_EACH_INPUT_FILE:
     return vec_npy_eachColumnFile(pCur, context, i);
   }
+  return SQLITE_ERROR;
 }
 
 static sqlite3_module vec_npy_eachModule = {
@@ -3938,7 +3941,7 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
   // track if a "primary key" column is defined
   char *pkColumnName = NULL;
   int pkColumnNameLength;
-  int pkColumnType;
+  int pkColumnType = SQLITE_INTEGER;
 
   for (int i = 3; i < argc; i++) {
     struct VectorColumnDefinition c;
@@ -5187,6 +5190,7 @@ static int vec0Rowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid) {
     return SQLITE_ERROR;
   }
   }
+  return SQLITE_ERROR;
 }
 
 static int vec0Next(sqlite3_vtab_cursor *cur) {
@@ -5249,6 +5253,7 @@ static int vec0Eof(sqlite3_vtab_cursor *cur) {
     return pCur->point_data->done;
   }
   }
+  return 1;
 }
 
 static int vec0Column_fullscan(vec0_vtab *pVtab, vec0_cursor *pCur,
@@ -6787,6 +6792,7 @@ static int vec_static_blob_entriesRowid(sqlite3_vtab_cursor *cur,
     return SQLITE_OK;
   }
   }
+  return SQLITE_ERROR;
 
 }
 
@@ -6802,6 +6808,7 @@ static int vec_static_blob_entriesNext(sqlite3_vtab_cursor *cur) {
     return SQLITE_OK;
   }
   }
+  return SQLITE_ERROR;
 }
 
 static int vec_static_blob_entriesEof(sqlite3_vtab_cursor *cur) {
@@ -6816,6 +6823,7 @@ static int vec_static_blob_entriesEof(sqlite3_vtab_cursor *cur) {
     return pCur->knn_data->current_idx >= pCur->knn_data->k;
   }
   }
+  return SQLITE_ERROR;
 }
 
 static int vec_static_blob_entriesColumn(sqlite3_vtab_cursor *cur,
@@ -6853,6 +6861,7 @@ static int vec_static_blob_entriesColumn(sqlite3_vtab_cursor *cur,
     return SQLITE_OK;
   }
   }
+  return SQLITE_ERROR;
 }
 
 static sqlite3_module vec_static_blob_entriesModule = {
