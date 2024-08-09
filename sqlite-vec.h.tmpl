@@ -3,6 +3,16 @@
 
 #include "sqlite3ext.h"
 
+#ifdef SQLITE_VEC_STATIC
+  #define SQLITE_VEC_API
+#else
+  #ifdef _WIN32
+    #define SQLITE_VEC_API __declspec(dllexport)
+  #else
+    #define SQLITE_VEC_API
+  #endif
+#endif
+
 #define SQLITE_VEC_VERSION "v${VERSION}"
 #define SQLITE_VEC_DATE "${DATE}"
 #define SQLITE_VEC_SOURCE "${SOURCE}"

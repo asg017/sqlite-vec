@@ -546,10 +546,9 @@ static f32 distance_hamming(const void *a, const void *b, const void *d) {
   return distance_hamming_u8((u8 *)a, (u8 *)b, dimensions / CHAR_BIT);
 }
 
-#if !defined(SQLITE_CORE) || (defined(SQLITE_AMALGAMATION) && defined(SQLITE_OMIT_JSON))
 // from SQLite source:
 // https://github.com/sqlite/sqlite/blob/a509a90958ddb234d1785ed7801880ccb18b497e/src/json.c#L153
-static const char jsonIsSpaceX[] = {
+static const char vecJsonIsSpaceX[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -565,8 +564,7 @@ static const char jsonIsSpaceX[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-#define jsonIsspace(x) (jsonIsSpaceX[(unsigned char)x])
-#endif
+#define vecJsonIsspace(x) (vecJsonIsSpaceX[(unsigned char)x])
 
 typedef void (*vector_cleanup)(void *p);
 
@@ -711,7 +709,7 @@ static int fvec_from_value(sqlite3_value *value, f32 **vector,
 
     // advance leading whitespace to first '['
     while (i < source_len) {
-      if (jsonIsspace(source[i])) {
+      if (vecJsonIsspace(source[i])) {
         i++;
         continue;
       }
@@ -761,7 +759,7 @@ static int fvec_from_value(sqlite3_value *value, f32 **vector,
 
       offset += (endptr - ptr);
       while (offset < source_len) {
-        if (jsonIsspace(source[offset])) {
+        if (vecJsonIsspace(source[offset])) {
           offset++;
           continue;
         }
@@ -849,7 +847,7 @@ static int int8_vec_from_value(sqlite3_value *value, i8 **vector,
 
     // advance leading whitespace to first '['
     while (i < source_len) {
-      if (jsonIsspace(source[i])) {
+      if (vecJsonIsspace(source[i])) {
         i++;
         continue;
       }
@@ -904,7 +902,7 @@ static int int8_vec_from_value(sqlite3_value *value, i8 **vector,
 
       offset += (endptr - ptr);
       while (offset < source_len) {
-        if (jsonIsspace(source[offset])) {
+        if (vecJsonIsspace(source[offset])) {
           offset++;
           continue;
         }
@@ -6931,10 +6929,7 @@ static sqlite3_module vec_static_blob_entriesModule = {
   "Build flags: " SQLITE_VEC_DEBUG_BUILD
 
 
-#ifdef _WIN32
-__declspec(dllexport)
-#endif
-    int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
+SQLITE_VEC_API int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
                          const sqlite3_api_routines *pApi) {
   SQLITE_EXTENSION_INIT2(pApi);
   int rc = SQLITE_OK;
@@ -7018,10 +7013,7 @@ __declspec(dllexport)
 }
 
 #ifndef SQLITE_VEC_OMIT_FS
-#ifdef _WIN32
-__declspec(dllexport)
-#endif
-    int sqlite3_vec_fs_read_init(sqlite3 *db, char **pzErrMsg,
+SQLITE_VEC_API int sqlite3_vec_fs_read_init(sqlite3 *db, char **pzErrMsg,
                                  const sqlite3_api_routines *pApi) {
   UNUSED_PARAMETER(pzErrMsg);
   SQLITE_EXTENSION_INIT2(pApi);
@@ -7033,10 +7025,7 @@ __declspec(dllexport)
 #endif
 
 
-#ifdef _WIN32
-__declspec(dllexport)
-#endif
-    int sqlite3_vec_static_blobs_init(sqlite3 *db, char **pzErrMsg,
+SQLITE_VEC_API int sqlite3_vec_static_blobs_init(sqlite3 *db, char **pzErrMsg,
                                  const sqlite3_api_routines *pApi) {
   UNUSED_PARAMETER(pzErrMsg);
   SQLITE_EXTENSION_INIT2(pApi);
