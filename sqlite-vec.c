@@ -505,8 +505,20 @@ static f32 distance_hamming_u8(u8 *a, u8 *b, size_t n) {
 }
 
 #ifdef _MSC_VER
+#if !defined(__clang__) &&                                \
+    (defined(_M_ARM) || defined(_M_ARM64))
+// From https://github.com/ngtcp2/ngtcp2/blob/b64f1e77b5e0d880b93d31f474147fae4a1d17cc/lib/ngtcp2_ringbuf.c, line 34-43
+static unsigned int __builtin_popcountl(unsigned int x) {
+  unsigned int c = 0;
+  for (; x; ++c) {
+    x &= x - 1;
+  }
+  return c;
+}
+#else
 #include <intrin.h>
 #define __builtin_popcountl __popcnt64
+#endif
 #endif
 
 static f32 distance_hamming_u64(u64 *a, u64 *b, size_t n) {
@@ -534,6 +546,7 @@ static f32 distance_hamming(const void *a, const void *b, const void *d) {
   return distance_hamming_u8((u8 *)a, (u8 *)b, dimensions / CHAR_BIT);
 }
 
+#if !defined(SQLITE_CORE) || (defined(SQLITE_AMALGAMATION) && defined(SQLITE_OMIT_JSON))
 // from SQLite source:
 // https://github.com/sqlite/sqlite/blob/a509a90958ddb234d1785ed7801880ccb18b497e/src/json.c#L153
 static const char jsonIsSpaceX[] = {
@@ -551,7 +564,9 @@ static const char jsonIsSpaceX[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
+
 #define jsonIsspace(x) (jsonIsSpaceX[(unsigned char)x])
+#endif
 
 typedef void (*vector_cleanup)(void *p);
 
