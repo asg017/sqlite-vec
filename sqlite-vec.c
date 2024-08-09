@@ -3608,7 +3608,7 @@ int vec0_rowids_insert_rowid(vec0_vtab *p, i64 rowid) {
     }
   }
 
-#ifdef SQLITE_THREADSAFE
+#if SQLITE_THREADSAFE
   if (sqlite3_mutex_enter) {
     sqlite3_mutex_enter(sqlite3_db_mutex(p->db));
     entered = 1;
@@ -3640,7 +3640,7 @@ cleanup:
     sqlite3_clear_bindings(p->stmtRowidsInsertRowid);
   }
 
-#ifdef SQLITE_THREADSAFE
+#if SQLITE_THREADSAFE
   if (sqlite3_mutex_leave && entered) {
     sqlite3_mutex_leave(sqlite3_db_mutex(p->db));
   }
@@ -3670,7 +3670,7 @@ int vec0_rowids_insert_id(vec0_vtab *p, sqlite3_value *idValue, i64 *rowid) {
     }
   }
 
-#ifdef SQLITE_THREADSAFE
+#if SQLITE_THREADSAFE
   if (sqlite3_mutex_enter) {
     sqlite3_mutex_enter(sqlite3_db_mutex(p->db));
     entered = 1;
@@ -3707,7 +3707,7 @@ complete:
     sqlite3_clear_bindings(p->stmtRowidsInsertId);
   }
 
-#ifdef SQLITE_THREADSAFE
+#if SQLITE_THREADSAFE
   if (sqlite3_mutex_leave && entered) {
     sqlite3_mutex_leave(sqlite3_db_mutex(p->db));
   }
@@ -3795,7 +3795,7 @@ int vec0_new_chunk(vec0_vtab *p, i64 *chunk_rowid) {
     return rc;
   }
 
-#ifdef SQLITE_THREADSAFE
+#if SQLITE_THREADSAFE
   if (sqlite3_mutex_enter) {
     sqlite3_mutex_enter(sqlite3_db_mutex(p->db));
   }
@@ -3808,7 +3808,7 @@ int vec0_new_chunk(vec0_vtab *p, i64 *chunk_rowid) {
   rc = sqlite3_step(stmt);
   int failed = rc != SQLITE_DONE;
   rowid = sqlite3_last_insert_rowid(p->db);
-#ifdef SQLITE_THREADSAFE
+#if SQLITE_THREADSAFE
   if (sqlite3_mutex_leave) {
     sqlite3_mutex_leave(sqlite3_db_mutex(p->db));
   }
