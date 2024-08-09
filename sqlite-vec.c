@@ -5998,11 +5998,21 @@ cleanup:
   return rc;
 }
 
-int vec0Update_Delete(sqlite3_vtab *pVTab, sqlite_int64 rowid) {
+int vec0Update_Delete(sqlite3_vtab *pVTab, sqlite3_value * idValue) {
   vec0_vtab *p = (vec0_vtab *)pVTab;
   int rc;
+  i64 rowid;
   i64 chunk_id;
   i64 chunk_offset;
+
+  if(p->pkIsText) {
+    rc = vec0_rowid_from_id(p, idValue, &rowid);
+    if (rc != SQLITE_OK) {
+      return rc;
+    }
+  }else {
+    rowid = sqlite3_value_int64(idValue);
+  }
 
   // 1. Find chunk position for given rowid
   // 2. Ensure that validity bit for position is 1, then set to 0
@@ -6112,14 +6122,33 @@ cleanup:
   return SQLITE_OK;
 }
 
-int vec0Update_UpdateOnRowid(sqlite3_vtab *pVTab, int argc,
+int vec0Update_Update(sqlite3_vtab *pVTab, int argc,
                              sqlite3_value **argv) {
   UNUSED_PARAMETER(argc);
   vec0_vtab *p = (vec0_vtab *)pVTab;
   int rc;
   i64 chunk_id;
   i64 chunk_offset;
-  i64 rowid = sqlite3_value_int64(argv[0]);
+
+  i64 rowid;
+  if(p->pkIsText) {
+    const char * a = (const char *) sqlite3_value_text(argv[0]);
+    const char * b = (const char *) sqlite3_value_text(argv[1]);
+    // IMP: V08886_25725
+    if(
+        (sqlite3_value_bytes(argv[0]) != sqlite3_value_bytes(argv[1]))
+        || strncmp(a, b, sqlite3_value_bytes(argv[0])) != 0
+      ) {
+        vtab_set_error(pVTab, "UPDATEs on vec0 primary key values are not allowed.");
+        return SQLITE_ERROR;
+    }
+    rc = vec0_rowid_from_id(p, argv[0], &rowid);
+    if(rc != SQLITE_OK) {
+      return rc;
+    }
+  }else {
+    rowid = sqlite3_value_int64(argv[0]);
+  }
 
   // 1. get chunk_id and chunk_offset from _rowids
   rc = vec0_get_chunk_position(p, rowid, NULL, &chunk_id, &chunk_offset);
@@ -6159,7 +6188,7 @@ static int vec0Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
                       sqlite_int64 *pRowid) {
   // DELETE operation
   if (argc == 1 && sqlite3_value_type(argv[0]) != SQLITE_NULL) {
-    return vec0Update_Delete(pVTab, sqlite3_value_int64(argv[0]));
+    return vec0Update_Delete(pVTab, argv[0]);
   }
   // INSERT operation
   else if (argc > 1 && sqlite3_value_type(argv[0]) == SQLITE_NULL) {
@@ -6167,15 +6196,7 @@ static int vec0Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
   }
   // UPDATE operation
   else if (argc > 1 && sqlite3_value_type(argv[0]) != SQLITE_NULL) {
-    if ((sqlite3_value_type(argv[0]) == SQLITE_INTEGER) &&
-        (sqlite3_value_type(argv[1]) == SQLITE_INTEGER) &&
-        (sqlite3_value_int64(argv[0]) == sqlite3_value_int64(argv[1]))) {
-      return vec0Update_UpdateOnRowid(pVTab, argc, argv);
-    }
-
-    vtab_set_error(pVTab,
-                   "UPDATE operation on rowids with vec0 is not supported.");
-    return SQLITE_ERROR;
+    return vec0Update_Update(pVTab, argc, argv);
   } else {
     vtab_set_error(pVTab, "Unrecognized xUpdate operation provided for vec0.");
     return SQLITE_ERROR;
