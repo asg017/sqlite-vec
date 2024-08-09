@@ -8,7 +8,7 @@ jobs:
   build-linux-x86_64-extension:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: ./scripts/vendor.sh
       - run: make loadable static
       - uses: actions/upload-artifact@v4
@@ -18,7 +18,7 @@ jobs:
   build-macos-x86_64-extension:
     runs-on: macos-12
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: ./scripts/vendor.sh
       - run: make loadable static
       - uses: actions/upload-artifact@v4
@@ -28,7 +28,7 @@ jobs:
   build-macos-aarch64-extension:
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: ./scripts/vendor.sh
       - run: make loadable static
       - uses: actions/upload-artifact@v4
@@ -38,7 +38,7 @@ jobs:
   build-windows-x86_64-extension:
     runs-on: windows-2019
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: ./scripts/vendor.sh
         shell: bash
       - run: make loadable static
@@ -196,7 +196,7 @@ jobs:
   upload-crate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
