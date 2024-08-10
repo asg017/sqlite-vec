@@ -17,8 +17,6 @@ $ rqlite
 Welcome to the rqlite CLI.
 Enter ".help" for usage hints.
 Connected to http://127.0.0.1:4001 running version 8
-127.0.0.1:4001> create virtual table vec_examples using vec0(
-Error: incomplete input
 127.0.0.1:4001> create virtual table vec_examples using vec0(sample_embedding float[8]);
 1 row affected
 127.0.0.1:4001> insert into vec_examples(rowid, sample_embedding) values (1, '[-0.200, 0.250, 0.341, -0.211, 0.645, 0.935, -0.316, -0.924]'), (2, '[0.443, -0.501, 0.355, -0.771, 0.707, -0.708, -0.185, 0.362]'), (3, '[0.716, -0.927, 0.134, 0.052, -0.669, 0.793, -0.634, -0.162]'), (4, '[-0.710, 0.330, 0.656, 0.041, -0.990, 0.726, 0.385, -0.958]')
