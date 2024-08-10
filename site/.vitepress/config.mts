@@ -157,6 +157,7 @@ function sidebar(): DefaultTheme.SidebarItem[] {
         { text: "Browser (WASM)", link: "/wasm" },
         { text: "Datasette", link: "/datasette" },
         { text: "sqlite-utils", link: "/sqlite-utils" },
+        { text: "rqlite", link: "/rqlite" },
       ],
     },
     {

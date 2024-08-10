@@ -10,7 +10,7 @@ curl -L https://github.com/asg017/sqlite-vec/releases/download/v0.1.1/sqlite-vec
 rqlited -extensions-path=sqlite-vec.tar.gz data
 ```
 
-Once loaded you can use sqlite-vec functionality within rqlite. For example, you can perform searches via the [rqlite shell](https://rqlite.io/docs/cli/):
+Once loaded you can use `sqlite-vec` functionality within rqlite. For example, you can perform searches via the [rqlite shell](https://rqlite.io/docs/cli/):
 
 ```
 $ rqlite
