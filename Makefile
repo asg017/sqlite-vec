@@ -3,6 +3,10 @@ COMMIT=$(shell git rev-parse HEAD)
 VERSION=$(shell cat VERSION)
 DATE=$(shell date +'%FT%TZ%z')
 
+INSTALL_LIB_DIR = /usr/local/lib
+INSTALL_INCLUDE_DIR = /usr/local/include
+INSTALL_BIN_DIR = /usr/local/bin
+
 ifndef CC
 CC=gcc
 endif
@@ -174,7 +178,7 @@ evidence-of:
 test:
 	sqlite3 :memory: '.read test.sql'
 
-.PHONY: version loadable static test clean gh-release evidence-of
+.PHONY: version loadable static test clean gh-release evidence-of install uninstall
 
 publish-release:
 	./scripts/publish-release.sh
@@ -194,6 +198,28 @@ site-dev:
 
 site-build:
 	npm --prefix site run build
+
+install:
+	install -d $(INSTALL_LIB_DIR)
+	install -d $(INSTALL_INCLUDE_DIR)
+	install -m 644 sqlite-vec.h $(INSTALL_INCLUDE_DIR)
+	@if [ -f $(TARGET_LOADABLE) ]; then \
+		install -m 644 $(TARGET_LOADABLE) $(INSTALL_LIB_DIR); \
+	fi
+	@if [ -f $(TARGET_STATIC) ]; then \
+		install -m 644 $(TARGET_STATIC) $(INSTALL_LIB_DIR); \
+	fi
+	@if [ -f $(TARGET_CLI) ]; then \
+		sudo install -m 755 $(TARGET_CLI) $(INSTALL_BIN_DIR); \
+	fi
+	ldconfig
+
+uninstall:
+	rm -f $(INSTALL_LIB_DIR)/$(notdir $(TARGET_LOADABLE))
+	rm -f $(INSTALL_LIB_DIR)/$(notdir $(TARGET_STATIC))
+	rm -f $(INSTALL_LIB_DIR)/$(notdir $(TARGET_CLI))
+	rm -f $(INSTALL_INCLUDE_DIR)/sqlite-vec.h
+	ldconfig
 
 # ███████████████████████████████ WASM SECTION ███████████████████████████████
 
