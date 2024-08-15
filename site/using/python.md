@@ -68,7 +68,7 @@ db.execute(
 ```
 
 
-## Using an up-to-date version of SQLite
+## Using an up-to-date version of SQLite {#updated-sqlite}
 
 Some features of `sqlite-vec` will require an up-to-date SQLite library. You can
 see what version of SQLite your Python environment uses with
@@ -112,3 +112,18 @@ Sometimes installing a latest version of Python will "magically" upgrade your
 SQLite version as well. This is a nuclear option, as upgrading Python
 installations can be quite the hassle, but most Python 3.12 builds will have a
 very recent SQLite version.
+
+
+## MacOS blocks SQLite extensions by default
+
+The default SQLite library that is bundled with Mac operating systems do not include support for SQLite extensions. That means the default Python library that is bundled with MacOS also does not support SQLite extensions.
+
+This is the case if you come across the following error message:
+
+```
+AttributeError: 'sqlite3.Connection' object has no attribute 'enable_load_extension'
+```
+
+As a workaround, use the Homebrew version of Python (`brew install python`, new version at `/opt/homebrew/bin/python3`), which will use the Homebrew version of SQLite that allows SQLite extensions.
+
+Other workarounds can be found at [Using an up-to-date version of SQLite](#updated-sqlite);
