@@ -24,6 +24,7 @@ endif
 
 ifdef CONFIG_LINUX
 LOADABLE_EXTENSION=so
+CFLAGS += -lm
 endif
 
 ifdef CONFIG_WINDOWS
