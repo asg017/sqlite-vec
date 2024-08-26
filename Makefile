@@ -221,6 +221,69 @@ uninstall:
 	rm -f $(INSTALL_INCLUDE_DIR)/sqlite-vec.h
 	ldconfig
 
+# ███████████████████████████████ ANDROID SECTION ███████████████████████████████
+
+# Define Android NDK paths (update these to your actual NDK path)
+# NDK_PATH ?= /path/to/android-ndk
+# SYSROOT = $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/linux-x86_64/sysroot
+
+# Define target architectures
+ARCHS = arm64-v8a armeabi-v7a x86 x86_64
+
+# Define cross-compiler toolchains
+CC_aarch64 = $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android21-clang
+CC_arm = $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/darwin-x86_64/bin/armv7a-linux-androideabi21-clang
+CC_x86 = $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/darwin-x86_64/bin/i686-linux-android21-clang
+CC_x86_64 = $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/darwin-x86_64/bin/x86_64-linux-android21-clang
+
+# Define output directories for each architecture
+OUT_DIR_aarch64 = $(prefix)/android/arm64-v8a
+OUT_DIR_arm = $(prefix)/android/armeabi-v7a
+OUT_DIR_x86 = $(prefix)/android/x86
+OUT_DIR_x86_64 = $(prefix)/android/x86_64
+
+# Compilation rules for each architecture
+$(OUT_DIR_aarch64):
+	mkdir -p $@
+
+$(OUT_DIR_arm):
+	mkdir -p $@
+
+$(OUT_DIR_x86):
+	mkdir -p $@
+
+$(OUT_DIR_x86_64):
+	mkdir -p $@
+
+# Set the path to sqlite3ext.h, assuming it's in vendor/sqlite3/
+SQLITE_INCLUDE_PATH = -Ivendor/
+
+# Android-specific flags (no -mcpu=apple-m1 here)
+ANDROID_CFLAGS = -Ivendor/ -I./ -O3 -fPIC
+
+# Rule for compiling for arm64-v8a
+android_arm64-v8a: $(OUT_DIR_aarch64)
+	$(CC_aarch64) $(CFLAGS) $(SQLITE_INCLUDE_PATH) $(ANDROID_CFLAGS) -shared sqlite-vec.c -o $(OUT_DIR_aarch64)/libsqlite_vec.so
+
+# Rule for compiling for armeabi-v7a
+android_armeabi-v7a: $(OUT_DIR_arm)
+	$(CC_arm) $(CFLAGS) $(SQLITE_INCLUDE_PATH) $(ANDROID_CFLAGS) -shared sqlite-vec.c -o $(OUT_DIR_arm)/libsqlite_vec.so
+
+# Rule for compiling for x86
+android_x86: $(OUT_DIR_x86)
+	$(CC_x86) $(CFLAGS) $(SQLITE_INCLUDE_PATH) $(ANDROID_CFLAGS) -shared sqlite-vec.c -o $(OUT_DIR_x86)/libsqlite_vec.so
+
+# Rule for compiling for x86_64
+android_x86_64: $(OUT_DIR_x86_64)
+	$(CC_x86_64) $(CFLAGS) $(SQLITE_INCLUDE_PATH) $(ANDROID_CFLAGS) -shared sqlite-vec.c -o $(OUT_DIR_x86_64)/libsqlite_vec.so
+
+# Rule to compile for all Android architectures
+android: android_arm64-v8a android_armeabi-v7a android_x86 android_x86_64
+
+.PHONY: android android_arm64-v8a android_armeabi-v7a android_x86 android_x86_64
+
+# ███████████████████████████████   END ANDROID   ███████████████████████████████
+
 # ███████████████████████████████ WASM SECTION ███████████████████████████████
 
 WASM_DIR=$(prefix)/.wasm
