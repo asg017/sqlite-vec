@@ -53,7 +53,7 @@ jobs:
              STRIP=llvm-strip loadable
       - uses: actions/upload-artifact@v4
         with:
-          name: sqlite-vec-linux-x86_64-android-extension
+          name: sqlite-vec-android-${{ matrix.cc }}-extension
           path: dist/*.so
   build-macos-x86_64-extension:
     runs-on: macos-12
