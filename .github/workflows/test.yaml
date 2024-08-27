@@ -77,6 +77,16 @@ jobs:
         with:
           name: sqlite-vec-macos-aarch64-extension
           path: dist/*
+  build-ios-extension:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/vendor.sh
+      - run: make CFLAGS="-target x86_64-apple-ios" loadable static
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-ios-testing-extension
+          path: dist/*
   build-windows-x86_64-extension:
     runs-on: windows-latest
     steps:
