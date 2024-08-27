@@ -86,7 +86,7 @@ jobs:
           xcode-version: latest-stable
       - run: ./scripts/vendor.sh
 
-      - run: make CFLAGS="-target x86_64-apple-ios -isysroot $(xcrun -sdk iphoneos --show-sdk-path)" loadable static
+      - run: make CFLAGS="-target x86_64-apple-ios -isysroot $(xcrun -sdk iphoneos --show-sdk-path) -DNDEBUG=1" loadable static
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-ios-testing-extension
