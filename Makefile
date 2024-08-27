@@ -284,6 +284,62 @@ android: android_arm64-v8a android_armeabi-v7a android_x86 android_x86_64
 
 # ███████████████████████████████   END ANDROID   ███████████████████████████████
 
+# ███████████████████████████████ IOS SECTION ███████████████████████████████
+
+# iOS SDK paths
+IOS_SDK_PATH = $(shell xcrun --sdk iphoneos --show-sdk-path)
+IOS_SIMULATOR_SDK_PATH = $(shell xcrun --sdk iphonesimulator --show-sdk-path)
+
+# iOS cross-compiler toolchains
+CC_ios_arm64 = $(shell xcrun --sdk iphoneos --find clang)
+CC_ios_x86_64 = $(shell xcrun --sdk iphonesimulator --find clang)
+
+# Output directories for iOS
+OUT_DIR_ios_arm64 = $(prefix)/ios/arm64
+OUT_DIR_ios_x86_64 = $(prefix)/ios/x86_64
+OUT_DIR_ios_arm64_simulator = $(prefix)/ios/arm64_simulator
+
+# iOS-specific flags
+IOS_CFLAGS = -Ivendor/ -I./ -O3 -fembed-bitcode -fPIC
+IOS_ARM64_FLAGS = -target arm64-apple-ios
+IOS_ARM64_SIM_FLAGS = -target arm64-apple-ios-simulator
+IOS_X86_64_FLAGS = -target x86_64-apple-ios-simulator
+
+# Compilation rules for each iOS architecture
+$(OUT_DIR_ios_arm64):
+	mkdir -p $@
+
+$(OUT_DIR_ios_x86_64):
+	mkdir -p $@
+
+$(OUT_DIR_ios_arm64_simulator):
+	mkdir -p $@
+
+# Rule for compiling for iOS arm64 (device)
+ios_arm64: $(OUT_DIR_ios_arm64)
+	@echo "Building for iOS arm64 with flags: $(CFLAGS) $(IOS_CFLAGS) $(IOS_ARM64_FLAGS)"
+	$(CC_ios_arm64) $(CFLAGS) $(IOS_CFLAGS) $(IOS_ARM64_FLAGS) -isysroot $(IOS_SDK_PATH) -c sqlite-vec.c -o $(OUT_DIR_ios_arm64)/sqlite-vec.o
+	$(CC_ios_arm64) -dynamiclib -o $(OUT_DIR_ios_arm64)/sqlitevec $(OUT_DIR_ios_arm64)/sqlite-vec.o -isysroot $(IOS_SDK_PATH)
+
+# Rule for compiling for iOS x86_64 (simulator)
+ios_x86_64: $(OUT_DIR_ios_x86_64)
+	@echo "Building for iOS x86_64 with flags: $(IOS_CFLAGS) $(IOS_X86_64_FLAGS)"
+	$(CC_ios_x86_64) $(CFLAGS) $(IOS_CFLAGS) $(IOS_X86_64_FLAGS) -isysroot $(IOS_SIMULATOR_SDK_PATH) -c sqlite-vec.c -o $(OUT_DIR_ios_x86_64)/sqlite-vec.o
+	$(CC_ios_x86_64) $(IOS_X86_64_FLAGS) -dynamiclib -o $(OUT_DIR_ios_x86_64)/sqlitevec $(OUT_DIR_ios_x86_64)/sqlite-vec.o -isysroot $(IOS_SIMULATOR_SDK_PATH)
+
+# Rule for compiling for iOS arm64 (simulator)
+ios_arm64_sim: $(OUT_DIR_ios_arm64_simulator)
+	@echo "Building for iOS arm64 (simulator) with flags: $(IOS_CFLAGS) $(IOS_ARM64_SIM_FLAGS)"
+	$(CC_ios_arm64) $(CFLAGS) $(IOS_CFLAGS) $(IOS_ARM64_SIM_FLAGS) -isysroot $(IOS_SIMULATOR_SDK_PATH) -c sqlite-vec.c -o $(OUT_DIR_ios_arm64_simulator)/sqlite-vec.o
+	$(CC_ios_arm64) -dynamiclib -o $(OUT_DIR_ios_arm64_simulator)/sqlitevec $(OUT_DIR_ios_arm64_simulator)/sqlite-vec.o -isysroot $(IOS_SIMULATOR_SDK_PATH)
+
+# Rule to compile for all iOS architectures
+ios: ios_arm64 ios_x86_64 ios_arm64_sim
+
+.PHONY: ios ios_arm64 ios_x86_64 ios_arm64_sim
+
+# ███████████████████████████████   END IOS   ███████████████████████████████
+
 # ███████████████████████████████ WASM SECTION ███████████████████████████████
 
 WASM_DIR=$(prefix)/.wasm
