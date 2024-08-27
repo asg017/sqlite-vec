@@ -20,6 +20,25 @@ jobs:
         with:
           name: sqlite-vec-linux-x86_64-extension
           path: dist/*
+  build-x86_64-linux-android-extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/vendor.sh
+      - uses: android-actions/setup-android@v3
+      - run: |
+          sdkmanager --install "ndk;27.0.12077973"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> $GITHUB_ENV
+      - run: |
+          export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
+          make CC=aarch64-linux-android21-clang \
+             AR=llvm-ar \
+             RANLIB=llvm-ranlib \
+             STRIP=llvm-strip loadable
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-linux-x86_64-android-extension
+          path: dist/*.so
   build-macos-x86_64-extension:
     runs-on: macos-12
     steps:
