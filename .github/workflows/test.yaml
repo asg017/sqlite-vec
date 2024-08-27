@@ -22,6 +22,15 @@ jobs:
           path: dist/*
   build-x86_64-linux-android-extension:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        cc:
+          [
+            aarch64-linux-android21-clang,
+            i686-linux-android21-clang,
+            x86_64-linux-android21-clang,
+            armv7a-linux-androideabi21-clang,
+          ]
     steps:
       - uses: actions/checkout@v4
       - run: ./scripts/vendor.sh
@@ -38,7 +47,7 @@ jobs:
           ls $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
       - run: |
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
-          make CC=aarch64-linux-android21-clang \
+          make CC=${{ matrix.cc }} \
              AR=llvm-ar \
              RANLIB=llvm-ranlib \
              STRIP=llvm-strip loadable
