@@ -55,6 +55,20 @@ jobs:
         with:
           name: sqlite-vec-android-${{ matrix.cc }}-extension
           path: dist/*.so
+  build-ios-extension:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - run: ./scripts/vendor.sh
+
+      - run: make CFLAGS="-target arm64-apple-ios -isysroot $(xcrun -sdk iphoneos --show-sdk-path) -DNDEBUG=1" loadable static
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-ios-testing-extension
+          path: dist/*
   build-macos-x86_64-extension:
     runs-on: macos-12
     steps:
@@ -77,20 +91,6 @@ jobs:
         with:
           name: sqlite-vec-macos-aarch64-extension
           path: dist/*
-  build-ios-extension:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-      - run: ./scripts/vendor.sh
-
-      - run: make CFLAGS="-target arm64-apple-ios -isysroot $(xcrun -sdk iphoneos --show-sdk-path) -DNDEBUG=1" loadable static
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sqlite-vec-ios-testing-extension
-          path: dist/*
   build-windows-x86_64-extension:
     runs-on: windows-latest
     steps:
@@ -107,7 +107,6 @@ jobs:
           name: sqlite-vec-windows-x86_64-extension
           path: dist/*
   build-windows-x86_64-extension-msvc:
-    if: false
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
