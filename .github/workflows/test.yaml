@@ -92,22 +92,7 @@ jobs:
           name: sqlite-vec-macos-aarch64-extension
           path: dist/*
   build-windows-x86_64-extension:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: ./scripts/vendor.sh
-        shell: bash
-      - run: make loadable static CC=gcc
-      - run: pip install pytest numpy; make test-loadable CC=gcc
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sqlite-vec-windows-x86_64-extension
-          path: dist/*
-  build-windows-x86_64-extension-msvc:
-    runs-on: windows-latest
+    runs-on: windows-2019
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
@@ -122,7 +107,7 @@ jobs:
       - run: pip install pytest numpy; make test-loadable
       - uses: actions/upload-artifact@v4
         with:
-          name: sqlite-vec-windows-x86_64-msvc-extension
+          name: sqlite-vec-windows-x86_64-extension
           path: dist/*
   build-wasm32-emscripten:
     runs-on: ubuntu-latest
@@ -134,10 +119,11 @@ jobs:
       - run: ./scripts/vendor.sh
       - run: make sqlite-vec.h
       - run: make wasm
+      - run: ls; ls dist; ls dist/.wasm
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-wasm32-emscripten
-          path: dist/*
+          path: dist/.wasm/*
   build-ncruces-go:
     runs-on: ubuntu-latest
     steps:
