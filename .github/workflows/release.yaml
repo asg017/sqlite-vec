@@ -91,6 +91,7 @@ jobs:
         with:
           name: sqlite-vec-wasm32-emscripten
           path: dist/.wasm/*
+          include-hidden-files: true
   dist:
     runs-on: ubuntu-latest
     needs:
