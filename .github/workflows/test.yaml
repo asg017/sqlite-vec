@@ -124,6 +124,7 @@ jobs:
         with:
           name: sqlite-vec-wasm32-emscripten
           path: dist/.wasm/*
+          include-hidden-files: true
   build-ncruces-go:
     runs-on: ubuntu-latest
     steps:
