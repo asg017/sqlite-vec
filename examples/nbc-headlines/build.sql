@@ -2,30 +2,44 @@
 .header on
 .bail on
 
-.load ./vec0
-.load ./rembed0
+begin;
 
-insert into rembed_clients(name, options)
- values ('llamafile', 'llamafile');
-
-create table articles as 
-select 
-  value ->> 'url' as url,
-  value ->> 'headline' as headline,
-  rembed('llamafile', value ->> 'headline') as headline_embedding
-from json_each(
-  readfile('2024-07-26.json')
+create virtual table fts_headlines using fts5(
+  headline,
+  content='articles', content_rowid='id'
 );
 
-select writefile(
-  'articles.json',
-  json_group_array(
-    json_object(
-      'id', rowid,
-      'url', url,
-      'headline', headline,
-      'headline_embedding', vec_to_json(headline_embedding)
-    )
-  )
-)
+insert into fts_headlines(rowid, headline)
+  select rowid, headline
+  from articles;
+
+INSERT INTO fts_headlines(fts_headlines) VALUES('optimize');
+
+.timer on
+
+.load ../../dist/vec0
+.load ./lembed0
+
+insert into lembed_models(name, model) values
+  ('default', lembed_model_from_file('all-MiniLM-L6-v2.e4ce9877.q8_0.gguf'));
+
+create virtual table vec_headlines using vec0(
+  article_id integer primary key,
+  headline_embedding float[384]
+);
+
+-- 1m23s
+insert into vec_headlines(article_id, headline_embedding)
+select
+  rowid,
+  lembed(headline)
 from articles;
+commit;
+
+
+-- rembed vec0 INSERT: 10m17s
+-- before:                        4.37 MB
+-- /w fts content:                5.35 MB (+0.98 MB)
+--    with optimize               5.30 MB (-0.049 MB)
+-- w/ fts:                        6.67 MB (+2.30 MB)
+-- sum(octet_length(headline)):   1.16 MB
