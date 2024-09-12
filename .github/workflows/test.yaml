@@ -24,12 +24,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        cc:
+        platforms:
           [
-            aarch64-linux-android21-clang,
-            i686-linux-android21-clang,
-            x86_64-linux-android21-clang,
-            armv7a-linux-androideabi21-clang,
+            { name: android-aarch64, cc: aarch64-linux-android21-clang },
+            { name: android-i686, cc: i686-linux-android21-clang },
+            { name: android-x86_64, cc: x86_64-linux-android21-clang },
+            { name: android-armv7a, cc: armv7a-linux-androideabi21-clang },
           ]
     steps:
       - uses: actions/checkout@v4
@@ -47,13 +47,13 @@ jobs:
           ls $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
       - run: |
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
-          make CC=${{ matrix.cc }} \
+          make CC=${{ matrix.platforms.cc }} \
              AR=llvm-ar \
              RANLIB=llvm-ranlib \
              STRIP=llvm-strip loadable
       - uses: actions/upload-artifact@v4
         with:
-          name: sqlite-vec-android-${{ matrix.cc }}-extension
+          name: sqlite-vec-android-${{ matrix.platforms.name }}-extension
           path: dist/*.so
   build-ios-extension:
     runs-on: macos-latest
