@@ -56,23 +56,35 @@ jobs:
           name: sqlite-vec-android-${{ matrix.platforms.name }}-extension
           path: dist/*.so
   build-ios-extension:
-    runs-on: macos-latest
+    runs-on: ${{ matrix.platforms.runner }}
     strategy:
       fail-fast: false
       matrix:
         platforms:
           [
-            { name: ios-arm64, target: arm64-apple-ios, sdk: iphoneos },
-            { name: ios-x86_64, target: x86_64-apple-ios, sdk: iphoneos },
+            {
+              name: ios-arm64,
+              target: arm64-apple-ios,
+              sdk: iphoneos,
+              runner: macos-14,
+            },
+            {
+              name: ios-x86_64,
+              target: x86_64-apple-ios,
+              sdk: iphoneos,
+              runner: macos-12,
+            },
             {
               name: ios-simulator-arm64,
               target: arm64-apple-ios-simulator,
               sdk: iphonesimulator,
+              runner: macos-14,
             },
             {
               name: ios-simulator-x86_64,
               target: x86_64-apple-ios-simulator,
               sdk: iphonesimulator,
+              runner: macos-14,
             },
           ]
     steps:
