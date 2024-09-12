@@ -57,6 +57,24 @@ jobs:
           path: dist/*.so
   build-ios-extension:
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platforms:
+          [
+            { name: ios-arm64, target: arm64-apple-ios, sdk: iphoneos },
+            { name: ios-x86_64, target: x86_64-apple-ios, sdk: iphoneos },
+            {
+              name: ios-simulator-arm64,
+              target: arm64-apple-ios-simulator,
+              sdk: iphonesimulator,
+            },
+            {
+              name: ios-simulator-x86_64,
+              target: x86_64-apple-ios-simulator,
+              sdk: iphonesimulator,
+            },
+          ]
     steps:
       - uses: actions/checkout@v4
       - uses: maxim-lobanov/setup-xcode@v1
@@ -64,10 +82,10 @@ jobs:
           xcode-version: latest-stable
       - run: ./scripts/vendor.sh
 
-      - run: make CFLAGS="-target arm64-apple-ios -isysroot $(xcrun -sdk iphoneos --show-sdk-path) -DNDEBUG=1" loadable static
+      - run: make CFLAGS="-target ${{ matrix.platforms.target }} -isysroot $(xcrun -sdk ${{ matrix.platforms.sdk }} --show-sdk-path) -fembed-bitcode -DNDEBUG=1" loadable static
       - uses: actions/upload-artifact@v4
         with:
-          name: sqlite-vec-ios-testing-extension
+          name: sqlite-vec-${{ matrix.platforms.name }}-extension
           path: dist/*
   build-macos-x86_64-extension:
     runs-on: macos-12
