@@ -6982,7 +6982,9 @@ static sqlite3_module vec_static_blob_entriesModule = {
 
 SQLITE_VEC_API int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
                                     const sqlite3_api_routines *pApi) {
+  #ifndef SQLITE_CORE
   SQLITE_EXTENSION_INIT2(pApi);
+  #endif
   int rc = SQLITE_OK;
 
 #define DEFAULT_FLAGS (SQLITE_UTF8 | SQLITE_INNOCUOUS | SQLITE_DETERMINISTIC)
@@ -7067,7 +7069,9 @@ SQLITE_VEC_API int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
 SQLITE_VEC_API int sqlite3_vec_fs_read_init(sqlite3 *db, char **pzErrMsg,
                                             const sqlite3_api_routines *pApi) {
   UNUSED_PARAMETER(pzErrMsg);
+  #ifndef SQLITE_CORE
   SQLITE_EXTENSION_INIT2(pApi);
+  #endif
   int rc = SQLITE_OK;
   rc = sqlite3_create_function_v2(db, "vec_npy_file", 1, SQLITE_RESULT_SUBTYPE,
                                   NULL, vec_npy_file, NULL, NULL, NULL);
@@ -7079,7 +7083,9 @@ SQLITE_VEC_API int
 sqlite3_vec_static_blobs_init(sqlite3 *db, char **pzErrMsg,
                               const sqlite3_api_routines *pApi) {
   UNUSED_PARAMETER(pzErrMsg);
+  #ifndef SQLITE_CORE
   SQLITE_EXTENSION_INIT2(pApi);
+  #endif
 
   int rc = SQLITE_OK;
   vec_static_blob_data *static_blob_data;
