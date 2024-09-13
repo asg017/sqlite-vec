@@ -20,7 +20,7 @@ jobs:
         with:
           name: sqlite-vec-linux-x86_64-extension
           path: dist/*
-  build-x86_64-linux-android-extension:
+  build-android-extensions:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -55,25 +55,24 @@ jobs:
         with:
           name: sqlite-vec-android-${{ matrix.platforms.name }}-extension
           path: dist/*.so
-  build-ios-extension:
+  build-ios-extensions:
     runs-on: ${{ matrix.platforms.runner }}
     strategy:
       fail-fast: false
       matrix:
-        platforms:
-          [
+        platforms: [
             {
               name: ios-arm64,
               target: arm64-apple-ios,
               sdk: iphoneos,
               runner: macos-14,
             },
-            {
-              name: ios-x86_64,
-              target: x86_64-apple-ios,
-              sdk: iphoneos,
-              runner: macos-12,
-            },
+            #{
+            #  name: ios-x86_64,
+            #  target: x86_64-apple-ios,
+            #  sdk: iphoneos,
+            #  runner: macos-12,
+            #},
             {
               name: ios-simulator-arm64,
               target: arm64-apple-ios-simulator,

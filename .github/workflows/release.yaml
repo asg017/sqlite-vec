@@ -92,6 +92,84 @@ jobs:
           name: sqlite-vec-wasm32-emscripten
           path: dist/.wasm/*
           include-hidden-files: true
+  build-android-extensions:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platforms:
+          [
+            { name: android-aarch64, cc: aarch64-linux-android21-clang },
+            { name: android-i686, cc: i686-linux-android21-clang },
+            { name: android-x86_64, cc: x86_64-linux-android21-clang },
+            { name: android-armv7a, cc: armv7a-linux-androideabi21-clang },
+          ]
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/vendor.sh
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+      - uses: android-actions/setup-android@v3
+      - run: |
+          sdkmanager --install "ndk;27.0.12077973"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> $GITHUB_ENV
+      - run: |
+          ls $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/
+          ls $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
+      - run: |
+          export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
+          make CC=${{ matrix.platforms.cc }} \
+             AR=llvm-ar \
+             RANLIB=llvm-ranlib \
+             STRIP=llvm-strip loadable
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-${{ matrix.platforms.name }}-extension
+          path: dist/*.so
+  build-ios-extensions:
+    runs-on: ${{ matrix.platforms.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platforms: [
+            {
+              name: ios-aarch64,
+              target: arm64-apple-ios,
+              sdk: iphoneos,
+              runner: macos-14,
+            },
+            #{
+            #  name: ios-x86_64,
+            #  target: x86_64-apple-ios,
+            #  sdk: iphoneos,
+            #  runner: macos-12,
+            #},
+            {
+              name: iossimulator-aarch64,
+              target: arm64-apple-ios-simulator,
+              sdk: iphonesimulator,
+              runner: macos-14,
+            },
+            {
+              name: iossimulator-x86_64,
+              target: x86_64-apple-ios-simulator,
+              sdk: iphonesimulator,
+              runner: macos-14,
+            },
+          ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - run: ./scripts/vendor.sh
+
+      - run: make CFLAGS="-target ${{ matrix.platforms.target }} -isysroot $(xcrun -sdk ${{ matrix.platforms.sdk }} --show-sdk-path) -fembed-bitcode -DNDEBUG=1" loadable static
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-${{ matrix.platforms.name }}-extension
+          path: dist/*
   dist:
     runs-on: ubuntu-latest
     needs:
@@ -101,6 +179,8 @@ jobs:
         build-macos-aarch64-extension,
         build-windows-x86_64-extension,
         build-wasm32-emscripten,
+        build-android-extensions,
+        build-ios-extensions,
       ]
     permissions:
       contents: write
@@ -126,8 +206,40 @@ jobs:
         with:
           name: sqlite-vec-wasm32-emscripten
           path: dist/wasm32-emscripten
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-android-aarch64-extension
+          path: dist/android-aarch64
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-android-i686-extension
+          path: dist/android-i686
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-android-x86_64-extension
+          path: dist/android-x86_64
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-android-armv7a-extension
+          path: dist/android-armv7a
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-android-armv7a-extension
+          path: dist/android-armv7a
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-ios-aarch64-extension
+          path: dist/ios-aarch64
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-iossimulator-aarch64-extension
+          path: dist/iossimulator-aarch64
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-iossimulator-x86_64-extension
+          path: dist/iossimulator-x86_64
       - run: |
-          curl -L https://github.com/asg017/sqlite-dist/releases/download/v0.0.1-alpha.11/sqlite-dist-x86_64-unknown-linux-gnu.tar.xz \
+          curl -L https://github.com/asg017/sqlite-dist/releases/download/v0.0.1-alpha.13/sqlite-dist-x86_64-unknown-linux-gnu.tar.xz \
             | tar xfJ - --strip-components 1
       - run: make sqlite-vec.h
       - run: ./sqlite-dist ./sqlite-dist.toml --input dist/ --output distx/ --version $(cat VERSION)
