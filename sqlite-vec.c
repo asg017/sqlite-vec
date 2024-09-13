@@ -15,8 +15,14 @@
 #include <stdio.h>
 #endif
 
+
+#ifndef SQLITE_CORE
 #include "sqlite3ext.h"
 SQLITE_EXTENSION_INIT1
+#else
+  #include "sqlite3.h"
+#endif
+
 
 #ifndef UINT32_TYPE
 #ifdef HAVE_UINT32_T
