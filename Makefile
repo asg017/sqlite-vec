@@ -286,6 +286,8 @@ android: android_arm64-v8a android_armeabi-v7a android_x86 android_x86_64
 
 # ███████████████████████████████ IOS SECTION ███████████████████████████████
 
+MIN_IOS_VERSION = 8.0
+
 # iOS SDK paths
 IOS_SDK_PATH = $(shell xcrun --sdk iphoneos --show-sdk-path)
 IOS_SIMULATOR_SDK_PATH = $(shell xcrun --sdk iphonesimulator --show-sdk-path)
@@ -301,9 +303,9 @@ OUT_DIR_ios_arm64_simulator = $(prefix)/ios/arm64_simulator
 
 # iOS-specific flags
 IOS_CFLAGS = -Ivendor/ -I./ -O3 -fembed-bitcode -fPIC
-IOS_ARM64_FLAGS = -target arm64-apple-ios
-IOS_ARM64_SIM_FLAGS = -target arm64-apple-ios-simulator
-IOS_X86_64_FLAGS = -target x86_64-apple-ios-simulator
+IOS_ARM64_FLAGS = -target arm64-apple-ios -miphoneos-version-min=$(MIN_IOS_VERSION)
+IOS_ARM64_SIM_FLAGS = -target arm64-apple-ios-simulator -miphoneos-version-min=$(MIN_IOS_VERSION)
+IOS_X86_64_FLAGS = -target x86_64-apple-ios-simulator -miphoneos-version-min=$(MIN_IOS_VERSION)
 
 # Compilation rules for each iOS architecture
 $(OUT_DIR_ios_arm64):
