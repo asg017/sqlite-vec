@@ -27,3 +27,6 @@ tmp/
 
 poetry.lock
 pyproject.toml
+
+templates/sqlitevec.xcframework/ios-arm64/sqlitevec.framework/sqlitevec
+templates/sqlitevec.xcframework/ios-arm64_x86_64-simulator/sqlitevec.framework/sqlitevec
