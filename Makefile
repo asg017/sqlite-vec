@@ -303,9 +303,10 @@ OUT_DIR_ios_arm64_simulator = $(prefix)/ios/arm64_simulator
 
 # iOS-specific flags
 IOS_CFLAGS = -Ivendor/ -I./ -O3 -fembed-bitcode -fPIC
-IOS_ARM64_FLAGS = -target arm64-apple-ios -miphoneos-version-min=$(MIN_IOS_VERSION)
-IOS_ARM64_SIM_FLAGS = -target arm64-apple-ios-simulator -miphoneos-version-min=$(MIN_IOS_VERSION)
-IOS_X86_64_FLAGS = -target x86_64-apple-ios-simulator -miphoneos-version-min=$(MIN_IOS_VERSION)
+IOS_LDFLAGS = -Wl,-ios_version_min,$(MIN_IOS_VERSION)
+IOS_ARM64_FLAGS = -target arm64-apple-ios$(MIN_IOS_VERSION) -miphoneos-version-min=$(MIN_IOS_VERSION)
+IOS_ARM64_SIM_FLAGS = -target arm64-apple-ios-simulator$(MIN_IOS_VERSION) -mios-simulator-version-min=$(MIN_IOS_VERSION)
+IOS_X86_64_FLAGS = -target x86_64-apple-ios-simulator$(MIN_IOS_VERSION) -mios-simulator-version-min=$(MIN_IOS_VERSION)
 
 # Compilation rules for each iOS architecture
 $(OUT_DIR_ios_arm64):
@@ -319,24 +320,23 @@ $(OUT_DIR_ios_arm64_simulator):
 
 # Rule for compiling for iOS arm64 (device)
 ios_arm64: $(OUT_DIR_ios_arm64)
-	@echo "Building for iOS arm64 with flags: $(CFLAGS) $(IOS_CFLAGS) $(IOS_ARM64_FLAGS)"
 	$(CC_ios_arm64) $(CFLAGS) $(IOS_CFLAGS) $(IOS_ARM64_FLAGS) -isysroot $(IOS_SDK_PATH) -c sqlite-vec.c -o $(OUT_DIR_ios_arm64)/sqlite-vec.o
-	$(CC_ios_arm64) -dynamiclib -o $(OUT_DIR_ios_arm64)/sqlitevec $(OUT_DIR_ios_arm64)/sqlite-vec.o -isysroot $(IOS_SDK_PATH)
+	$(CC_ios_arm64) -dynamiclib -o $(OUT_DIR_ios_arm64)/sqlitevec $(OUT_DIR_ios_arm64)/sqlite-vec.o -isysroot $(IOS_SDK_PATH) $(IOS_LDFLAGS)
 
 # Rule for compiling for iOS x86_64 (simulator)
 ios_x86_64: $(OUT_DIR_ios_x86_64)
-	@echo "Building for iOS x86_64 with flags: $(IOS_CFLAGS) $(IOS_X86_64_FLAGS)"
 	$(CC_ios_x86_64) $(CFLAGS) $(IOS_CFLAGS) $(IOS_X86_64_FLAGS) -isysroot $(IOS_SIMULATOR_SDK_PATH) -c sqlite-vec.c -o $(OUT_DIR_ios_x86_64)/sqlite-vec.o
 	$(CC_ios_x86_64) $(IOS_X86_64_FLAGS) -dynamiclib -o $(OUT_DIR_ios_x86_64)/sqlitevec $(OUT_DIR_ios_x86_64)/sqlite-vec.o -isysroot $(IOS_SIMULATOR_SDK_PATH)
 
 # Rule for compiling for iOS arm64 (simulator)
 ios_arm64_sim: $(OUT_DIR_ios_arm64_simulator)
-	@echo "Building for iOS arm64 (simulator) with flags: $(IOS_CFLAGS) $(IOS_ARM64_SIM_FLAGS)"
 	$(CC_ios_arm64) $(CFLAGS) $(IOS_CFLAGS) $(IOS_ARM64_SIM_FLAGS) -isysroot $(IOS_SIMULATOR_SDK_PATH) -c sqlite-vec.c -o $(OUT_DIR_ios_arm64_simulator)/sqlite-vec.o
 	$(CC_ios_arm64) -dynamiclib -o $(OUT_DIR_ios_arm64_simulator)/sqlitevec $(OUT_DIR_ios_arm64_simulator)/sqlite-vec.o -isysroot $(IOS_SIMULATOR_SDK_PATH)
 
+
 # Rule to compile for all iOS architectures
 ios: ios_arm64 ios_x86_64 ios_arm64_sim
+	lipo -create ./dist/ios/x86_64/sqlitevec ./dist/ios/arm64_simulator/sqlitevec -output dist/ios/sim_fat/sqlitevec
 
 .PHONY: ios ios_arm64 ios_x86_64 ios_arm64_sim
 
