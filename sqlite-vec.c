@@ -15,14 +15,12 @@
 #include <stdio.h>
 #endif
 
-
 #ifndef SQLITE_CORE
 #include "sqlite3ext.h"
 SQLITE_EXTENSION_INIT1
 #else
-  #include "sqlite3.h"
+#include "sqlite3.h"
 #endif
-
 
 #ifndef UINT32_TYPE
 #ifdef HAVE_UINT32_T
@@ -111,9 +109,11 @@ typedef size_t usize;
 #define min(a, b) (((a) <= (b)) ? (a) : (b))
 
 enum VectorElementType {
+  // clang-format off
   SQLITE_VEC_ELEMENT_TYPE_FLOAT32 = 223 + 0,
-  SQLITE_VEC_ELEMENT_TYPE_BIT = 223 + 1,
-  SQLITE_VEC_ELEMENT_TYPE_INT8 = 223 + 2,
+  SQLITE_VEC_ELEMENT_TYPE_BIT     = 223 + 1,
+  SQLITE_VEC_ELEMENT_TYPE_INT8    = 223 + 2,
+  // clang-format on
 };
 
 #ifdef SQLITE_VEC_ENABLE_AVX
@@ -6982,9 +6982,9 @@ static sqlite3_module vec_static_blob_entriesModule = {
 
 SQLITE_VEC_API int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
                                     const sqlite3_api_routines *pApi) {
-  #ifndef SQLITE_CORE
+#ifndef SQLITE_CORE
   SQLITE_EXTENSION_INIT2(pApi);
-  #endif
+#endif
   int rc = SQLITE_OK;
 
 #define DEFAULT_FLAGS (SQLITE_UTF8 | SQLITE_INNOCUOUS | SQLITE_DETERMINISTIC)
@@ -7069,9 +7069,9 @@ SQLITE_VEC_API int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
 SQLITE_VEC_API int sqlite3_vec_fs_read_init(sqlite3 *db, char **pzErrMsg,
                                             const sqlite3_api_routines *pApi) {
   UNUSED_PARAMETER(pzErrMsg);
-  #ifndef SQLITE_CORE
+#ifndef SQLITE_CORE
   SQLITE_EXTENSION_INIT2(pApi);
-  #endif
+#endif
   int rc = SQLITE_OK;
   rc = sqlite3_create_function_v2(db, "vec_npy_file", 1, SQLITE_RESULT_SUBTYPE,
                                   NULL, vec_npy_file, NULL, NULL, NULL);
@@ -7083,9 +7083,9 @@ SQLITE_VEC_API int
 sqlite3_vec_static_blobs_init(sqlite3 *db, char **pzErrMsg,
                               const sqlite3_api_routines *pApi) {
   UNUSED_PARAMETER(pzErrMsg);
-  #ifndef SQLITE_CORE
+#ifndef SQLITE_CORE
   SQLITE_EXTENSION_INIT2(pApi);
-  #endif
+#endif
 
   int rc = SQLITE_OK;
   vec_static_blob_data *static_blob_data;
