@@ -1,6 +1,86 @@
 # KNN queries
 
+The most common use-case for vectors in databases is for K-nearest-neighbors (KNN) queries.
+You'll have a table of vectors, and you'll want to find the K closest
+
+Currently there are two ways to to perform KNN queries with `sqlite-vec`:
+With `vec0` virtual tables and "manually" with regular tables.
+
+The `vec0` virtual table is faster and more compact, but is less flexible and requires `JOIN`s back to your source tables.
+The "manual" method is more flexible and
+
+
+
 ## `vec0` virtual tables
+
+```sql
+create virtual table vec_documents using vec0(
+  document_id integer primary key,
+  contents_embedding float[768]
+);
+
+insert into vec_documents(document_id, contents_embedding)
+  select id, embed(contents)
+  from documents;
+```
+
+
+```sql
+select
+  document_id,
+  distance
+from vec_documents
+where contents_embedding match :query
+  and k = 10;
+```
+
+```sql
+-- This example ONLY works in SQLite versions 3.41+
+-- Otherwise, use the `k = 10` method described above!
+select
+  document_id,
+  distance
+from vec_documents
+where contents_embedding match :query
+limit 10; -- LIMIT only works on SQLite versions 3.41+
+```
+
+```sql
+with knn_matches as (
+  select
+    document_id,
+    distance
+  from vec_documents
+  where contents_embedding match :query
+    and k = 10
+)
+select
+  documents.id,
+  documents.contents,
+  knn_matches.distance
+from knn_matches
+left join documents on documents.id = knn_matches.document_id
+```
+
+
+```sql
+create virtual table vec_documents using vec0(
+  document_id integer primary key,
+  contents_embedding float[768] distance_metric=cosine
+);
+
+-- insert vectors into vec_documents...
+
+
+-- this MATCH will now use cosine distance instead of the default L2 distance
+select
+  document_id,
+  distance
+from vec_documents
+where contents_embedding match :query
+  and k = 10;
+```
+
 
 <!-- TODO match on vector column, k vs limit, distance_metric configurable, etc.-->
 
