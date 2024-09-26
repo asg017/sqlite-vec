@@ -7038,7 +7038,6 @@ SQLITE_VEC_API int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
       // clang-format off
     {"vec0",          &vec0Module,          NULL, NULL},
     {"vec_each",      &vec_eachModule,      NULL, NULL},
-    {"vec_npy_each",  &vec_npy_eachModule,  NULL, NULL},
       // clang-format on
   };
 
@@ -7066,7 +7065,7 @@ SQLITE_VEC_API int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
 }
 
 #ifndef SQLITE_VEC_OMIT_FS
-SQLITE_VEC_API int sqlite3_vec_fs_read_init(sqlite3 *db, char **pzErrMsg,
+SQLITE_VEC_API int sqlite3_vec_numpy_init(sqlite3 *db, char **pzErrMsg,
                                             const sqlite3_api_routines *pApi) {
   UNUSED_PARAMETER(pzErrMsg);
 #ifndef SQLITE_CORE
@@ -7075,6 +7074,10 @@ SQLITE_VEC_API int sqlite3_vec_fs_read_init(sqlite3 *db, char **pzErrMsg,
   int rc = SQLITE_OK;
   rc = sqlite3_create_function_v2(db, "vec_npy_file", 1, SQLITE_RESULT_SUBTYPE,
                                   NULL, vec_npy_file, NULL, NULL, NULL);
+  if(rc != SQLITE_OK) {
+    return rc;
+  }
+  rc = sqlite3_create_module_v2(db, "vec_npy_each", &vec_npy_eachModule, NULL, NULL);
   return rc;
 }
 #endif
