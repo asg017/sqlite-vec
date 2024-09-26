@@ -102,7 +102,7 @@ $(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(prefix)
 		$< -o $@
 
 $(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(prefix) $(OBJS_DIR)
-	$(CC) -Ivendor/ -Ivendor/vec $(CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
+	$(CC) -Ivendor/ $(CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
 	-O3 -c  $< -o $(OBJS_DIR)/vec.o
 	$(AR) rcs $@ $(OBJS_DIR)/vec.o
 

@@ -158,6 +158,7 @@ function sidebar(): DefaultTheme.SidebarItem[] {
         { text: "Datasette", link: "/datasette" },
         { text: "sqlite-utils", link: "/sqlite-utils" },
         { text: "rqlite", link: "/rqlite" },
+        { text: "Android+iOS", link: "/android-ios" },
       ],
     },
     {
@@ -166,8 +167,8 @@ function sidebar(): DefaultTheme.SidebarItem[] {
       items: [
         { text: "Vector formats", link: "/features/vector-formats" },
         { text: "KNN queries", link: "/features/knn" },
-        { text: "vec0 virtual vables", link: "/features/vec0" },
-        { text: "Static blobs", link: "/features/static-blobs" },
+        { text: "vec0 Virtual Tables", link: "/features/vec0" },
+        //{ text: "Static blobs", link: "/features/static-blobs" },
       ],
     },
     guides,

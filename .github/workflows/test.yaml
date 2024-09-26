@@ -20,16 +20,16 @@ jobs:
         with:
           name: sqlite-vec-linux-x86_64-extension
           path: dist/*
-  build-x86_64-linux-android-extension:
+  build-android-extensions:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        cc:
+        platforms:
           [
-            aarch64-linux-android21-clang,
-            i686-linux-android21-clang,
-            x86_64-linux-android21-clang,
-            armv7a-linux-androideabi21-clang,
+            { name: android-aarch64, cc: aarch64-linux-android21-clang },
+            { name: android-i686, cc: i686-linux-android21-clang },
+            { name: android-x86_64, cc: x86_64-linux-android21-clang },
+            { name: android-armv7a, cc: armv7a-linux-androideabi21-clang },
           ]
     steps:
       - uses: actions/checkout@v4
@@ -47,14 +47,57 @@ jobs:
           ls $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
       - run: |
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
-          make CC=${{ matrix.cc }} \
+          make CC=${{ matrix.platforms.cc }} \
              AR=llvm-ar \
              RANLIB=llvm-ranlib \
              STRIP=llvm-strip loadable
       - uses: actions/upload-artifact@v4
         with:
-          name: sqlite-vec-android-${{ matrix.cc }}-extension
+          name: sqlite-vec-android-${{ matrix.platforms.name }}-extension
           path: dist/*.so
+  build-ios-extensions:
+    runs-on: ${{ matrix.platforms.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platforms: [
+            {
+              name: ios-arm64,
+              target: arm64-apple-ios,
+              sdk: iphoneos,
+              runner: macos-14,
+            },
+            #{
+            #  name: ios-x86_64,
+            #  target: x86_64-apple-ios,
+            #  sdk: iphoneos,
+            #  runner: macos-12,
+            #},
+            {
+              name: ios-simulator-arm64,
+              target: arm64-apple-ios-simulator,
+              sdk: iphonesimulator,
+              runner: macos-14,
+            },
+            {
+              name: ios-simulator-x86_64,
+              target: x86_64-apple-ios-simulator,
+              sdk: iphonesimulator,
+              runner: macos-14,
+            },
+          ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - run: ./scripts/vendor.sh
+
+      - run: make CFLAGS="-target ${{ matrix.platforms.target }} -isysroot $(xcrun -sdk ${{ matrix.platforms.sdk }} --show-sdk-path) -fembed-bitcode -DNDEBUG=1" loadable static
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-${{ matrix.platforms.name }}-extension
+          path: dist/*
   build-macos-x86_64-extension:
     runs-on: macos-12
     steps:
@@ -77,38 +120,8 @@ jobs:
         with:
           name: sqlite-vec-macos-aarch64-extension
           path: dist/*
-  build-ios-extension:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-      - run: ./scripts/vendor.sh
-
-      - run: make CFLAGS="-target arm64-apple-ios -isysroot $(xcrun -sdk iphoneos --show-sdk-path) -DNDEBUG=1" loadable static
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sqlite-vec-ios-testing-extension
-          path: dist/*
   build-windows-x86_64-extension:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: ./scripts/vendor.sh
-        shell: bash
-      - run: make loadable static CC=gcc
-      - run: pip install pytest numpy; make test-loadable CC=gcc
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sqlite-vec-windows-x86_64-extension
-          path: dist/*
-  build-windows-x86_64-extension-msvc:
-    if: false
-    runs-on: windows-latest
+    runs-on: windows-2019
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
@@ -123,7 +136,7 @@ jobs:
       - run: pip install pytest numpy; make test-loadable
       - uses: actions/upload-artifact@v4
         with:
-          name: sqlite-vec-windows-x86_64-msvc-extension
+          name: sqlite-vec-windows-x86_64-extension
           path: dist/*
   build-wasm32-emscripten:
     runs-on: ubuntu-latest
@@ -135,10 +148,12 @@ jobs:
       - run: ./scripts/vendor.sh
       - run: make sqlite-vec.h
       - run: make wasm
+      - run: ls; ls dist; ls dist/.wasm
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-wasm32-emscripten
-          path: dist/*
+          path: dist/.wasm/*
+          include-hidden-files: true
   build-ncruces-go:
     runs-on: ubuntu-latest
     steps:
