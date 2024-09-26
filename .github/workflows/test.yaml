@@ -20,6 +20,41 @@ jobs:
         with:
           name: sqlite-vec-linux-x86_64-extension
           path: dist/*
+  build-x86_64-linux-android-extension:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        cc:
+          [
+            aarch64-linux-android21-clang,
+            i686-linux-android21-clang,
+            x86_64-linux-android21-clang,
+            armv7a-linux-androideabi21-clang,
+          ]
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/vendor.sh
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+      - uses: android-actions/setup-android@v3
+      - run: |
+          sdkmanager --install "ndk;27.0.12077973"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> $GITHUB_ENV
+      - run: |
+          ls $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/
+          ls $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
+      - run: |
+          export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
+          make CC=${{ matrix.cc }} \
+             AR=llvm-ar \
+             RANLIB=llvm-ranlib \
+             STRIP=llvm-strip loadable
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-android-${{ matrix.cc }}-extension
+          path: dist/*.so
   build-macos-x86_64-extension:
     runs-on: macos-12
     steps:
@@ -41,6 +76,20 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-macos-aarch64-extension
+          path: dist/*
+  build-ios-extension:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - run: ./scripts/vendor.sh
+
+      - run: make CFLAGS="-target arm64-apple-ios -isysroot $(xcrun -sdk iphoneos --show-sdk-path) -DNDEBUG=1" loadable static
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-ios-testing-extension
           path: dist/*
   build-windows-x86_64-extension:
     runs-on: windows-latest
