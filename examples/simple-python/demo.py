@@ -29,7 +29,10 @@ items = [
 ]
 query = [0.3, 0.3, 0.3, 0.3]
 
+# This uses L2 distance be default
 db.execute("CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[4])")
+# We can set the distance metric to be cosine distance as follows
+# db.execute("CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[4] distance_metric=cosine)")
 
 with db:
     for item in items:
