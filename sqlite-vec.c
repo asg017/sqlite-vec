@@ -3179,6 +3179,8 @@ static sqlite3_module vec_npy_eachModule = {
 typedef struct vec0_vtab vec0_vtab;
 
 #define VEC0_MAX_VECTOR_COLUMNS 16
+#define SQLITE_VEC_VEC0_MAX_DIMENSIONS 8192
+
 struct vec0_vtab {
   sqlite3_vtab base;
 
@@ -3213,7 +3215,7 @@ struct vec0_vtab {
 
   struct VectorColumnDefinition vector_columns[VEC0_MAX_VECTOR_COLUMNS];
 
-  // number of defined numVectorColumns columns.
+  // number of defined vector columns.
   int numVectorColumns;
 
   int chunk_size;
@@ -3275,6 +3277,11 @@ struct vec0_vtab {
   sqlite3_stmt *stmtRowidsGetChunkPosition;
 };
 
+/**
+ * @brief Finalize all the sqlite3_stmt members in a vec0_vtab.
+ *
+ * @param p vec0_vtab pointer
+ */
 void vec0_free_resources(vec0_vtab *p) {
   sqlite3_finalize(p->stmtLatestChunk);
   p->stmtLatestChunk = NULL;
@@ -3287,6 +3294,12 @@ void vec0_free_resources(vec0_vtab *p) {
   sqlite3_finalize(p->stmtRowidsGetChunkPosition);
   p->stmtRowidsGetChunkPosition = NULL;
 }
+
+/**
+ * @brief Free all memory and sqlite3_stmt members of a vec0_vtab
+ *
+ * @param p vec0_vtab pointer
+ */
 void vec0_free(vec0_vtab *p) {
   vec0_free_resources(p);
 
@@ -3350,6 +3363,18 @@ int vec0_column_idx_to_vector_idx(vec0_vtab *pVtab, int column_idx) {
   return column_idx - VEC0_COLUMN_VECTORN_START;
 }
 
+/**
+ * @brief Retrieve the chunk_id, chunk_offset, and possible "id" value
+ * of a vec0_vtab row with the provided rowid
+ *
+ * @param p vec0_vtab
+ * @param rowid the rowid of the row to query
+ * @param id output, optional sqlite3_value to provide the id.
+ *            Useful for text PK rows. Must be freed with sqlite3_value_free()
+ * @param chunk_id output, the chunk_id the row belongs to
+ * @param chunk_offset  output, the offset within the chunk the row belongs to
+ * @return SQLITE_ROW on success, error code otherwise. SQLITE_EMPTY if row DNE
+ */
 int vec0_get_chunk_position(vec0_vtab *p, i64 rowid, sqlite3_value **id,
                             i64 *chunk_id, i64 *chunk_offset) {
   int rc;
@@ -3375,7 +3400,7 @@ int vec0_get_chunk_position(vec0_vtab *p, i64 rowid, sqlite3_value **id,
 
   sqlite3_bind_int64(p->stmtRowidsGetChunkPosition, 1, rowid);
   rc = sqlite3_step(p->stmtRowidsGetChunkPosition);
-  // special case: when no results, return SQLITE_EMPTY to convene "that chunk
+  // special case: when no results, return SQLITE_EMPTY to convey "that chunk
   // position doesnt exist"
   if (rc == SQLITE_DONE) {
     rc = SQLITE_EMPTY;
@@ -3769,6 +3794,7 @@ int vec0_rowids_update_position(vec0_vtab *p, i64 rowid, i64 chunk_rowid,
   sqlite3_bind_int64(p->stmtRowidsUpdatePosition, 1, chunk_rowid);
   sqlite3_bind_int64(p->stmtRowidsUpdatePosition, 2, chunk_offset);
   sqlite3_bind_int64(p->stmtRowidsUpdatePosition, 3, rowid);
+
   rc = sqlite3_step(p->stmtRowidsUpdatePosition);
   if (rc != SQLITE_DONE) {
     // IMP: V21925_05995
@@ -3890,12 +3916,14 @@ int vec0_new_chunk(vec0_vtab *p, i64 *chunk_rowid) {
 typedef enum {
   // Full scan, every row is queried.
   SQLITE_VEC0_QUERYPLAN_FULLSCAN,
+
   // A single row is queried by rowid/id
   SQLITE_VEC0_QUERYPLAN_POINT,
+
   // A KNN-style query is made on a specific vector column.
-  // Requires 1) a MATCH/compatible distance contraint on
-  // a single vector column, 2) ORDER BY distance, and 3)
-  // either a 'LIMIT ?' or 'k=?' contraint
+  // Requires
+  // 1) a MATCH/compatible distance contraint on a single vector column
+  // 2) either a 'LIMIT ?' or 'k=?' contraint
   SQLITE_VEC0_QUERYPLAN_KNN,
 } vec0_query_plan;
 
@@ -3961,6 +3989,24 @@ struct vec0_cursor {
   struct vec0_query_point_data *point_data;
 };
 
+void vec0_cursor_clear(vec0_cursor *pCur) {
+  if (pCur->fullscan_data) {
+    vec0_query_fullscan_data_clear(pCur->fullscan_data);
+    sqlite3_free(pCur->fullscan_data);
+    pCur->fullscan_data = NULL;
+  }
+  if (pCur->knn_data) {
+    vec0_query_knn_data_clear(pCur->knn_data);
+    sqlite3_free(pCur->knn_data);
+    pCur->knn_data = NULL;
+  }
+  if (pCur->point_data) {
+    vec0_query_point_data_clear(pCur->point_data);
+    sqlite3_free(pCur->point_data);
+    pCur->point_data = NULL;
+  }
+}
+
 #define VEC_CONSTRUCTOR_ERROR "vec0 constructor error: "
 static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
                      sqlite3_vtab **ppVtab, char **pzErr, bool isCreate) {
@@ -4001,7 +4047,7 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
                                  VEC0_MAX_VECTOR_COLUMNS);
         goto error;
       }
-#define SQLITE_VEC_VEC0_MAX_DIMENSIONS 8192
+
       if (c.dimensions > SQLITE_VEC_VEC0_MAX_DIMENSIONS) {
         sqlite3_free(c.name);
         *pzErr = sqlite3_mprintf(
@@ -4258,6 +4304,7 @@ static int vec0Destroy(sqlite3_vtab *pVtab) {
   int rc;
   const char *zSql;
 
+  // Free up any sqlite3_stmt, otherwise DROPs on those tables will fail
   vec0_free_resources(p);
 
   // later: can't evidence-of here, bc always gives "SQL logic error" instead of
@@ -4300,6 +4347,7 @@ static int vec0Destroy(sqlite3_vtab *pVtab) {
 done:
   sqlite3_finalize(stmt);
   vec0_free(p);
+  // If there was an error
   if (rc == SQLITE_OK) {
     sqlite3_free(p);
   }
@@ -4317,27 +4365,9 @@ static int vec0Open(sqlite3_vtab *p, sqlite3_vtab_cursor **ppCursor) {
   return SQLITE_OK;
 }
 
-void vec0CursorClear(vec0_cursor *pCur) {
-  if (pCur->fullscan_data) {
-    vec0_query_fullscan_data_clear(pCur->fullscan_data);
-    sqlite3_free(pCur->fullscan_data);
-    pCur->fullscan_data = NULL;
-  }
-  if (pCur->knn_data) {
-    vec0_query_knn_data_clear(pCur->knn_data);
-    sqlite3_free(pCur->knn_data);
-    pCur->knn_data = NULL;
-  }
-  if (pCur->point_data) {
-    vec0_query_point_data_clear(pCur->point_data);
-    sqlite3_free(pCur->point_data);
-    pCur->point_data = NULL;
-  }
-}
-
 static int vec0Close(sqlite3_vtab_cursor *cur) {
   vec0_cursor *pCur = (vec0_cursor *)cur;
-  vec0CursorClear(pCur);
+  vec0_cursor_clear(pCur);
   sqlite3_free(pCur);
   return SQLITE_OK;
 }
@@ -4368,7 +4398,7 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
   int iRowidInTerm = -1;
 
 #ifdef SQLITE_VEC_DEBUG
-  printf("pIdxInfo->nOrderBy=%d\n", pIdxInfo->nOrderBy);
+  printf("pIdxInfo->nOrderBy=%d, pIdxInfo->nConstraint=%d\n", pIdxInfo->nOrderBy, pIdxInfo->nConstraint);
 #endif
 
   for (int i = 0; i < pIdxInfo->nConstraint; i++) {
@@ -4454,6 +4484,7 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
 
     pIdxInfo->aConstraintUsage[iMatchTerm].argvIndex = 1;
     pIdxInfo->aConstraintUsage[iMatchTerm].omit = 1;
+
     if (iLimitTerm >= 0) {
       pIdxInfo->aConstraintUsage[iLimitTerm].argvIndex = 2;
       pIdxInfo->aConstraintUsage[iLimitTerm].omit = 1;
@@ -5202,7 +5233,7 @@ static int vec0Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
                       const char *idxStr, int argc, sqlite3_value **argv) {
   vec0_vtab *p = (vec0_vtab *)pVtabCursor->pVtab;
   vec0_cursor *pCur = (vec0_cursor *)pVtabCursor;
-  vec0CursorClear(pCur);
+  vec0_cursor_clear(pCur);
   if (strcmp(idxStr, VEC0_QUERY_PLAN_FULLSCAN) == 0) {
     return vec0Filter_fullscan(p, pCur);
   } else if (strncmp(idxStr, "knn:", 4) == 0) {
