@@ -62,6 +62,7 @@
         vendor = "./scripts/vendor.sh ";
         make-header = "make sqlite-vec.h";
         make-all = "make all";
+        dart-bindings = "cd bindings/dart && make deps";
       };
       # Runs when the workspace is (re)started
       onStart = {
