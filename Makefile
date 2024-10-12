@@ -221,6 +221,131 @@ uninstall:
 	rm -f $(INSTALL_INCLUDE_DIR)/sqlite-vec.h
 	ldconfig
 
+# ███████████████████████████████ ANDROID SECTION ███████████████████████████████
+
+# Define Android NDK paths (update these to your actual NDK path)
+# NDK_PATH ?= /path/to/android-ndk
+# SYSROOT = $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/linux-x86_64/sysroot
+
+# Define target architectures
+ARCHS = arm64-v8a armeabi-v7a x86 x86_64
+
+# Define cross-compiler toolchains
+CC_aarch64 = $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android21-clang
+CC_arm = $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/darwin-x86_64/bin/armv7a-linux-androideabi21-clang
+CC_x86 = $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/darwin-x86_64/bin/i686-linux-android21-clang
+CC_x86_64 = $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/darwin-x86_64/bin/x86_64-linux-android21-clang
+
+# Define output directories for each architecture
+OUT_DIR_aarch64 = $(prefix)/android/arm64-v8a
+OUT_DIR_arm = $(prefix)/android/armeabi-v7a
+OUT_DIR_x86 = $(prefix)/android/x86
+OUT_DIR_x86_64 = $(prefix)/android/x86_64
+
+# Compilation rules for each architecture
+$(OUT_DIR_aarch64):
+	mkdir -p $@
+
+$(OUT_DIR_arm):
+	mkdir -p $@
+
+$(OUT_DIR_x86):
+	mkdir -p $@
+
+$(OUT_DIR_x86_64):
+	mkdir -p $@
+
+# Set the path to sqlite3ext.h, assuming it's in vendor/sqlite3/
+SQLITE_INCLUDE_PATH = -Ivendor/
+
+# Android-specific flags (no -mcpu=apple-m1 here)
+ANDROID_CFLAGS = -Ivendor/ -I./ -O3 -fPIC
+
+# Rule for compiling for arm64-v8a
+android_arm64-v8a: $(OUT_DIR_aarch64)
+	$(CC_aarch64) $(CFLAGS) $(SQLITE_INCLUDE_PATH) $(ANDROID_CFLAGS) -shared sqlite-vec.c -o $(OUT_DIR_aarch64)/libsqlite_vec.so
+
+# Rule for compiling for armeabi-v7a
+android_armeabi-v7a: $(OUT_DIR_arm)
+	$(CC_arm) $(CFLAGS) $(SQLITE_INCLUDE_PATH) $(ANDROID_CFLAGS) -shared sqlite-vec.c -o $(OUT_DIR_arm)/libsqlite_vec.so
+
+# Rule for compiling for x86
+android_x86: $(OUT_DIR_x86)
+	$(CC_x86) $(CFLAGS) $(SQLITE_INCLUDE_PATH) $(ANDROID_CFLAGS) -shared sqlite-vec.c -o $(OUT_DIR_x86)/libsqlite_vec.so
+
+# Rule for compiling for x86_64
+android_x86_64: $(OUT_DIR_x86_64)
+	$(CC_x86_64) $(CFLAGS) $(SQLITE_INCLUDE_PATH) $(ANDROID_CFLAGS) -shared sqlite-vec.c -o $(OUT_DIR_x86_64)/libsqlite_vec.so
+
+# Rule to compile for all Android architectures
+android: android_arm64-v8a android_armeabi-v7a android_x86 android_x86_64
+
+.PHONY: android android_arm64-v8a android_armeabi-v7a android_x86 android_x86_64
+
+# ███████████████████████████████   END ANDROID   ███████████████████████████████
+
+# ███████████████████████████████ IOS SECTION ███████████████████████████████
+
+MIN_IOS_VERSION = 8.0
+
+# iOS SDK paths
+IOS_SDK_PATH = $(shell xcrun --sdk iphoneos --show-sdk-path)
+IOS_SIMULATOR_SDK_PATH = $(shell xcrun --sdk iphonesimulator --show-sdk-path)
+
+# iOS cross-compiler toolchains
+CC_ios_arm64 = $(shell xcrun --sdk iphoneos --find clang)
+CC_ios_x86_64 = $(shell xcrun --sdk iphonesimulator --find clang)
+
+# Output directories for iOS
+OUT_DIR_ios_arm64 = $(prefix)/ios/arm64
+OUT_DIR_ios_x86_64 = $(prefix)/ios/x86_64
+OUT_DIR_ios_arm64_simulator = $(prefix)/ios/arm64_simulator
+
+# iOS-specific flags
+IOS_CFLAGS = -Ivendor/ -I./ -O3 -fembed-bitcode -fPIC
+IOS_LDFLAGS = -Wl,-ios_version_min,$(MIN_IOS_VERSION)
+IOS_ARM64_FLAGS = -target arm64-apple-ios$(MIN_IOS_VERSION) -miphoneos-version-min=$(MIN_IOS_VERSION)
+IOS_ARM64_SIM_FLAGS = -target arm64-apple-ios-simulator$(MIN_IOS_VERSION) -mios-simulator-version-min=$(MIN_IOS_VERSION)
+IOS_X86_64_FLAGS = -target x86_64-apple-ios-simulator$(MIN_IOS_VERSION) -mios-simulator-version-min=$(MIN_IOS_VERSION)
+
+# Compilation rules for each iOS architecture
+$(OUT_DIR_ios_arm64):
+	mkdir -p $@
+
+$(OUT_DIR_ios_x86_64):
+	mkdir -p $@
+
+$(OUT_DIR_ios_arm64_simulator):
+	mkdir -p $@
+
+# Rule for compiling for iOS arm64 (device)
+ios_arm64: $(OUT_DIR_ios_arm64)
+	$(CC_ios_arm64) $(CFLAGS) $(IOS_CFLAGS) $(IOS_ARM64_FLAGS) -isysroot $(IOS_SDK_PATH) -c sqlite-vec.c -o $(OUT_DIR_ios_arm64)/sqlite-vec.o
+	$(CC_ios_arm64) -dynamiclib -o $(OUT_DIR_ios_arm64)/sqlitevec $(OUT_DIR_ios_arm64)/sqlite-vec.o -isysroot $(IOS_SDK_PATH) $(IOS_LDFLAGS)
+
+# Rule for compiling for iOS x86_64 (simulator)
+ios_x86_64: $(OUT_DIR_ios_x86_64)
+	$(CC_ios_x86_64) $(CFLAGS) $(IOS_CFLAGS) $(IOS_X86_64_FLAGS) -isysroot $(IOS_SIMULATOR_SDK_PATH) -c sqlite-vec.c -o $(OUT_DIR_ios_x86_64)/sqlite-vec.o
+	$(CC_ios_x86_64) $(IOS_X86_64_FLAGS) -dynamiclib -o $(OUT_DIR_ios_x86_64)/sqlitevec $(OUT_DIR_ios_x86_64)/sqlite-vec.o -isysroot $(IOS_SIMULATOR_SDK_PATH)
+
+# Rule for compiling for iOS arm64 (simulator)
+ios_arm64_sim: $(OUT_DIR_ios_arm64_simulator)
+	$(CC_ios_arm64) $(CFLAGS) $(IOS_CFLAGS) $(IOS_ARM64_SIM_FLAGS) -isysroot $(IOS_SIMULATOR_SDK_PATH) -c sqlite-vec.c -o $(OUT_DIR_ios_arm64_simulator)/sqlite-vec.o
+	$(CC_ios_arm64) -dynamiclib -o $(OUT_DIR_ios_arm64_simulator)/sqlitevec $(OUT_DIR_ios_arm64_simulator)/sqlite-vec.o -isysroot $(IOS_SIMULATOR_SDK_PATH)
+
+
+# Rule to compile for all iOS architectures
+ios: ios_arm64 ios_x86_64 ios_arm64_sim
+	lipo -create ./dist/ios/x86_64/sqlitevec ./dist/ios/arm64_simulator/sqlitevec -output dist/ios/sim_fat/sqlitevec
+	cp ./dist/ios/arm64/sqlitevec ./templates/sqlitevec.xcframework/ios-arm64/sqlitevec.framework/
+	install_name_tool -id @rpath/sqlitevec.framework/sqlitevec ./templates/sqlitevec.xcframework/ios-arm64/sqlitevec.framework/sqlitevec   
+	cp ./dist/ios/sim_fat/sqlitevec ./templates/sqlitevec.xcframework/ios-arm64_x86_64-simulator/sqlitevec.framework/
+	install_name_tool -id @rpath/sqlitevec.framework/sqlitevec ./templates/sqlitevec.xcframework/ios-arm64_x86_64-simulator/sqlitevec.framework/sqlitevec   
+
+.PHONY: ios ios_arm64 ios_x86_64 ios_arm64_sim
+
+# ███████████████████████████████   END IOS   ███████████████████████████████
+
 # ███████████████████████████████ WASM SECTION ███████████████████████████████
 
 WASM_DIR=$(prefix)/.wasm
