@@ -59,7 +59,7 @@
       onCreate = {
         # Example: install JS dependencies from NPM
         # npm-install = "npm install";
-        vendor = "./scripts/vendor.sh ";
+        vendor = "./scripts/vendor.sh";
         make-header = "make sqlite-vec.h";
         make-all = "make all";
         dart-bindings = "cd bindings/dart && make deps";
