@@ -1796,6 +1796,7 @@ enum Vec0TokenType {
   TOKEN_TYPE_DIGIT,
   TOKEN_TYPE_LBRACKET,
   TOKEN_TYPE_RBRACKET,
+  TOKEN_TYPE_PLUS,
   TOKEN_TYPE_EQ,
 };
 struct Vec0Token {
@@ -1823,6 +1824,12 @@ int vec0_token_next(char *start, char *end, struct Vec0Token *out) {
     if (is_whitespace(curr)) {
       ptr++;
       continue;
+    } else if (curr == '+') {
+      ptr++;
+      out->start = ptr;
+      out->end = ptr;
+      out->token_type = TOKEN_TYPE_PLUS;
+      return VEC0_TOKEN_RESULT_SOME;
     } else if (curr == '[') {
       ptr++;
       out->start = ptr;
@@ -2009,6 +2016,76 @@ int vec0_parse_partition_key_definition(const char *source, int source_length,
 
 /**
  * @brief Parse an argv[i] entry of a vec0 virtual table definition, and see if
+ * it's an auxiliar column definition, ie `+[name] [type]` like `+contents text`
+ *
+ * @param source: argv[i] source string
+ * @param source_length: length of the source string
+ * @param out_column_name: If it is a partition key, the output column name. Same lifetime
+ * as source, points to specific char *
+ * @param out_column_name_length: Length of out_column_name in bytes
+ * @param out_column_type: SQLITE_TEXT, SQLITE_INTEGER, SQLITE_FLOAT, or SQLITE_BLOB.
+ * @return int: SQLITE_EMPTY if not an aux column, SQLITE_OK if it is.
+ */
+int vec0_parse_auxiliary_column_definition(const char *source, int source_length,
+                                 char **out_column_name,
+                                 int *out_column_name_length,
+                                 int *out_column_type) {
+  struct Vec0Scanner scanner;
+  struct Vec0Token token;
+  char *column_name;
+  int column_name_length;
+  int column_type;
+  vec0_scanner_init(&scanner, source, source_length);
+
+  // Check first token is '+', which denotes aux columns
+  int rc = vec0_scanner_next(&scanner, &token);
+  if (rc != VEC0_TOKEN_RESULT_SOME &&
+      token.token_type != TOKEN_TYPE_PLUS) {
+    return SQLITE_EMPTY;
+  }
+
+  rc = vec0_scanner_next(&scanner, &token);
+  if (rc != VEC0_TOKEN_RESULT_SOME &&
+      token.token_type != TOKEN_TYPE_IDENTIFIER) {
+    return SQLITE_EMPTY;
+  }
+
+  column_name = token.start;
+  column_name_length = token.end - token.start;
+
+  // Check the next token matches "text" or "integer", as column type
+  rc = vec0_scanner_next(&scanner, &token);
+  if (rc != VEC0_TOKEN_RESULT_SOME &&
+      token.token_type != TOKEN_TYPE_IDENTIFIER) {
+    return SQLITE_EMPTY;
+  }
+  if (sqlite3_strnicmp(token.start, "text", token.end - token.start) == 0) {
+    column_type = SQLITE_TEXT;
+  } else if (sqlite3_strnicmp(token.start, "int", token.end - token.start) ==
+                 0 ||
+             sqlite3_strnicmp(token.start, "integer",
+                              token.end - token.start) == 0) {
+    column_type = SQLITE_INTEGER;
+  } else if (sqlite3_strnicmp(token.start, "float", token.end - token.start) ==
+                 0 ||
+             sqlite3_strnicmp(token.start, "double",
+                              token.end - token.start) == 0) {
+    column_type = SQLITE_INTEGER;
+  } else if (sqlite3_strnicmp(token.start, "blob", token.end - token.start) ==0) {
+    column_type = SQLITE_BLOB;
+  } else {
+    return SQLITE_EMPTY;
+  }
+
+  *out_column_name = column_name;
+  *out_column_name_length = column_name_length;
+  *out_column_type = column_type;
+
+  return SQLITE_OK;
+}
+
+/**
+ * @brief Parse an argv[i] entry of a vec0 virtual table definition, and see if
  * it's a PRIMARY KEY definition.
  *
  * @param source: argv[i] source string
@@ -2099,6 +2176,12 @@ struct VectorColumnDefinition {
 };
 
 struct Vec0PartitionColumnDefinition {
+  int type;
+  char * name;
+  int name_length;
+};
+
+struct Vec0AuxiliaryColumnDefinition {
   int type;
   char * name;
   int name_length;
@@ -3256,6 +3339,8 @@ static sqlite3_module vec_npy_eachModule = {
   "vectors BLOB NOT NULL"                                                      \
   ");"
 
+#define VEC0_SHADOW_AUXILIARY_NAME "\"%w\".\"%w_auxiliary\""
+
 #define VEC_INTERAL_ERROR "Internal sqlite-vec error: "
 #define REPORT_URL "https://github.com/asg017/sqlite-vec/issues/new"
 
@@ -3263,6 +3348,8 @@ typedef struct vec0_vtab vec0_vtab;
 
 #define VEC0_MAX_VECTOR_COLUMNS   16
 #define VEC0_MAX_PARTITION_COLUMNS 4
+#define VEC0_MAX_AUXILIARY_COLUMNS 16
+
 #define SQLITE_VEC_VEC0_MAX_DIMENSIONS 8192
 
 typedef enum {
@@ -3272,7 +3359,10 @@ typedef enum {
   // partition key column, ie "user_id integer partition key"
   SQLITE_VEC0_USER_COLUMN_KIND_PARTITION = 2,
 
-  // TODO: metadata + metadata filters
+  //
+  SQLITE_VEC0_USER_COLUMN_KIND_AUXILIARY = 3,
+
+  // TODO: metadata filters
 } vec0_user_column_kind;
 
 struct vec0_vtab {
@@ -3290,6 +3380,9 @@ struct vec0_vtab {
 
   // number of defined PARTITION KEY columns.
   int numPartitionColumns;
+
+  // number of defined auxiliary columns
+  int numAuxiliaryColumns;
 
 
   // Name of the schema the table exists on.
@@ -3310,9 +3403,9 @@ struct vec0_vtab {
 
   // contains enum vec0_user_column_kind values for up to
   // numVectorColumns + numPartitionColumns entries
-  uint8_t user_column_kinds[VEC0_MAX_VECTOR_COLUMNS + VEC0_MAX_PARTITION_COLUMNS];
+  vec0_user_column_kind user_column_kinds[VEC0_MAX_VECTOR_COLUMNS + VEC0_MAX_PARTITION_COLUMNS + VEC0_MAX_AUXILIARY_COLUMNS];
 
-  uint8_t user_column_idxs[VEC0_MAX_VECTOR_COLUMNS + VEC0_MAX_PARTITION_COLUMNS];
+  uint8_t user_column_idxs[VEC0_MAX_VECTOR_COLUMNS + VEC0_MAX_PARTITION_COLUMNS + VEC0_MAX_AUXILIARY_COLUMNS];
 
 
   // Name of all the vector chunk shadow tables.
@@ -3323,6 +3416,7 @@ struct vec0_vtab {
 
   struct VectorColumnDefinition vector_columns[VEC0_MAX_VECTOR_COLUMNS];
   struct Vec0PartitionColumnDefinition paritition_columns[VEC0_MAX_PARTITION_COLUMNS];
+  struct Vec0AuxiliaryColumnDefinition auxiliary_columns[VEC0_MAX_AUXILIARY_COLUMNS];
 
   int chunk_size;
 
@@ -3428,7 +3522,7 @@ void vec0_free(vec0_vtab *p) {
 }
 
 inline int vec0_num_defined_user_columns(vec0_vtab *p) {
-  return p->numVectorColumns + p->numPartitionColumns;
+  return p->numVectorColumns + p->numPartitionColumns + p->numAuxiliaryColumns;
 }
 
 /**
@@ -3487,6 +3581,25 @@ int vec0_column_idx_is_partition(vec0_vtab *pVtab, int column_idx) {
  * ONLY call if validated with vec0_column_idx_is_vector before
  */
 int vec0_column_idx_to_partition_idx(vec0_vtab *pVtab, int column_idx) {
+  UNUSED_PARAMETER(pVtab);
+  return pVtab->user_column_idxs[column_idx - VEC0_COLUMN_USERN_START];
+}
+
+/**
+ * Returns 1 if the given column-based index is a auxiliary column,
+ * 0 otherwise.
+ */
+int vec0_column_idx_is_auxiliary(vec0_vtab *pVtab, int column_idx) {
+  return column_idx >= VEC0_COLUMN_USERN_START &&
+         column_idx <= (VEC0_COLUMN_USERN_START + vec0_num_defined_user_columns(pVtab) - 1) &&
+         pVtab->user_column_kinds[column_idx - VEC0_COLUMN_USERN_START] == SQLITE_VEC0_USER_COLUMN_KIND_AUXILIARY;
+}
+
+/**
+ * Returns the auxiliary column index of the given user column index.
+ * ONLY call if validated with vec0_column_idx_to_partition_idx before
+ */
+int vec0_column_idx_to_auxiliary_idx(vec0_vtab *pVtab, int column_idx) {
   UNUSED_PARAMETER(pVtab);
   return pVtab->user_column_idxs[column_idx - VEC0_COLUMN_USERN_START];
 }
@@ -3765,6 +3878,45 @@ int vec0_get_partition_value_for_rowid(vec0_vtab *pVtab, i64 rowid, int partitio
     sqlite3_finalize(stmt);
     return rc;
 
+}
+
+/**
+ * @brief Get the value of an auxiliary column for the given rowid
+ *
+ * @param pVtab vec0_vtab
+ * @param rowid the rowid of the row to lookup
+ * @param auxiliary_idx aux index of the column we care about
+ * @param outValue Output sqlite3_value to store
+ * @return int SQLITE_OK on success, error code otherwise
+ */
+int vec0_get_auxiliary_value_for_rowid(vec0_vtab *pVtab, i64 rowid, int auxiliary_idx, sqlite3_value ** outValue) {
+  int rc;
+  sqlite3_stmt * stmt = NULL;
+  char * zSql = sqlite3_mprintf("SELECT value%02d FROM " VEC0_SHADOW_AUXILIARY_NAME " WHERE rowid = ?", auxiliary_idx, pVtab->schemaName, pVtab->tableName);
+  if(!zSql) {
+    return SQLITE_NOMEM;
+  }
+  rc = sqlite3_prepare_v2(pVtab->db, zSql, -1, &stmt, NULL);
+  sqlite3_free(zSql);
+  if(rc != SQLITE_OK) {
+    return rc;
+  }
+  sqlite3_bind_int64(stmt, 1, rowid);
+  rc = sqlite3_step(stmt);
+  if(rc != SQLITE_ROW) {
+    rc = SQLITE_ERROR;
+    goto done;
+  }
+  *outValue = sqlite3_value_dup(sqlite3_column_value(stmt, 0));
+  if(!*outValue) {
+    rc = SQLITE_NOMEM;
+    goto done;
+  }
+  rc = SQLITE_OK;
+
+  done:
+    sqlite3_finalize(stmt);
+    return rc;
 }
 
 int vec0_get_latest_chunk_rowid(vec0_vtab *p, i64 *chunk_rowid, sqlite3_value ** partitionKeyValues) {
@@ -4241,6 +4393,7 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
   int chunk_size = -1;
   int numVectorColumns = 0;
   int numPartitionColumns = 0;
+  int numAuxiliaryColumns = 0;
   int user_column_idx = 0;
 
   // track if a "primary key" column is defined
@@ -4251,6 +4404,7 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
   for (int i = 3; i < argc; i++) {
     struct VectorColumnDefinition vecColumn;
     struct Vec0PartitionColumnDefinition partitionColumn;
+    struct Vec0AuxiliaryColumnDefinition auxColumn;
     char *cName = NULL;
     int cNameLength;
     int cType;
@@ -4333,6 +4487,33 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
       continue;
     }
 
+    // Scenario #4: Constructor argument is a auxiliary column definition, ie `+contents text`
+    rc = vec0_parse_auxiliary_column_definition(argv[i], strlen(argv[i]), &cName,
+                                      &cNameLength, &cType);
+    if(rc == SQLITE_OK) {
+      if (numAuxiliaryColumns >= VEC0_MAX_AUXILIARY_COLUMNS) {
+        *pzErr = sqlite3_mprintf(
+            VEC_CONSTRUCTOR_ERROR
+            "More than %d auxiliary columns were provided",
+            VEC0_MAX_PARTITION_COLUMNS);
+        goto error;
+      }
+      auxColumn.type = cType;
+      auxColumn.name_length = cNameLength;
+      auxColumn.name = sqlite3_mprintf("%.*s", cNameLength, cName);
+      if(!auxColumn.name) {
+        rc = SQLITE_NOMEM;
+        goto error;
+      }
+
+      pNew->user_column_kinds[user_column_idx] = SQLITE_VEC0_USER_COLUMN_KIND_AUXILIARY;
+      pNew->user_column_idxs[user_column_idx] = numAuxiliaryColumns;
+      memcpy(&pNew->auxiliary_columns[numAuxiliaryColumns], &auxColumn, sizeof(auxColumn));
+      numAuxiliaryColumns++;
+      user_column_idx++;
+      continue;
+    }
+
     // Scenario #4: Constructor argument is a table-level option, ie `chunk_size`
 
     char *key;
@@ -4400,7 +4581,7 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
   } else {
     sqlite3_str_appendall(createStr, "rowid, ");
   }
-  for (int i = 0; i < numVectorColumns + numPartitionColumns; i++) {
+  for (int i = 0; i < numVectorColumns + numPartitionColumns + numAuxiliaryColumns; i++) {
     switch(pNew->user_column_kinds[i]) {
       case SQLITE_VEC0_USER_COLUMN_KIND_VECTOR: {
         int vector_idx = pNew->user_column_idxs[i];
@@ -4414,6 +4595,13 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
         sqlite3_str_appendf(createStr, "\"%.*w\", ",
                         pNew->paritition_columns[partition_idx].name_length,
                         pNew->paritition_columns[partition_idx].name);
+        break;
+      }
+      case SQLITE_VEC0_USER_COLUMN_KIND_AUXILIARY: {
+        int auxiliary_idx = pNew->user_column_idxs[i];
+        sqlite3_str_appendf(createStr, "\"%.*w\", ",
+                        pNew->auxiliary_columns[auxiliary_idx].name_length,
+                        pNew->auxiliary_columns[auxiliary_idx].name);
         break;
       }
     }
@@ -4459,6 +4647,8 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
   }
   pNew->numVectorColumns = numVectorColumns;
   pNew->numPartitionColumns = numPartitionColumns;
+  pNew->numAuxiliaryColumns = numAuxiliaryColumns;
+
   for (int i = 0; i < pNew->numVectorColumns; i++) {
     pNew->shadowVectorChunksNames[i] =
         sqlite3_mprintf("%s_vector_chunks%02d", tableName, i);
@@ -4541,6 +4731,30 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
         *pzErr = sqlite3_mprintf(
             "Could not create '_vector_chunks%02d' shadow table: %s", i,
             sqlite3_errmsg(db));
+        goto error;
+      }
+      sqlite3_finalize(stmt);
+    }
+
+    if(pNew->numAuxiliaryColumns > 0) {
+      sqlite3_stmt * stmt;
+      sqlite3_str * s = sqlite3_str_new(NULL);
+      sqlite3_str_appendf(s, "CREATE TABLE " VEC0_SHADOW_AUXILIARY_NAME "( rowid integer PRIMARY KEY ", pNew->schemaName, pNew->tableName);
+      for(int i = 0; i < pNew->numAuxiliaryColumns; i++) {
+        sqlite3_str_appendf(s, ", value%02d", i);
+      }
+      sqlite3_str_appendall(s, ")");
+      char *zSql = sqlite3_str_finish(s);
+      if(!zSql) {
+        goto error;
+      }
+      rc = sqlite3_prepare_v2(db, zSql, -1, &stmt, NULL);
+      if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
+        sqlite3_finalize(stmt);
+        *pzErr = sqlite3_mprintf(
+            "Could not create auxiliary shadow table: %s",
+            sqlite3_errmsg(db));
+
         goto error;
       }
       sqlite3_finalize(stmt);
@@ -5842,6 +6056,18 @@ static int vec0Column_fullscan(vec0_vtab *pVtab, vec0_cursor *pCur,
     int rc = vec0_get_partition_value_for_rowid(pVtab, rowid, partition_idx, &v);
     if(rc == SQLITE_OK) {
       sqlite3_result_value(context, v);
+      sqlite3_value_free(v);
+    }else {
+      sqlite3_result_error_code(context, rc);
+    }
+  }
+  else if(vec0_column_idx_is_auxiliary(pVtab, i)) {
+    int auxiliary_idx = vec0_column_idx_to_auxiliary_idx(pVtab, i);
+    sqlite3_value * v;
+    int rc = vec0_get_auxiliary_value_for_rowid(pVtab, rowid, auxiliary_idx, &v);
+    if(rc == SQLITE_OK) {
+      sqlite3_result_value(context, v);
+      sqlite3_value_free(v);
     }else {
       sqlite3_result_error_code(context, rc);
     }
@@ -5887,6 +6113,22 @@ static int vec0Column_point(vec0_vtab *pVtab, vec0_cursor *pCur,
     int rc = vec0_get_partition_value_for_rowid(pVtab, rowid, partition_idx, &v);
     if(rc == SQLITE_OK) {
       sqlite3_result_value(context, v);
+      sqlite3_value_free(v);
+    }else {
+      sqlite3_result_error_code(context, rc);
+    }
+  }
+  else if(vec0_column_idx_is_auxiliary(pVtab, i)) {
+    if(sqlite3_vtab_nochange(context)) {
+      return SQLITE_OK;
+    }
+    i64 rowid = pCur->point_data->rowid;
+    int auxiliary_idx = vec0_column_idx_to_auxiliary_idx(pVtab, i);
+    sqlite3_value * v;
+    int rc = vec0_get_auxiliary_value_for_rowid(pVtab, rowid, auxiliary_idx, &v);
+    if(rc == SQLITE_OK) {
+      sqlite3_result_value(context, v);
+      sqlite3_value_free(v);
     }else {
       sqlite3_result_error_code(context, rc);
     }
@@ -5933,6 +6175,19 @@ static int vec0Column_knn(vec0_vtab *pVtab, vec0_cursor *pCur,
     int rc = vec0_get_partition_value_for_rowid(pVtab, rowid, partition_idx, &v);
     if(rc == SQLITE_OK) {
       sqlite3_result_value(context, v);
+      sqlite3_value_free(v);
+    }else {
+      sqlite3_result_error_code(context, rc);
+    }
+  }
+  else if(vec0_column_idx_is_auxiliary(pVtab, i)) {
+    int auxiliary_idx = vec0_column_idx_to_auxiliary_idx(pVtab, i);
+    i64 rowid = pCur->knn_data->rowids[pCur->knn_data->current_idx];
+    sqlite3_value * v;
+    int rc = vec0_get_auxiliary_value_for_rowid(pVtab, rowid, auxiliary_idx, &v);
+    if(rc == SQLITE_OK) {
+      sqlite3_result_value(context, v);
+      sqlite3_value_free(v);
     }else {
       sqlite3_result_error_code(context, rc);
     }
@@ -6396,6 +6651,53 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
     partitionKeyValues[partition_key_idx] = argv[2+VEC0_COLUMN_USERN_START + i];
   }
 
+  if(p->numAuxiliaryColumns > 0) {
+    sqlite3_stmt *stmt;
+    sqlite3_str * s = sqlite3_str_new(NULL);
+    sqlite3_str_appendf(s, "INSERT INTO " VEC0_SHADOW_AUXILIARY_NAME "(", p->schemaName, p->tableName);
+    for(int i = 0; i < p->numAuxiliaryColumns; i++) {
+      if(i!=0) {
+        sqlite3_str_appendchar(s, 1, ',');
+      }
+      sqlite3_str_appendf(s, "value%02d", i);
+    }
+    sqlite3_str_appendall(s, ") VALUES (");
+    for(int i = 0; i < p->numAuxiliaryColumns; i++) {
+      if(i!=0) {
+        sqlite3_str_appendchar(s, 1, ',');
+      }
+      sqlite3_str_appendchar(s, 1, '?');
+    }
+    sqlite3_str_appendall(s, ")");
+    char * zSql = sqlite3_str_finish(s);
+    // TODO double check error handling ehre
+    if(!zSql) {
+      rc = SQLITE_NOMEM;
+      goto cleanup;
+    }
+    rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
+    if(rc != SQLITE_OK) {
+      goto cleanup;
+    }
+
+    for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
+      if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_AUXILIARY) {
+        continue;
+      }
+      int auxiliary_key_idx = p->user_column_idxs[i];
+      sqlite3_value * v = argv[2+VEC0_COLUMN_USERN_START + i];
+      sqlite3_bind_value(stmt, 1 + auxiliary_key_idx, v);
+    }
+
+    rc = sqlite3_step(stmt);
+    if(rc != SQLITE_DONE) {
+      sqlite3_finalize(stmt);
+      rc = SQLITE_ERROR;
+      goto cleanup;
+    }
+    sqlite3_finalize(stmt);
+  }
+
   // read all the inserted vectors  into vectorDatas, validate their lengths.
   for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
     if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_VECTOR) {
@@ -6641,6 +6943,8 @@ int vec0Update_Delete(sqlite3_vtab *pVTab, sqlite3_value *idValue) {
     return rc;
   }
 
+  // TODO delete any auxiliary rows
+
   return SQLITE_OK;
 }
 
@@ -6761,6 +7065,8 @@ int vec0Update_Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv) {
     }
   }
 
+  // TODO handle auxiliary column updates
+
   for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
     if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_VECTOR) {
       continue;
@@ -6811,7 +7117,7 @@ static int vec0Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 }
 
 static int vec0ShadowName(const char *zName) {
-  static const char *azName[] = {"rowids", "chunks", "vector_chunks"};
+  static const char *azName[] = {"rowids", "chunks", "auxiliary", "vector_chunks"};
 
   for (size_t i = 0; i < sizeof(azName) / sizeof(azName[0]); i++) {
     if (sqlite3_stricmp(zName, azName[i]) == 0)
