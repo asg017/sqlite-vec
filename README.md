@@ -62,9 +62,15 @@ for more details.
 ```sql
 .load ./vec0
 
+-- This uses the L2 distance by default
 create virtual table vec_examples using vec0(
   sample_embedding float[8]
 );
+
+-- We can set a different distance metric as follows:
+-- create virtual table vec_examples using vec0(
+--  sample_embedding float[8] distance_metric=cosine
+-- );
 
 -- vectors can be provided as JSON or in a compact binary format
 insert into vec_examples(rowid, sample_embedding)
