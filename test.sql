@@ -1,8 +1,29 @@
+
 .load dist/vec0
 .echo on
 .bail on
 
 .mode qbox
+
+create virtual table vec_chunks using vec0(
+  chunk_id integer primary key,
+  contents_embedding float[1],
+  +contents text
+);
+insert into vec_chunks(chunk_id, contents_embedding, contents) values
+  (1, '[1]', 'alex'),
+  (2, '[2]', 'brian'),
+  (3, '[3]', 'craig'),
+  (4, '[4]', 'dylan');
+
+select * from vec_chunks;
+
+select chunk_id, contents, distance
+from vec_chunks
+where contents_embedding match '[5]'
+and k = 3;
+
+.exit
 
 create virtual table v using vec0(a float[1]);
 select count(*) from v_chunks;
