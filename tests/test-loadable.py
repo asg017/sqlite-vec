@@ -119,11 +119,9 @@ FUNCTIONS = [
 MODULES = [
     "vec0",
     "vec_each",
-    "vec_npy_each",
-    #"vec_static_blob_entries",
-    #"vec_static_blobs",
+    # "vec_static_blob_entries",
+    # "vec_static_blobs",
 ]
-
 
 
 def register_numpy(db, name: str, array):
@@ -264,16 +262,21 @@ def test_vec_static_blob_entries():
             "v": "[0.300000,0.300000,0.300000,0.300000]",
         },
     ]
+
+
 def test_limits():
     db = connect(EXT_PATH)
-    with _raises("vec0 constructor error: Dimension on vector column too large, provided 8193, maximum 8192"):
-      db.execute("create virtual table v using vec0(a float[8193])")
+    with _raises(
+        "vec0 constructor error: Dimension on vector column too large, provided 8193, maximum 8192"
+    ):
+        db.execute("create virtual table v using vec0(a float[8193])")
     with _raises("vec0 constructor error: chunk_size too large"):
-      db.execute("create virtual table v using vec0(a float[4], chunk_size=8200)")
-    db.execute('create virtual table v using vec0(a float[1])')
+        db.execute("create virtual table v using vec0(a float[4], chunk_size=8200)")
+    db.execute("create virtual table v using vec0(a float[1])")
 
     with _raises("k value in knn query too large, provided 8193 and the limit is 4096"):
-      db.execute("select * from v where a match '[0.1]' and k = 8193")
+        db.execute("select * from v where a match '[0.1]' and k = 8193")
+
 
 def test_funcs():
     funcs = list(
@@ -1509,6 +1512,24 @@ def test_vec0_text_pk():
             },
         ]
 
+    # test deletes on text primary keys
+    db.execute("delete from t where t_id = 't_1'")
+    assert execute_all(db, "select * from t") == [
+        {"t_id": "t_2", "aaa": _f32([0.2]), "bbb": _f32([-0.2])},
+        {"t_id": "t_3", "aaa": _f32([0.3]), "bbb": _f32([-0.3])},
+    ]
+
+    # test updates on text primary keys
+    db.execute("update t set aaa = '[999]' where t_id = 't_2'")
+    assert execute_all(db, "select * from t") == [
+        {"t_id": "t_2", "aaa": _f32([999]), "bbb": _f32([-0.2])},
+        {"t_id": "t_3", "aaa": _f32([0.3]), "bbb": _f32([-0.3])},
+    ]
+
+    # EVIDENCE-OF: V08886_25725 vec0 primary keys don't allow updates on PKs
+    with _raises("UPDATEs on vec0 primary key values are not allowed."):
+        db.execute("update t set t_id = 'xxx' where t_id = 't_2'")
+
 
 def test_vec0_best_index():
     db = connect(EXT_PATH)
@@ -1597,6 +1618,7 @@ def to_npy(arr):
 
 
 def test_vec_npy_each():
+    db = connect(EXT_PATH, extra_entrypoint="sqlite3_vec_numpy_init")
     vec_npy_each = lambda *args: execute_all(
         db, "select rowid, * from vec_npy_each(?)", args
     )
@@ -1629,6 +1651,7 @@ def test_vec_npy_each():
 
 
 def test_vec_npy_each_errors():
+    db = connect(EXT_PATH, extra_entrypoint="sqlite3_vec_numpy_init")
     vec_npy_each = lambda *args: execute_all(
         db, "select rowid, * from vec_npy_each(?)", args
     )
@@ -1747,7 +1770,7 @@ import tempfile
 
 
 def test_vec_npy_each_errors_files():
-    db = connect(EXT_PATH, extra_entrypoint="sqlite3_vec_fs_read_init")
+    db = connect(EXT_PATH, extra_entrypoint="sqlite3_vec_numpy_init")
 
     def vec_npy_each(data):
         with tempfile.NamedTemporaryFile(delete_on_close=False) as f:

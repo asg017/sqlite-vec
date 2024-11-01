@@ -3,6 +3,10 @@ COMMIT=$(shell git rev-parse HEAD)
 VERSION=$(shell cat VERSION)
 DATE=$(shell date +'%FT%TZ%z')
 
+INSTALL_LIB_DIR = /usr/local/lib
+INSTALL_INCLUDE_DIR = /usr/local/include
+INSTALL_BIN_DIR = /usr/local/bin
+
 ifndef CC
 CC=gcc
 endif
@@ -24,6 +28,7 @@ endif
 
 ifdef CONFIG_LINUX
 LOADABLE_EXTENSION=so
+CFLAGS += -lm
 endif
 
 ifdef CONFIG_WINDOWS
@@ -97,7 +102,7 @@ $(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(prefix)
 		$< -o $@
 
 $(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(prefix) $(OBJS_DIR)
-	$(CC) -Ivendor/ -Ivendor/vec $(CFLAGS) -DSQLITE_CORE \
+	$(CC) -Ivendor/ $(CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
 	-O3 -c  $< -o $(OBJS_DIR)/vec.o
 	$(AR) rcs $@ $(OBJS_DIR)/vec.o
 
@@ -135,6 +140,7 @@ $(TARGET_CLI): sqlite-vec.h $(LIBS_DIR)/sqlite-vec.a $(LIBS_DIR)/shell.a $(LIBS_
 	$(CC) -g3  \
 	-Ivendor/ -I./ \
 	-DSQLITE_CORE \
+	-DSQLITE_VEC_STATIC \
 	-DSQLITE_THREADSAFE=0 -DSQLITE_ENABLE_FTS4 \
 	-DSQLITE_ENABLE_STMT_SCANSTATUS -DSQLITE_ENABLE_BYTECODE_VTAB -DSQLITE_ENABLE_EXPLAIN_COMMENTS \
 	-DSQLITE_EXTRA_INIT=core_init \
@@ -172,7 +178,7 @@ evidence-of:
 test:
 	sqlite3 :memory: '.read test.sql'
 
-.PHONY: version loadable static test clean gh-release evidence-of
+.PHONY: version loadable static test clean gh-release evidence-of install uninstall
 
 publish-release:
 	./scripts/publish-release.sh
@@ -192,6 +198,28 @@ site-dev:
 
 site-build:
 	npm --prefix site run build
+
+install:
+	install -d $(INSTALL_LIB_DIR)
+	install -d $(INSTALL_INCLUDE_DIR)
+	install -m 644 sqlite-vec.h $(INSTALL_INCLUDE_DIR)
+	@if [ -f $(TARGET_LOADABLE) ]; then \
+		install -m 644 $(TARGET_LOADABLE) $(INSTALL_LIB_DIR); \
+	fi
+	@if [ -f $(TARGET_STATIC) ]; then \
+		install -m 644 $(TARGET_STATIC) $(INSTALL_LIB_DIR); \
+	fi
+	@if [ -f $(TARGET_CLI) ]; then \
+		sudo install -m 755 $(TARGET_CLI) $(INSTALL_BIN_DIR); \
+	fi
+	ldconfig
+
+uninstall:
+	rm -f $(INSTALL_LIB_DIR)/$(notdir $(TARGET_LOADABLE))
+	rm -f $(INSTALL_LIB_DIR)/$(notdir $(TARGET_STATIC))
+	rm -f $(INSTALL_LIB_DIR)/$(notdir $(TARGET_CLI))
+	rm -f $(INSTALL_INCLUDE_DIR)/sqlite-vec.h
+	ldconfig
 
 # ███████████████████████████████ WASM SECTION ███████████████████████████████
 

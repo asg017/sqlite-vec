@@ -1,3 +1,3 @@
 fn main() {
-    cc::Build::new().file("sqlite-vec.c").compile("sqlite_vec0");
+    cc::Build::new().file("sqlite-vec.c").define("SQLITE_CORE", None).compile("sqlite_vec0");
 }

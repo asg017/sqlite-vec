@@ -1,9 +1,4 @@
-.venv/
-node_modules/
-*.gguf
 *.dylib
-llama.log
-llamafile-0.8.11
-
-2024-07-26.json
-articles.json
+*.so
+*.dll
+*.gguf

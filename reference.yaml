@@ -325,34 +325,6 @@ quantization:
     params: [vector, "[start]", "[end]"]
     desc: x
     example: select 'todo';
-
-numpy:
-  vec_npy_each:
-    params: [npy_array]
-    desc: |
-      xxx
-    example:
-      - |
-        -- db.execute('select quote(?)', [to_npy(np.array([[1.0], [2.0], [3.0]], dtype=np.float32))]).fetchone()
-        select
-          rowid,
-          vector,
-          vec_type(vector),
-          vec_to_json(vector)
-        from vec_npy_each(
-          X'934E554D5059010076007B276465736372273A20273C6634272C2027666F727472616E5F6F72646572273A2046616C73652C20277368617065273A2028332C2031292C207D202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020200A0000803F0000004000004040'
-        )
-      - |
-        -- db.execute('select quote(?)', [to_npy(np.array([[1.0], [2.0], [3.0]], dtype=np.float32))]).fetchone()
-        select
-          rowid,
-          vector,
-          vec_type(vector),
-          vec_to_json(vector)
-        from vec_npy_each(
-          X'934E554D5059010076007B276465736372273A20273C6634272C2027666F727472616E5F6F72646572273A2046616C73652C20277368617065273A2028332C2031292C207D202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020200A0000803F0000004000004040'
-        )
-
 vec0:
   vec0:
     params: []
@@ -367,30 +339,3 @@ vec0:
         values (1, '[1, 1, 1, 1]'),
           (2, '[2, 2, 2, 2]'),
           (3, '[3, 3, 3, 3]');
-
-entrypoints:
-  {}
-  #sqlite3_vec_init:
-  #  desc: |
-  #    asdf
-  #sqlite3_vec_fs_read_init:
-  #  desc: |
-  #    asdf
-#table_functions:
-#  vec_each:
-#    columns: [rowid, value]
-#    inputs: ["vector"]
-#    desc:
-#    example:
-#virtual_tables:
-#  vec0:
-#    desc:
-#    example:
-#entrypoints:
-#  sqlite3_vec_init: {}
-#  sqlite3_vec_fs_read_init: {}
-#compile_options:
-#  - SQLITE_VEC_ENABLE_AVX
-#  - SQLITE_VEC_ENABLE_NEON
-#  - SQLITE_VEC_OMIT_FS
-#
