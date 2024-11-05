@@ -3427,7 +3427,7 @@ void vec0_free(vec0_vtab *p) {
   }
 }
 
-inline int vec0_num_defined_user_columns(vec0_vtab *p) {
+int vec0_num_defined_user_columns(vec0_vtab *p) {
   return p->numVectorColumns + p->numPartitionColumns;
 }
 
