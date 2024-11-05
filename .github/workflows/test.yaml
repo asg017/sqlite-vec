@@ -157,6 +157,10 @@ jobs:
           path: dist/*
       - uses: green-coding-solutions/eco-ci-energy-estimation@v4
         with:
+          task: get-measurement
+          label: "all"
+      - uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
           task: display-results
   build-wasm32-emscripten:
     runs-on: ubuntu-latest
