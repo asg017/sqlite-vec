@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "site/**"
+      - ".github/**"
+      - "VERSION"
+      - "reference.yaml"
 jobs:
   deploy:
     runs-on: ubuntu-latest
