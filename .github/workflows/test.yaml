@@ -178,6 +178,24 @@ jobs:
           name: sqlite-vec-wasm32-emscripten
           path: dist/.wasm/*
           include-hidden-files: true
+  build-pyodide:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mymindstorm/setup-emsdk@v12
+        with:
+          version: "latest"
+      - run: ./scripts/vendor.sh
+      - run: make sqlite-vec.h
+      - run: |
+          emcc -c ./sqlite-vec.c -o ./sqlite-vec.o -I ./vendor -fPIC -g3 \
+          -DSQLITE_CORE -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DHAVE_FDATASYNC=1 -DHAVE_USLEEP=1 -DHAVE_LOCALTIME_R=1 -DHAVE_GMTIME_R=1 -DHAVE_DECL_STRERROR_R=1 -DHAVE_STRERROR_R=1 -DHAVE_POSIX_FALLOCATE=1 -DSQLITE_ENABLE_MATH_FUNCTIONS=1 -DSQLITE_ENABLE_FTS4=1 -DSQLITE_ENABLE_FTS5=1 -DSQLITE_ENABLE_RTREE=1 -DSQLITE_ENABLE_GEOPOLY=1 -DSQLITE_OMIT_POPEN=1 -DSQLITE_THREADSAFE=0
+          emcc ./sqlite-vec.o -o vec0.so -s SIDE_MODULE=1 -g3 -s WASM_BIGINT=1
+      - run: ls
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-pyodide
+          path: vec0.so
   build-ncruces-go:
     runs-on: ubuntu-latest
     steps:
