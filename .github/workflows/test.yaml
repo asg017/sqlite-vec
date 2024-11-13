@@ -68,6 +68,7 @@ jobs:
       - run: cl.exe /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c -o dist/vec0.dll
       - run: uv sync --directory tests
       - run: make test-loadable python=./tests/.venv/bin/python.exe
+        shell: bash
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-windows-x86_64-extension
