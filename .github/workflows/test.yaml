@@ -17,7 +17,7 @@ jobs:
       - run: ./scripts/vendor.sh
       - run: make loadable static
       - run: uv sync --directory tests
-      - run: make test-loadable python=./venv/bin/python
+      - run: make test-loadable python=./.venv/bin/python
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-linux-x86_64-extension
@@ -32,7 +32,7 @@ jobs:
       - run: ./scripts/vendor.sh
       - run: make loadable static
       - run: uv sync --directory tests
-      - run: make test-loadable python=./venv/bin/python
+      - run: make test-loadable python=./.venv/bin/python
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-macos-x86_64-extension
@@ -47,7 +47,7 @@ jobs:
       - run: ./scripts/vendor.sh
       - run: make loadable static
       - run: uv sync --directory tests
-      - run: make test-loadable python=./venv/bin/python
+      - run: make test-loadable python=./.venv/bin/python
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-macos-aarch64-extension
@@ -66,7 +66,7 @@ jobs:
       - run: mkdir dist
       - run: cl.exe /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c -o dist/vec0.dll
       - run: uv sync --directory tests
-      - run: make test-loadable python=./venv/bin/python
+      - run: make test-loadable python=./.venv/bin/python
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-windows-x86_64-extension
