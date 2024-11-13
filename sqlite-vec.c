@@ -6672,6 +6672,17 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
     }
     int partition_key_idx = p->user_column_idxs[i];
     partitionKeyValues[partition_key_idx] = argv[2+VEC0_COLUMN_USERN_START + i];
+    int new_value_type = sqlite3_value_type(partitionKeyValues[partition_key_idx]);
+    if((new_value_type != SQLITE_NULL) && (new_value_type != p->paritition_columns[partition_key_idx].type)) {
+      // IMP: V11454_28292
+      vtab_set_error(
+        pVTab,
+        "Parition key type mismatch: The partition key column %.*s has type %s, but %s was provided.",
+        p->paritition_columns[partition_key_idx].name_length,
+        p->paritition_columns[partition_key_idx].name,
+        type_name(p->paritition_columns[partition_key_idx].type),
+        type_name(new_value_type)
+      );
   }
 
   if(p->numAuxiliaryColumns > 0) {
