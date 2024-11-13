@@ -6419,6 +6419,7 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
     partitionKeyValues[partition_key_idx] = argv[2+VEC0_COLUMN_USERN_START + i];
 
     int new_value_type = sqlite3_value_type(partitionKeyValues[partition_key_idx]);
+    printf("DEBUG: new_value_type=%d t=%d\n", new_value_type, p->paritition_columns[partition_key_idx].type);
     if((new_value_type != SQLITE_NULL) && (new_value_type != p->paritition_columns[partition_key_idx].type)) {
       // IMP: V11454_28292
       vtab_set_error(
