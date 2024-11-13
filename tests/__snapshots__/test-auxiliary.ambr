@@ -1,0 +1,149 @@
+# serializer version: 1
+# name: test_constructor_limit[max 16 auxiliary columns]
+  dict({
+    'error': 'OperationalError',
+    'message': 'vec0 constructor error: More than 16 auxiliary columns were provided',
+  })
+# ---
+# name: test_normal.1
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'a': b'\x11\x11\x11\x11',
+        'name': 'alex',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'a': b'""""',
+        'name': 'brian',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'a': b'3333',
+        'name': 'craig',
+      }),
+    ]),
+  })
+# ---
+# name: test_normal.2
+  dict({
+    'v_auxiliary': OrderedDict({
+      'sql': 'select * from v_auxiliary',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'value00': 'alex',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'value00': 'brian',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'value00': 'craig',
+        }),
+      ]),
+    }),
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_normal[sqlite_master]
+  OrderedDict({
+    'sql': 'select * from sqlite_master order by name',
+    'rows': list([
+      OrderedDict({
+        'type': 'index',
+        'name': 'sqlite_autoindex_v_vector_chunks00_1',
+        'tbl_name': 'v_vector_chunks00',
+        'rootpage': 6,
+        'sql': None,
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'sqlite_sequence',
+        'tbl_name': 'sqlite_sequence',
+        'rootpage': 3,
+        'sql': 'CREATE TABLE sqlite_sequence(name,seq)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v',
+        'tbl_name': 'v',
+        'rootpage': 0,
+        'sql': 'CREATE VIRTUAL TABLE v using vec0(a float[1], +name text, chunk_size=8)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_auxiliary',
+        'tbl_name': 'v_auxiliary',
+        'rootpage': 7,
+        'sql': 'CREATE TABLE "v_auxiliary"( rowid integer PRIMARY KEY , value00)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_chunks',
+        'tbl_name': 'v_chunks',
+        'rootpage': 2,
+        'sql': 'CREATE TABLE "v_chunks"(chunk_id INTEGER PRIMARY KEY AUTOINCREMENT,size INTEGER NOT NULL,validity BLOB NOT NULL,rowids BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_rowids',
+        'tbl_name': 'v_rowids',
+        'rootpage': 4,
+        'sql': 'CREATE TABLE "v_rowids"(rowid INTEGER PRIMARY KEY AUTOINCREMENT,id,chunk_id INTEGER,chunk_offset INTEGER)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_vector_chunks00',
+        'tbl_name': 'v_vector_chunks00',
+        'rootpage': 5,
+        'sql': 'CREATE TABLE "v_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)',
+      }),
+    ]),
+  })
+# ---

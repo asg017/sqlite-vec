@@ -3526,7 +3526,7 @@ void vec0_free(vec0_vtab *p) {
 }
 
 int vec0_num_defined_user_columns(vec0_vtab *p) {
-  return p->numVectorColumns + p->numPartitionColumns;
+  return p->numVectorColumns + p->numPartitionColumns + p->numAuxiliaryColumns;
 }
 
 /**
@@ -4501,7 +4501,7 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
         *pzErr = sqlite3_mprintf(
             VEC_CONSTRUCTOR_ERROR
             "More than %d auxiliary columns were provided",
-            VEC0_MAX_PARTITION_COLUMNS);
+            VEC0_MAX_AUXILIARY_COLUMNS);
         goto error;
       }
       auxColumn.type = cType;
