@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - partition-by
+      - auxiliary
 permissions:
   contents: read
 jobs:
