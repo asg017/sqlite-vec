@@ -29,6 +29,7 @@ jobs:
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
+      - run: uv python install 3.12
       - run: ./scripts/vendor.sh
       - run: make loadable static
       - run: uv sync --directory tests
