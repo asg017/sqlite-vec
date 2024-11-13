@@ -105,6 +105,10 @@ typedef size_t usize;
 #define SQLITE_INDEX_CONSTRAINT_LIMIT 73
 #endif
 
+#ifndef SQLITE_INDEX_CONSTRAINT_OFFSET
+#define SQLITE_INDEX_CONSTRAINT_OFFSET 74
+#endif
+
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
 #define min(a, b) (((a) <= (b)) ? (a) : (b))
 
@@ -3521,8 +3525,8 @@ void vec0_free(vec0_vtab *p) {
   }
 }
 
-inline int vec0_num_defined_user_columns(vec0_vtab *p) {
-  return p->numVectorColumns + p->numPartitionColumns + p->numAuxiliaryColumns;
+int vec0_num_defined_user_columns(vec0_vtab *p) {
+  return p->numVectorColumns + p->numPartitionColumns;
 }
 
 /**
@@ -4341,6 +4345,8 @@ void vec0_query_point_data_clear(struct vec0_query_point_data *point_data) {
 }
 
 typedef enum {
+  // If any values are updated, please update the ARCHITECTURE.md docs accordingly!
+
  VEC0_QUERY_PLAN_FULLSCAN = '1',
  VEC0_QUERY_PLAN_POINT = '2',
  VEC0_QUERY_PLAN_KNN = '3',
@@ -4863,6 +4869,8 @@ static int vec0Close(sqlite3_vtab_cursor *cur) {
 // All the different type of "values" provided to argv/argc in vec0Filter.
 // These enums denote the use and purpose of all of them.
 typedef enum  {
+  // If any values are updated, please update the ARCHITECTURE.md docs accordingly!
+
   VEC0_IDXSTR_KIND_KNN_MATCH = '{',
   VEC0_IDXSTR_KIND_KNN_K = '}',
   VEC0_IDXSTR_KIND_KNN_ROWID_IN = '[',
@@ -4873,6 +4881,8 @@ typedef enum  {
 // The different SQLITE_INDEX_CONSTRAINT values that vec0 partition key columns
 // support, but as characters that fit nicely in idxstr.
 typedef enum  {
+  // If any values are updated, please update the ARCHITECTURE.md docs accordingly!
+
   VEC0_PARTITION_OPERATOR_EQ = 'a',
   VEC0_PARTITION_OPERATOR_GT = 'b',
   VEC0_PARTITION_OPERATOR_LE = 'c',
@@ -5642,8 +5652,7 @@ cleanup:
 
 int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
                    const char *idxStr, int argc, sqlite3_value **argv) {
-  UNUSED_PARAMETER(idxStr);
-  assert(argc >= 2);
+  assert(argc == (strlen(idxStr)-1) / 4);
   int rc;
   struct vec0_query_knn_data *knn_data;
 
@@ -5664,9 +5673,25 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
   }
   memset(knn_data, 0, sizeof(*knn_data));
 
+  int query_idx =-1;
+  int k_idx = -1;
+  int rowid_in_idx = -1;
+  for(int i = 0; i < argc; i++) {
+    if(idxStr[1 + (i*4)] == VEC0_IDXSTR_KIND_KNN_MATCH) {
+      query_idx = i;
+    }
+    if(idxStr[1 + (i*4)] == VEC0_IDXSTR_KIND_KNN_K) {
+      k_idx = i;
+    }
+    if(idxStr[1 + (i*4)] == VEC0_IDXSTR_KIND_KNN_ROWID_IN) {
+      rowid_in_idx = i;
+    }
+  }
+  assert(query_idx >= 0);
+  assert(k_idx >= 0);
+
   // make sure the query vector matches the vector column (type dimensions etc.)
-  // TODO not argv[0], source idx from idxStr
-  rc = vector_from_value(argv[0], &queryVector, &dimensions, &elementType,
+  rc = vector_from_value(argv[query_idx], &queryVector, &dimensions, &elementType,
                          &queryVectorCleanup, &pzError);
 
   if (rc != SQLITE_OK) {
@@ -5698,8 +5723,7 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
     goto cleanup;
   }
 
-  // TODO not argv[1], source idx from idxStr
-  i64 k = sqlite3_value_int64(argv[1]);
+  i64 k = sqlite3_value_int64(argv[k_idx]);
   if (k < 0) {
     vtab_set_error(
         &p->base, "k value in knn queries must be greater than or equal to 0.");
@@ -5728,8 +5752,7 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
 // Array of all the rowids that appear in any `rowid in (...)` constraint.
 // NULL if none were provided, which means a "full" scan.
 #if COMPILER_SUPPORTS_VTAB_IN
-  // TODO fix
-  if (false /*argc > 2*/) {
+  if (rowid_in_idx >= 0) {
     sqlite3_value *item;
     int rc;
     arrayRowidsIn = sqlite3_malloc(sizeof(*arrayRowidsIn));
@@ -5743,8 +5766,8 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
     if (rc != SQLITE_OK) {
       goto cleanup;
     }
-    for (rc = sqlite3_vtab_in_first(argv[2], &item); rc == SQLITE_OK && item;
-         rc = sqlite3_vtab_in_next(argv[2], &item)) {
+    for (rc = sqlite3_vtab_in_first(argv[rowid_in_idx], &item); rc == SQLITE_OK && item;
+         rc = sqlite3_vtab_in_next(argv[rowid_in_idx], &item)) {
       i64 rowid;
       if (p->pkIsText) {
         rc = vec0_rowid_from_id(p, item, &rowid);
@@ -7052,21 +7075,29 @@ int vec0Update_Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv) {
     rowid = sqlite3_value_int64(argv[0]);
   }
 
-  // 1. get chunk_id and chunk_offset from _rowids
+  // 1) get chunk_id and chunk_offset from _rowids
   rc = vec0_get_chunk_position(p, rowid, NULL, &chunk_id, &chunk_offset);
   if (rc != SQLITE_OK) {
     return rc;
   }
 
-  // 2) iterate over all new vectors, update the vectors
+  // 2) update any partition key values
   for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
     if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_PARTITION) {
-      // TODO handle partition key values in UPDATEs
+      continue;
     }
+    int partition_key_idx = p->user_column_idxs[i];
+    sqlite3_value * value = argv[2+VEC0_COLUMN_USERN_START + i];
+    if(sqlite3_value_nochange(value)) {
+      continue;
+    }
+    vtab_set_error(pVTab, "UPDATE on partition key columns are not supported yet. ");
+    return SQLITE_ERROR;
   }
 
   // TODO handle auxiliary column updates
 
+  // 3) iterate over all new vectors, update the vectors
   for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
     if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_VECTOR) {
       continue;

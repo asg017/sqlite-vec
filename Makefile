@@ -185,13 +185,16 @@ publish-release:
 
 # -k test_vec0_update
 test-loadable: loadable
-	$(PYTHON) -m pytest -vv -s -x tests/test-loadable.py
+	$(PYTHON) -m pytest -vv -s -x tests/test-*.py
 
 test-loadable-snapshot-update: loadable
 	$(PYTHON) -m pytest -vv tests/test-loadable.py --snapshot-update
 
 test-loadable-watch:
-	watchexec -w sqlite-vec.c -w tests/test-loadable.py -w Makefile --clear -- make test-loadable
+	watchexec --exts c,py,Makefile --clear -- make test-loadable
+
+test-unit:
+	$(CC) tests/test-unit.c sqlite-vec.c -I./ -Ivendor -o $(prefix)/test-unit && $(prefix)/test-unit
 
 site-dev:
 	npm --prefix site run dev
