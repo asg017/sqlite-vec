@@ -6975,6 +6975,34 @@ cleanup:
   return rc;
 }
 
+int vec0Update_Delete_DeleteAux(vec0_vtab *p, i64 rowid) {
+  int rc;
+  sqlite3_stmt *stmt = NULL;
+
+  char *zSql =
+      sqlite3_mprintf("DELETE FROM " VEC0_SHADOW_AUXILIARY_NAME " WHERE rowid = ?",
+                      p->schemaName, p->tableName);
+  if (!zSql) {
+    return SQLITE_NOMEM;
+  }
+
+  rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
+  sqlite3_free(zSql);
+  if (rc != SQLITE_OK) {
+    goto cleanup;
+  }
+  sqlite3_bind_int64(stmt, 1, rowid);
+  rc = sqlite3_step(stmt);
+  if (rc != SQLITE_DONE) {
+    goto cleanup;
+  }
+  rc = SQLITE_OK;
+
+cleanup:
+  sqlite3_finalize(stmt);
+  return rc;
+}
+
 int vec0Update_Delete(sqlite3_vtab *pVTab, sqlite3_value *idValue) {
   vec0_vtab *p = (vec0_vtab *)pVTab;
   int rc;
@@ -7020,7 +7048,13 @@ int vec0Update_Delete(sqlite3_vtab *pVTab, sqlite3_value *idValue) {
     return rc;
   }
 
-  // TODO delete any auxiliary rows
+  // 6. delete any auxiliary rows
+  if(p->numAuxiliaryColumns > 0) {
+    rc = vec0Update_Delete_DeleteAux(p, rowid);
+    if (rc != SQLITE_OK) {
+      return rc;
+    }
+  }
 
   return SQLITE_OK;
 }
