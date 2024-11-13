@@ -67,6 +67,14 @@ jobs:
       - run: mkdir dist
       - run: cl.exe /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c -o dist/vec0.dll
       - run: uv sync --directory tests
+      - run: ls tests/ || true
+        shell: bash
+      - run: ls tests/.venv/ || true
+        shell: bash
+      - run: ls .venv/ || true
+        shell: bash
+      - run: ls .venv/bin || tru
+        shell: bash
       - run: make test-loadable python=./tests/.venv/bin/python.exe
         shell: bash
       - uses: actions/upload-artifact@v4
