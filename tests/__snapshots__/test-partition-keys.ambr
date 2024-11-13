@@ -215,3 +215,31 @@
     }),
   })
 # ---
+# name: test_updates[1. Initial dataset]
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'p': 'a',
+        'a': b'\x11\x11\x11\x11',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'p': 'a',
+        'a': b'""""',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'p': 'a',
+        'a': b'3333',
+      }),
+    ]),
+  })
+# ---
+# name: test_updates[2. update #1]
+  dict({
+    'error': 'OperationalError',
+    'message': 'UPDATE on partition key columns are not supported yet. ',
+  })
+# ---

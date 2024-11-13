@@ -6786,19 +6786,27 @@ int vec0Update_Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv) {
     rowid = sqlite3_value_int64(argv[0]);
   }
 
-  // 1. get chunk_id and chunk_offset from _rowids
+  // 1) get chunk_id and chunk_offset from _rowids
   rc = vec0_get_chunk_position(p, rowid, NULL, &chunk_id, &chunk_offset);
   if (rc != SQLITE_OK) {
     return rc;
   }
 
-  // 2) iterate over all new vectors, update the vectors
+  // 2) update any partition key values
   for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
     if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_PARTITION) {
-      // TODO handle partition key values in UPDATEs
+      continue;
     }
+    int partition_key_idx = p->user_column_idxs[i];
+    sqlite3_value * value = argv[2+VEC0_COLUMN_USERN_START + i];
+    if(sqlite3_value_nochange(value)) {
+      continue;
+    }
+    vtab_set_error(pVTab, "UPDATE on partition key columns are not supported yet. ");
+    return SQLITE_ERROR;
   }
 
+  // 3) iterate over all new vectors, update the vectors
   for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
     if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_VECTOR) {
       continue;

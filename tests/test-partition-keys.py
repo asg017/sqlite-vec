@@ -53,6 +53,27 @@ def test_types(db, snapshot):
     )
 
 
+def test_updates(db, snapshot):
+    db.execute(
+        "create virtual table v using vec0(p text partition key, a float[1], chunk_size=8)"
+    )
+
+    db.execute(
+        "insert into v(rowid, p, a) values (?, ?, ?)", [1, "a", b"\x11\x11\x11\x11"]
+    )
+    db.execute(
+        "insert into v(rowid, p, a) values (?, ?, ?)", [2, "a", b"\x22\x22\x22\x22"]
+    )
+    db.execute(
+        "insert into v(rowid, p, a) values (?, ?, ?)", [3, "a", b"\x33\x33\x33\x33"]
+    )
+
+    assert exec(db, "select * from v") == snapshot(name="1. Initial dataset")
+    assert exec(db, "update v set p = ? where rowid = ?", ["new", 1]) == snapshot(
+        name="2. update #1"
+    )
+
+
 class Row:
     def __init__(self):
         pass
