@@ -29,6 +29,11 @@ def test_normal(db, snapshot):
     assert exec(db, "select * from v") == snapshot()
     assert vec0_shadow_table_contents(db, "v") == snapshot()
 
+    db.execute("drop table v;")
+    assert exec(db, "select * from sqlite_master order by name") == snapshot(
+        name="sqlite_master post drop"
+    )
+
 
 def test_types(db, snapshot):
     pass

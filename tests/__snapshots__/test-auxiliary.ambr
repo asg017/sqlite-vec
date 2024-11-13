@@ -91,6 +91,20 @@
     }),
   })
 # ---
+# name: test_normal[sqlite_master post drop]
+  OrderedDict({
+    'sql': 'select * from sqlite_master order by name',
+    'rows': list([
+      OrderedDict({
+        'type': 'table',
+        'name': 'sqlite_sequence',
+        'tbl_name': 'sqlite_sequence',
+        'rootpage': 3,
+        'sql': 'CREATE TABLE sqlite_sequence(name,seq)',
+      }),
+    ]),
+  })
+# ---
 # name: test_normal[sqlite_master]
   OrderedDict({
     'sql': 'select * from sqlite_master order by name',

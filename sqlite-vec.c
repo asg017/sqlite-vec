@@ -4835,6 +4835,18 @@ static int vec0Destroy(sqlite3_vtab *pVtab) {
     }
     sqlite3_finalize(stmt);
   }
+
+  if(p->numAuxiliaryColumns > 0) {
+    zSql = sqlite3_mprintf("DROP TABLE " VEC0_SHADOW_AUXILIARY_NAME, p->schemaName, p->tableName);
+    rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, 0);
+    sqlite3_free((void *)zSql);
+    if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
+      rc = SQLITE_ERROR;
+      goto done;
+    }
+    sqlite3_finalize(stmt);
+  }
+
   stmt = NULL;
   rc = SQLITE_OK;
 
