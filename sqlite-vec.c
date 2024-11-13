@@ -4923,6 +4923,7 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
   int iRowidTerm = -1;
   int iKTerm = -1;
   int iRowidInTerm = -1;
+  int hasAuxConstraint = 0;
 
 #ifdef SQLITE_VEC_DEBUG
   printf("pIdxInfo->nOrderBy=%d, pIdxInfo->nConstraint=%d\n", pIdxInfo->nOrderBy, pIdxInfo->nConstraint);
@@ -4977,6 +4978,11 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
     if (op == SQLITE_INDEX_CONSTRAINT_EQ && iColumn == vec0_column_k_idx(p)) {
       iKTerm = i;
     }
+    if(
+      (op != SQLITE_INDEX_CONSTRAINT_LIMIT && op != SQLITE_INDEX_CONSTRAINT_OFFSET)
+      && vec0_column_idx_is_auxiliary(p, iColumn)) {
+        hasAuxConstraint = 1;
+      }
   }
 
   sqlite3_str *idxStr = sqlite3_str_new(NULL);
@@ -5017,6 +5023,13 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
         rc = SQLITE_ERROR;
       goto done;
       }
+    }
+
+    if(hasAuxConstraint) {
+      // IMP: V25623_09693
+      vtab_set_error(pVTab, "An illegal WHERE constraint was provided on a vec0 auxiliary column in a KNN query.");
+      rc = SQLITE_ERROR;
+      goto done;
     }
 
     sqlite3_str_appendchar(idxStr, 1, VEC0_QUERY_PLAN_KNN);

@@ -81,7 +81,21 @@ def test_deletes(db, snapshot):
 
 
 def test_knn(db, snapshot):
-    pass
+    db.execute("create virtual table v using vec0(vector float[1], +name text)")
+    db.executemany(
+        "insert into v(vector, name) values (?, ?)",
+        [("[1]", "alex"), ("[2]", "brian"), ("[3]", "craig")],
+    )
+    assert exec(db, "select * from v") == snapshot()
+    assert exec(
+        db, "select *, distance from v where vector match '[5]' and k = 10"
+    ) == snapshot(name="legal KNN w/ aux")
+
+    # EVIDENCE-OF: V25623_09693 No aux constraint allowed on KNN queries
+    assert exec(
+        db,
+        "select *, distance from v where vector match '[5]' and k = 10 and name = 'alex'",
+    ) == snapshot(name="illegal KNN w/ aux")
 
 
 def exec(db, sql, parameters=[]):

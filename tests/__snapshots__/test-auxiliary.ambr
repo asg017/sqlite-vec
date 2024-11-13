@@ -5,6 +5,59 @@
     'message': 'vec0 constructor error: More than 16 auxiliary columns were provided',
   })
 # ---
+# name: test_knn
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x00\x00\x80?',
+        'name': 'alex',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x00\x00\x00@',
+        'name': 'brian',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'\x00\x00@@',
+        'name': 'craig',
+      }),
+    ]),
+  })
+# ---
+# name: test_knn[illegal KNN w/ aux]
+  dict({
+    'error': 'OperationalError',
+    'message': 'An illegal WHERE constraint was provided on a vec0 auxiliary column in a KNN query.',
+  })
+# ---
+# name: test_knn[legal KNN w/ aux]
+  OrderedDict({
+    'sql': "select *, distance from v where vector match '[5]' and k = 10",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'\x00\x00@@',
+        'name': 'craig',
+        'distance': 2.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x00\x00\x00@',
+        'name': 'brian',
+        'distance': 3.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x00\x00\x80?',
+        'name': 'alex',
+        'distance': 4.0,
+      }),
+    ]),
+  })
+# ---
 # name: test_normal.1
   OrderedDict({
     'sql': 'select * from v',
