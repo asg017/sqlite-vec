@@ -106,7 +106,7 @@ typedef size_t usize;
 #endif
 
 #ifndef SQLITE_INDEX_CONSTRAINT_OFFSET
-#define SQLITE_INDEX_CONSTRAINT_LIMIT 74
+#define SQLITE_INDEX_CONSTRAINT_OFFSET 74
 #endif
 
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
