@@ -6,6 +6,7 @@
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
 
 void test_vec0_parse_partition_key_definition() {
+  printf("Starting %s...\n", __func__);
   typedef struct {
     char * test;
     int expected_rc;
@@ -34,6 +35,7 @@ void test_vec0_parse_partition_key_definition() {
       &out_column_name_length,
       &out_column_type
     );
+    printf("2\n");
     assert(rc == suite[i].expected_rc);
 
     if(rc == SQLITE_OK) {
@@ -47,5 +49,6 @@ void test_vec0_parse_partition_key_definition() {
 }
 
 int main() {
+  printf("Starting unit tests...\n");
   test_vec0_parse_partition_key_definition();
 }

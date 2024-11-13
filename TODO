@@ -1,7 +1,5 @@
 # partition
 
-- UPDATE on partition key values
+- [ ] UPDATE on partition key values
   - remove previous row from chunk, insert into new one?
-- enforce column types on insert?
-- allow null values?
-- properly sqlite3_vtab_nochange / sqlite3_value_nochange handling
+- [ ] properly sqlite3_vtab_nochange / sqlite3_value_nochange handling

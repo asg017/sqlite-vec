@@ -11,15 +11,65 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v3
         with:
-          python-version: "3.12"
+          enable-cache: true
       - run: ./scripts/vendor.sh
       - run: make loadable static
-      - run: pip install pytest numpy; make test-loadable
+      - run: uv sync --directory tests
+      - run: make test-loadable python=./venv/bin/python
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-linux-x86_64-extension
+          path: dist/*
+  build-macos-x86_64-extension:
+    runs-on: macos-12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: ./scripts/vendor.sh
+      - run: make loadable static
+      - run: uv sync --directory tests
+      - run: make test-loadable python=./venv/bin/python
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-macos-x86_64-extension
+          path: dist/*
+  build-macos-aarch64-extension:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: ./scripts/vendor.sh
+      - run: make loadable static
+      - run: uv sync --directory tests
+      - run: make test-loadable python=./venv/bin/python
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-macos-aarch64-extension
+          path: dist/*
+  build-windows-x86_64-extension:
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: ./scripts/vendor.sh
+        shell: bash
+      - run: make sqlite-vec.h
+      - run: mkdir dist
+      - run: cl.exe /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c -o dist/vec0.dll
+      - run: uv sync --directory tests
+      - run: make test-loadable python=./venv/bin/python
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-windows-x86_64-extension
           path: dist/*
   build-android-extensions:
     runs-on: ubuntu-latest
@@ -98,46 +148,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-${{ matrix.platforms.name }}-extension
-          path: dist/*
-  build-macos-x86_64-extension:
-    runs-on: macos-12
-    steps:
-      - uses: actions/checkout@v4
-      - run: ./scripts/vendor.sh
-      - run: make loadable static
-      - run: /usr/local/opt/python@3/libexec/bin/python -m pip install --break-system-packages pytest numpy; make test-loadable python=/usr/local/opt/python@3/libexec/bin/python
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sqlite-vec-macos-x86_64-extension
-          path: dist/*
-  build-macos-aarch64-extension:
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v4
-      - run: ./scripts/vendor.sh
-      - run: make loadable static
-      - run: /opt/homebrew/opt/python3/libexec/bin/python -m pip install pytest numpy --break-system-packages; make test-loadable python=/opt/homebrew/opt/python3/libexec/bin/python
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sqlite-vec-macos-aarch64-extension
-          path: dist/*
-  build-windows-x86_64-extension:
-    runs-on: windows-2019
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ilammy/msvc-dev-cmd@v1
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: ./scripts/vendor.sh
-        shell: bash
-      - run: make sqlite-vec.h
-      - run: mkdir dist
-      - run: cl.exe /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c -o dist/vec0.dll
-      - run: pip install pytest numpy; make test-loadable
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sqlite-vec-windows-x86_64-extension
           path: dist/*
   build-wasm32-emscripten:
     runs-on: ubuntu-latest

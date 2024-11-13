@@ -5477,7 +5477,6 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
   assert(k_idx >= 0);
 
   // make sure the query vector matches the vector column (type dimensions etc.)
-  // TODO not argv[0], source idx from idxStr
   rc = vector_from_value(argv[query_idx], &queryVector, &dimensions, &elementType,
                          &queryVectorCleanup, &pzError);
 
@@ -5510,7 +5509,6 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
     goto cleanup;
   }
 
-  // TODO not argv[1], source idx from idxStr
   i64 k = sqlite3_value_int64(argv[k_idx]);
   if (k < 0) {
     vtab_set_error(
@@ -5540,7 +5538,6 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
 // Array of all the rowids that appear in any `rowid in (...)` constraint.
 // NULL if none were provided, which means a "full" scan.
 #if COMPILER_SUPPORTS_VTAB_IN
-  // TODO fix
   if (rowid_in_idx >= 0) {
     sqlite3_value *item;
     int rc;
@@ -6420,6 +6417,20 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
     }
     int partition_key_idx = p->user_column_idxs[i];
     partitionKeyValues[partition_key_idx] = argv[2+VEC0_COLUMN_USERN_START + i];
+
+    int new_value_type = sqlite3_value_type(partitionKeyValues[partition_key_idx]);
+    if(new_value_type != SQLITE_NULL && new_value_type != p->paritition_columns[partition_key_idx].type) {
+      // IMP: V11454_28292
+      vtab_set_error(
+        pVTab,
+        "Parition key type mismatch: The partition key column %.*s has type %s, but %s was provided.",
+        p->paritition_columns[partition_key_idx].name_length,
+        p->paritition_columns[partition_key_idx].name,
+        type_name(p->paritition_columns[partition_key_idx].type),
+        type_name(new_value_type)
+      );
+      goto cleanup;
+    }
   }
 
   // read all the inserted vectors  into vectorDatas, validate their lengths.
