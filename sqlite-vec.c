@@ -2074,7 +2074,7 @@ int vec0_parse_auxiliary_column_definition(const char *source, int source_length
                  0 ||
              sqlite3_strnicmp(token.start, "double",
                               token.end - token.start) == 0) {
-    column_type = SQLITE_INTEGER;
+    column_type = SQLITE_FLOAT;
   } else if (sqlite3_strnicmp(token.start, "blob", token.end - token.start) ==0) {
     column_type = SQLITE_BLOB;
   } else {
@@ -6736,6 +6736,20 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
       }
       int auxiliary_key_idx = p->user_column_idxs[i];
       sqlite3_value * v = argv[2+VEC0_COLUMN_USERN_START + i];
+      int v_type = sqlite3_value_type(v);
+      if(v_type != SQLITE_NULL && (v_type != p->auxiliary_columns[auxiliary_key_idx].type)) {
+        sqlite3_finalize(stmt);
+        rc = SQLITE_ERROR;
+        vtab_set_error(
+        pVTab,
+        "Auxiliary column type mismatch: The auxiliary column %.*s has type %s, but %s was provided.",
+        p->auxiliary_columns[auxiliary_key_idx].name_length,
+        p->auxiliary_columns[auxiliary_key_idx].name,
+        type_name(p->auxiliary_columns[auxiliary_key_idx].type),
+        type_name(v_type)
+      );
+        goto cleanup;
+      }
       sqlite3_bind_value(stmt, 1 + auxiliary_key_idx, v);
     }
 

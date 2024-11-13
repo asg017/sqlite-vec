@@ -36,7 +36,40 @@ def test_normal(db, snapshot):
 
 
 def test_types(db, snapshot):
-    pass
+    db.execute(
+        """
+          create virtual table v using vec0(
+            vector float[1],
+            +aux_int integer,
+            +aux_float float,
+            +aux_text text,
+            +aux_blob blob
+          )
+        """
+    )
+    assert exec(db, "select * from v") == snapshot()
+    INSERT = "insert into v(vector, aux_int, aux_float, aux_text, aux_blob) values (?, ?, ?, ?, ?)"
+
+    assert (
+        exec(db, INSERT, [b"\x11\x11\x11\x11", 1, 1.22, "text", b"blob"]) == snapshot()
+    )
+    assert exec(db, "select * from v") == snapshot()
+
+    # bad types
+    assert (
+        exec(db, INSERT, [b"\x11\x11\x11\x11", "not int", 1.2, "text", b"blob"])
+        == snapshot()
+    )
+    assert (
+        exec(db, INSERT, [b"\x11\x11\x11\x11", 1, "not float", "text", b"blob"])
+        == snapshot()
+    )
+    assert exec(db, INSERT, [b"\x11\x11\x11\x11", 1, 1.2, 1, b"blob"]) == snapshot()
+    assert exec(db, INSERT, [b"\x11\x11\x11\x11", 1, 1.2, "text", 1]) == snapshot()
+
+    # NULLs are totally chill
+    assert exec(db, INSERT, [b"\x11\x11\x11\x11", None, None, None, None]) == snapshot()
+    assert exec(db, "select * from v") == snapshot()
 
 
 def test_updates(db, snapshot):

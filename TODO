@@ -7,7 +7,6 @@
 
 # auxiliary columns
 
-- enforce column types, ie STRICT?
 - in xBestIndex, ensure there are no constraints on any aux column
 - DELETE and UPDATE support
 - later:

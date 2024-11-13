@@ -161,3 +161,86 @@
     ]),
   })
 # ---
+# name: test_types
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_types.1
+  OrderedDict({
+    'sql': 'insert into v(vector, aux_int, aux_float, aux_text, aux_blob) values (?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_types.2
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'aux_int': 1,
+        'aux_float': 1.22,
+        'aux_text': 'text',
+        'aux_blob': b'blob',
+      }),
+    ]),
+  })
+# ---
+# name: test_types.3
+  dict({
+    'error': 'OperationalError',
+    'message': 'Auxiliary column type mismatch: The auxiliary column aux_int has type INTEGER, but TEXT was provided.',
+  })
+# ---
+# name: test_types.4
+  dict({
+    'error': 'OperationalError',
+    'message': 'Auxiliary column type mismatch: The auxiliary column aux_float has type FLOAT, but TEXT was provided.',
+  })
+# ---
+# name: test_types.5
+  dict({
+    'error': 'OperationalError',
+    'message': 'Auxiliary column type mismatch: The auxiliary column aux_text has type TEXT, but INTEGER was provided.',
+  })
+# ---
+# name: test_types.6
+  dict({
+    'error': 'OperationalError',
+    'message': 'Auxiliary column type mismatch: The auxiliary column aux_blob has type BLOB, but INTEGER was provided.',
+  })
+# ---
+# name: test_types.7
+  OrderedDict({
+    'sql': 'insert into v(vector, aux_int, aux_float, aux_text, aux_blob) values (?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_types.8
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'aux_int': 1,
+        'aux_float': 1.22,
+        'aux_text': 'text',
+        'aux_blob': b'blob',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x11\x11\x11\x11',
+        'aux_int': None,
+        'aux_float': None,
+        'aux_text': None,
+        'aux_blob': None,
+      }),
+    ]),
+  })
+# ---
