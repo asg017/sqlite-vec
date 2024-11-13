@@ -1420,7 +1420,6 @@ def test_vec0_point():
     assert execute_all(db, "select * from t2 where id = 'xxx'") == []
 
 
-# @pytest.mark.skip(reason="TODO failing locally for some reason")
 def test_vec0_text_pk():
     db = connect(EXT_PATH)
     db.execute(
