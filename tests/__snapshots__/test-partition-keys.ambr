@@ -148,7 +148,7 @@
 # ---
 # name: test_types[1. raises type error]
   dict({
-    'error': 'OperationalError',
+    'error': 'DatabaseError',
     'message': 'Parition key type mismatch: The partition key column p1 has type INTEGER, but TEXT was provided.',
   })
 # ---
