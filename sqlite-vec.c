@@ -6683,6 +6683,7 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
         type_name(p->paritition_columns[partition_key_idx].type),
         type_name(new_value_type)
       );
+    }
   }
 
   if(p->numAuxiliaryColumns > 0) {
