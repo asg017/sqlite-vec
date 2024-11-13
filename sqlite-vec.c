@@ -7059,6 +7059,28 @@ int vec0Update_Delete(sqlite3_vtab *pVTab, sqlite3_value *idValue) {
   return SQLITE_OK;
 }
 
+int vec0Update_UpdateAuxColumn(vec0_vtab *p, int auxiliary_column_idx, sqlite3_value * value, i64 rowid) {
+  int rc;
+  sqlite3_stmt *stmt;
+  const char * zSql = sqlite3_mprintf("UPDATE " VEC0_SHADOW_AUXILIARY_NAME " SET value%02d = ? WHERE rowid = ?", p->schemaName, p->tableName, auxiliary_column_idx);
+  if(!zSql) {
+    return SQLITE_NOMEM;
+  }
+  rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
+  if(rc != SQLITE_OK) {
+    return rc;
+  }
+  sqlite3_bind_value(stmt, 1, value);
+  sqlite3_bind_int64(stmt, 2, rowid);
+  rc = sqlite3_step(stmt);
+  if(rc != SQLITE_DONE) {
+    sqlite3_finalize(stmt);
+    return SQLITE_ERROR;
+  }
+  sqlite3_finalize(stmt);
+  return SQLITE_OK;
+}
+
 int vec0Update_UpdateVectorColumn(vec0_vtab *p, i64 chunk_id, i64 chunk_offset,
                                   int i, sqlite3_value *valueVector) {
   int rc;
@@ -7183,9 +7205,23 @@ int vec0Update_Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv) {
     return SQLITE_ERROR;
   }
 
-  // TODO handle auxiliary column updates
+  // 3) handle auxiliary column updates
+  for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
+    if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_AUXILIARY) {
+      continue;
+    }
+    int auxiliary_column_idx = p->user_column_idxs[i];
+    sqlite3_value * value = argv[2+VEC0_COLUMN_USERN_START + i];
+    if(sqlite3_value_nochange(value)) {
+      continue;
+    }
+    rc = vec0Update_UpdateAuxColumn(p, auxiliary_column_idx, value, rowid);
+    if(rc != SQLITE_OK) {
+      return SQLITE_ERROR;
+    }
+  }
 
-  // 3) iterate over all new vectors, update the vectors
+  // 4) iterate over all new vectors, update the vectors
   for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
     if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_VECTOR) {
       continue;

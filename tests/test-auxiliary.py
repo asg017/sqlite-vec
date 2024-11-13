@@ -73,7 +73,19 @@ def test_types(db, snapshot):
 
 
 def test_updates(db, snapshot):
-    pass
+    db.execute(
+        "create virtual table v using vec0(vector float[1], +name text, chunk_size=8)"
+    )
+    db.executemany(
+        "insert into v(vector, name) values (?, ?)",
+        [("[1]", "alex"), ("[2]", "brian"), ("[3]", "craig")],
+    )
+    assert exec(db, "select rowid, * from v") == snapshot()
+    assert vec0_shadow_table_contents(db, "v") == snapshot()
+
+    assert exec(db, "update v set name = 'ALEX' where rowid = 1") == snapshot()
+    assert exec(db, "select rowid, * from v") == snapshot()
+    assert vec0_shadow_table_contents(db, "v") == snapshot()
 
 
 def test_deletes(db, snapshot):

@@ -7,7 +7,6 @@
 
 # auxiliary columns
 
-- UPDATE support
 - later:
   - NOT NULL?
   - perf: INSERT stmt should be cached on vec0_vtab
