@@ -5,6 +5,7 @@ on:
       - main
       - partition-by
       - auxiliary
+      - metadata-filtering
 permissions:
   contents: read
 jobs:
