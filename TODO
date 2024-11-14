@@ -13,7 +13,9 @@
   - perf: LEFT JOIN aux table to rowids query in vec0_cursor for rowid/point stmts, to avoid N lookup queries
 
 # metadata filtering
-
+- boolean comparisons
+- text comparisons (long)
+- skip invalid validity entries in knn filter?
 - null!
 - date/datetime
 - later
