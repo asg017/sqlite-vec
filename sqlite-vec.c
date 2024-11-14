@@ -7334,11 +7334,19 @@ int vec0_insert_metadata_values(vec0_vtab *p, int argc, sqlite3_value ** argv, i
         break;
       }
       case VEC0_METADATA_COLUMN_KIND_FLOAT: {
-        // TODO verify v is SQLITE_FLOAT
+        if(sqlite3_value_type(v) != SQLITE_FLOAT) {
+          rc = SQLITE_ERROR;
+          vtab_set_error(&p->base, "Expected float for FLOAT metadata column %.*s, received %s", p->metadata_columns[metadata_idx].name_length, p->metadata_columns[metadata_idx].name, type_name(sqlite3_value_type(v)));
+          goto done;
+        }
         break;
       }
       case VEC0_METADATA_COLUMN_KIND_TEXT: {
-        // TODO verify v is SQLITE_TEXT
+        if(sqlite3_value_type(v) != SQLITE_TEXT) {
+          rc = SQLITE_ERROR;
+          vtab_set_error(&p->base, "Expected text for TEXT metadata column %.*s, received %s", p->metadata_columns[metadata_idx].name_length, p->metadata_columns[metadata_idx].name, type_name(sqlite3_value_type(v)));
+          goto done;
+        }
         break;
       }
     }

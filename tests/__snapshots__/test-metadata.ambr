@@ -1154,24 +1154,28 @@
     'message': 'Expected 0 or 1 for BOOLEAN metadata column b',
   })
 # ---
-# name: test_types[illegal-float]
-  OrderedDict({
-    'sql': 'insert into v(vector, b, n, f, t) values (?, ?, ?, ?, ?)',
-    'rows': list([
-    ]),
+# name: test_types[illegal-type-boolean]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Expected 0 or 1 for BOOLEAN metadata column b',
   })
 # ---
-# name: test_types[illegal-int]
+# name: test_types[illegal-type-float]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Expected float for FLOAT metadata column f, received TEXT',
+  })
+# ---
+# name: test_types[illegal-type-int]
   dict({
     'error': 'OperationalError',
     'message': 'Expected integer for INTEGER metadata column n, received TEXT',
   })
 # ---
-# name: test_types[illegal-text]
-  OrderedDict({
-    'sql': 'insert into v(vector, b, n, f, t) values (?, ?, ?, ?, ?)',
-    'rows': list([
-    ]),
+# name: test_types[illegal-type-text]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Expected text for TEXT metadata column t, received INTEGER',
   })
 # ---
 # name: test_types[legal]
