@@ -5,6 +5,364 @@
     'message': 'vec0 constructor error: More than 16 metadata columns were provided',
   })
 # ---
+# name: test_deletes
+  OrderedDict({
+    'sql': 'insert into v(rowid, vector, b, n, f, t) values (?, ?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_deletes.1
+  OrderedDict({
+    'sql': 'insert into v(rowid, vector, b, n, f, t) values (?, ?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_deletes.10
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x02',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks00': OrderedDict({
+      'sql': 'select * from v_metadata_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x02',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks01': OrderedDict({
+      'sql': 'select * from v_metadata_chunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks02': OrderedDict({
+      'sql': 'select * from v_metadata_chunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x00\x00\x00\x00\x00\x00\x00\x00\x9a\x99\x99\x99\x99\x99\x01@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks03': OrderedDict({
+      'sql': 'select * from v_metadata_chunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_text_data_03': OrderedDict({
+      'sql': 'select * from v_metadata_text_data_03',
+      'rows': list([
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_deletes.2
+  OrderedDict({
+    'sql': 'insert into v(rowid, vector, b, n, f, t) values (?, ?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_deletes.3
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'b': 1,
+        'n': 1,
+        'f': 1.1,
+        't': 'test1',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123',
+      }),
+    ]),
+  })
+# ---
+# name: test_deletes.4
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks00': OrderedDict({
+      'sql': 'select * from v_metadata_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x07',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks01': OrderedDict({
+      'sql': 'select * from v_metadata_chunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks02': OrderedDict({
+      'sql': 'select * from v_metadata_chunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x9a\x99\x99\x99\x99\x99\xf1?\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks03': OrderedDict({
+      'sql': 'select * from v_metadata_chunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x05\x00\x00\x00test1\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_text_data_03': OrderedDict({
+      'sql': 'select * from v_metadata_text_data_03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_deletes.5
+  OrderedDict({
+    'sql': 'DELETE FROM v where rowid = 1',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_deletes.6
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123',
+      }),
+    ]),
+  })
+# ---
+# name: test_deletes.7
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x06',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks00': OrderedDict({
+      'sql': 'select * from v_metadata_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x06',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks01': OrderedDict({
+      'sql': 'select * from v_metadata_chunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks02': OrderedDict({
+      'sql': 'select * from v_metadata_chunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x00\x00\x00\x00\x00\x00\x00\x00\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks03': OrderedDict({
+      'sql': 'select * from v_metadata_chunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_text_data_03': OrderedDict({
+      'sql': 'select * from v_metadata_text_data_03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_deletes.8
+  OrderedDict({
+    'sql': 'DELETE FROM v where rowid = 3',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_deletes.9
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2',
+      }),
+    ]),
+  })
+# ---
 # name: test_idxstr
   OrderedDict({
     'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and is_favorited = true",

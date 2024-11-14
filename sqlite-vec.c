@@ -7462,7 +7462,7 @@ int vec0_insert_metadata_values(vec0_vtab *p, int argc, sqlite3_value ** argv, i
         break;
       }
     }
-    printf("rc=%d\n", rc);
+
     if(rc != SQLITE_OK) {
 
     }
@@ -7832,6 +7832,82 @@ cleanup:
   return rc;
 }
 
+int vec0Update_Delete_ClearMetadata(vec0_vtab *p, int metadata_idx, i64 rowid, i64 chunk_id,
+                                    u64 chunk_offset) {
+  int rc;
+  sqlite3_blob * blobValue;
+  vec0_metadata_column_kind kind = p->metadata_columns[metadata_idx].kind;
+  rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowMetadataChunksNames[metadata_idx], "data", chunk_id, 1, &blobValue);
+  if(rc != SQLITE_OK) {
+    return rc;
+  }
+
+  switch(kind) {
+    case VEC0_METADATA_COLUMN_KIND_BOOLEAN: {
+      u8 block;
+      rc = sqlite3_blob_read(blobValue, &block, sizeof(u8), (int) (chunk_offset / CHAR_BIT));
+      if(rc != SQLITE_OK) {
+        goto done;
+      }
+
+      block &= ~(1 << (chunk_offset % CHAR_BIT));
+      rc = sqlite3_blob_write(blobValue, &block, sizeof(u8), chunk_offset / CHAR_BIT);
+      break;
+    }
+    case VEC0_METADATA_COLUMN_KIND_INTEGER: {
+      i64 v = 0;
+      rc = sqlite3_blob_write(blobValue, &v, sizeof(v), chunk_offset * sizeof(i64));
+      break;
+    }
+    case VEC0_METADATA_COLUMN_KIND_FLOAT: {
+      double v = 0;
+      rc = sqlite3_blob_write(blobValue, &v, sizeof(v), chunk_offset * sizeof(double));
+      break;
+    }
+    case VEC0_METADATA_COLUMN_KIND_TEXT: {
+      int n;
+      rc = sqlite3_blob_read(blobValue, &n, sizeof(int), chunk_offset * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH);
+      if(rc != SQLITE_OK) {
+        goto done;
+      }
+
+      u8 view[VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
+      memset(view, 0, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH);
+      rc = sqlite3_blob_write(blobValue, &view, sizeof(view), chunk_offset * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH);
+      if(rc != SQLITE_OK) {
+        goto done;
+      }
+
+      if(n > 12) {
+        const char * zSql = sqlite3_mprintf("DELETE FROM " VEC0_SHADOW_METADATA_TEXT_DATA_NAME " WHERE rowid = ?", p->schemaName, p->tableName, metadata_idx);
+        if(!zSql) {
+          rc = SQLITE_NOMEM;
+          goto done;
+        }
+        sqlite3_stmt * stmt;
+        rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
+        if(rc != SQLITE_OK) {
+          goto done;
+        }
+        sqlite3_bind_int64(stmt, 1, rowid);
+        rc = sqlite3_step(stmt);
+        if(rc != SQLITE_DONE) {
+          rc = SQLITE_ERROR;
+          goto done;
+        }
+        sqlite3_finalize(stmt);
+      }
+      break;
+    }
+  }
+  done:
+  int rc2 = sqlite3_blob_close(blobValue);
+  if(rc == SQLITE_OK) {
+    return rc2;
+  }
+  return rc;
+}
+
 int vec0Update_Delete(sqlite3_vtab *pVTab, sqlite3_value *idValue) {
   vec0_vtab *p = (vec0_vtab *)pVTab;
   int rc;
@@ -7885,7 +7961,10 @@ int vec0Update_Delete(sqlite3_vtab *pVTab, sqlite3_value *idValue) {
     }
   }
 
-  // TODO delete metadata rows
+  // 6. delete metadata
+  for(int i = 0; i < p->numMetadataColumns; i++) {
+    rc = vec0Update_Delete_ClearMetadata(p, i, rowid, chunk_id, chunk_offset);
+  }
 
   return SQLITE_OK;
 }

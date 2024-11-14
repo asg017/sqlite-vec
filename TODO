@@ -14,9 +14,7 @@
 
 # metadata filtering
 
-- boolean value handling
-- DELETE and UPDATE support
-- large strings
+- UPDATE support
 - date/datetime
 - later
   - `v in (...)` handling

@@ -86,7 +86,28 @@ def test_updates(db, snapshot):
 
 
 def test_deletes(db, snapshot):
-    pass
+    db.execute(
+        "create virtual table v using vec0(vector float[1], b boolean, n int, f float, t text, chunk_size=8)"
+    )
+    INSERT = "insert into v(rowid, vector, b, n, f, t) values (?, ?, ?, ?, ?, ?)"
+
+    assert exec(db, INSERT, [1, b"\x11\x11\x11\x11", 1, 1, 1.1, "test1"]) == snapshot()
+    assert exec(db, INSERT, [2, b"\x22\x22\x22\x22", 1, 2, 2.2, "test2"]) == snapshot()
+    assert (
+        exec(db, INSERT, [3, b"\x33\x33\x33\x33", 1, 3, 3.3, "1234567890123"])
+        == snapshot()
+    )
+
+    assert exec(db, "select * from v") == snapshot()
+    assert vec0_shadow_table_contents(db, "v") == snapshot()
+
+    assert exec(db, "DELETE FROM v where rowid = 1") == snapshot()
+    assert exec(db, "select * from v") == snapshot()
+    assert vec0_shadow_table_contents(db, "v") == snapshot()
+
+    assert exec(db, "DELETE FROM v where rowid = 3") == snapshot()
+    assert exec(db, "select * from v") == snapshot()
+    assert vec0_shadow_table_contents(db, "v") == snapshot()
 
 
 def test_knn(db, snapshot):
