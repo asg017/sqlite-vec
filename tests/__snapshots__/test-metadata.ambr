@@ -370,7 +370,6 @@
       dict({
         'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Aa_',
         'id': 2,
-        'notused': 0,
         'parent': 0,
       }),
     ]),
@@ -383,7 +382,6 @@
       dict({
         'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Df_',
         'id': 2,
-        'notused': 0,
         'parent': 0,
       }),
     ]),
@@ -396,7 +394,6 @@
       dict({
         'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Dc_',
         'id': 2,
-        'notused': 0,
         'parent': 0,
       }),
     ]),
@@ -409,7 +406,6 @@
       dict({
         'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Dd_',
         'id': 2,
-        'notused': 0,
         'parent': 0,
       }),
     ]),
@@ -422,7 +418,6 @@
       dict({
         'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&De_',
         'id': 2,
-        'notused': 0,
         'parent': 0,
       }),
     ]),
@@ -435,7 +430,6 @@
       dict({
         'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Db_',
         'id': 2,
-        'notused': 0,
         'parent': 0,
       }),
     ]),
@@ -448,7 +442,6 @@
       dict({
         'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Cf_',
         'id': 2,
-        'notused': 0,
         'parent': 0,
       }),
     ]),
@@ -461,7 +454,6 @@
       dict({
         'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Cc_',
         'id': 2,
-        'notused': 0,
         'parent': 0,
       }),
     ]),
@@ -474,7 +466,6 @@
       dict({
         'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Cd_',
         'id': 2,
-        'notused': 0,
         'parent': 0,
       }),
     ]),
@@ -487,7 +478,6 @@
       dict({
         'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Ce_',
         'id': 2,
-        'notused': 0,
         'parent': 0,
       }),
     ]),
@@ -500,7 +490,6 @@
       dict({
         'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Cb_',
         'id': 2,
-        'notused': 0,
         'parent': 0,
       }),
     ]),
@@ -513,7 +502,6 @@
       dict({
         'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Bf_',
         'id': 2,
-        'notused': 0,
         'parent': 0,
       }),
     ]),
@@ -526,7 +514,6 @@
       dict({
         'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Bc_',
         'id': 2,
-        'notused': 0,
         'parent': 0,
       }),
     ]),
@@ -539,7 +526,6 @@
       dict({
         'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Bd_',
         'id': 2,
-        'notused': 0,
         'parent': 0,
       }),
     ]),
@@ -552,7 +538,6 @@
       dict({
         'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Be_',
         'id': 2,
-        'notused': 0,
         'parent': 0,
       }),
     ]),
@@ -565,7 +550,6 @@
       dict({
         'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Bb_',
         'id': 2,
-        'notused': 0,
         'parent': 0,
       }),
     ]),

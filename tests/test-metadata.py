@@ -233,6 +233,9 @@ def eqp(db, sql):
     o["plan"] = [
         dict(row) for row in db.execute(f"explain query plan {sql}").fetchall()
     ]
+    for p in o["plan"]:
+        # value is different on macos-aarch64 in github actions, not sure why
+        del p["notused"]
     return o
 
 
