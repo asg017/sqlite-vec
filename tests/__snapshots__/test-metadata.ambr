@@ -1698,7 +1698,38 @@
     ]),
   })
 # ---
-# name: test_updates[1-init]
+# name: test_updates[1-init-contents]
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'b': 1,
+        'n': 1,
+        'f': 1.1,
+        't': 'test1',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123',
+      }),
+    ]),
+  })
+# ---
+# name: test_updates[1-init-shadow]
   dict({
     'v_chunks': OrderedDict({
       'sql': 'select * from v_chunks',

@@ -89,8 +89,8 @@ def test_updates(db, snapshot):
     exec(db, INSERT, [1, b"\x11\x11\x11\x11", 1, 1, 1.1, "test1"])
     exec(db, INSERT, [2, b"\x22\x22\x22\x22", 1, 2, 2.2, "test2"])
     exec(db, INSERT, [3, b"\x33\x33\x33\x33", 1, 3, 3.3, "1234567890123"])
-    assert exec(db, "select * from v") == snapshot(name="1-init")
-    assert vec0_shadow_table_contents(db, "v") == snapshot(name="1-init")
+    assert exec(db, "select * from v") == snapshot(name="1-init-contents")
+    assert vec0_shadow_table_contents(db, "v") == snapshot(name="1-init-shadow")
 
     assert exec(
         db, "UPDATE v SET b = 0, n = 11, f = 11.11, t = 'newtest1' where rowid = 1"
