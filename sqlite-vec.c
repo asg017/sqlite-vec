@@ -2090,10 +2090,8 @@ int vec0_parse_auxiliary_column_definition(const char *source, int source_length
 
 typedef enum {
   VEC0_METADATA_COLUMN_KIND_BOOLEAN,
-  VEC0_METADATA_COLUMN_KIND_INT32,
-  VEC0_METADATA_COLUMN_KIND_INT64,
+  VEC0_METADATA_COLUMN_KIND_INTEGER,
   VEC0_METADATA_COLUMN_KIND_FLOAT,
-  VEC0_METADATA_COLUMN_KIND_DOUBLE,
   VEC0_METADATA_COLUMN_KIND_TEXT,
   // TODO: blob, date, datetime
 } vec0_metadata_column_kind;
@@ -2141,14 +2139,10 @@ int vec0_parse_metadata_column_definition(const char *source, int source_length,
   int n = token.end - token.start;
   if (sqlite3_strnicmp(t, "boolean", n) == 0 || sqlite3_strnicmp(t, "bool", n) == 0) {
     column_type = VEC0_METADATA_COLUMN_KIND_BOOLEAN;
-  }else if (sqlite3_strnicmp(t, "int32", n) == 0 || sqlite3_strnicmp(t, "integer32", n) == 0) {
-    column_type = VEC0_METADATA_COLUMN_KIND_INT32;
   }else if (sqlite3_strnicmp(t, "int64", n) == 0 || sqlite3_strnicmp(t, "integer64", n) == 0 || sqlite3_strnicmp(t, "integer", n) == 0 || sqlite3_strnicmp(t, "int", n) == 0) {
-    column_type = VEC0_METADATA_COLUMN_KIND_INT64;
-  }else if (sqlite3_strnicmp(t, "float", n) == 0 || sqlite3_strnicmp(t, "float32", n) == 0 || sqlite3_strnicmp(t, "f32", n) == 0) {
+    column_type = VEC0_METADATA_COLUMN_KIND_INTEGER;
+  }else if (sqlite3_strnicmp(t, "float", n) == 0 || sqlite3_strnicmp(t, "double", n) == 0 || sqlite3_strnicmp(t, "float64", n) == 0 || sqlite3_strnicmp(t, "f64", n) == 0) {
     column_type = VEC0_METADATA_COLUMN_KIND_FLOAT;
-  } else if (sqlite3_strnicmp(t, "double", n) == 0 || sqlite3_strnicmp(t, "float64", n) == 0 || sqlite3_strnicmp(t, "f64", n) == 0) {
-    column_type = VEC0_METADATA_COLUMN_KIND_DOUBLE;
   } else if (sqlite3_strnicmp(t, "text", n) == 0) {
     column_type = VEC0_METADATA_COLUMN_KIND_TEXT;
   } else {
@@ -4070,16 +4064,7 @@ int vec0_result_metadata_value_for_rowid(vec0_vtab *p, i64 rowid, int metadata_i
       sqlite3_result_int(context, value);
       break;
     }
-    case VEC0_METADATA_COLUMN_KIND_INT32: {
-      int value;
-      rc = sqlite3_blob_read(blobValue, &value, sizeof(value), chunk_offset * sizeof(i32));
-      if(rc != SQLITE_OK) {
-        goto done;
-      }
-      sqlite3_result_int(context, value);
-      break;
-    }
-    case VEC0_METADATA_COLUMN_KIND_INT64: {
+    case VEC0_METADATA_COLUMN_KIND_INTEGER: {
       i64 value;
       rc = sqlite3_blob_read(blobValue, &value, sizeof(value), chunk_offset * sizeof(i64));
       if(rc != SQLITE_OK) {
@@ -4089,15 +4074,6 @@ int vec0_result_metadata_value_for_rowid(vec0_vtab *p, i64 rowid, int metadata_i
       break;
     }
     case VEC0_METADATA_COLUMN_KIND_FLOAT: {
-      float value;
-      rc = sqlite3_blob_read(blobValue, &value, sizeof(value), chunk_offset * sizeof(f32));
-      if(rc != SQLITE_OK) {
-        goto done;
-      }
-      sqlite3_result_double(context, (double) value);
-      break;
-    }
-    case VEC0_METADATA_COLUMN_KIND_DOUBLE: {
       double value;
       rc = sqlite3_blob_read(blobValue, &value, sizeof(value), chunk_offset * sizeof(double));
       if(rc != SQLITE_OK) {
@@ -4335,13 +4311,9 @@ int vec0_metadata_chunk_size(vec0_metadata_column_kind kind, int chunk_size) {
   switch(kind) {
     case VEC0_METADATA_COLUMN_KIND_BOOLEAN:
       return chunk_size / 8;
-    case VEC0_METADATA_COLUMN_KIND_INT32:
-      return chunk_size * sizeof(int32_t);
-    case VEC0_METADATA_COLUMN_KIND_INT64:
+    case VEC0_METADATA_COLUMN_KIND_INTEGER:
       return chunk_size * sizeof(i64);
     case VEC0_METADATA_COLUMN_KIND_FLOAT:
-      return chunk_size * sizeof(f32);
-    case VEC0_METADATA_COLUMN_KIND_DOUBLE:
       return chunk_size * sizeof(double);
     case VEC0_METADATA_COLUMN_KIND_TEXT:
       return chunk_size * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH;
@@ -5824,19 +5796,11 @@ int vec0_set_metadata_filter_bitmap(
       szMatch = blobSize == size / CHAR_BIT;
       break;
     }
-    case VEC0_METADATA_COLUMN_KIND_INT32: {
-      szMatch = blobSize == size * sizeof(i32);
-      break;
-    }
-    case VEC0_METADATA_COLUMN_KIND_INT64: {
+    case VEC0_METADATA_COLUMN_KIND_INTEGER: {
       szMatch = blobSize == size * sizeof(i64);
       break;
     }
     case VEC0_METADATA_COLUMN_KIND_FLOAT: {
-      szMatch = blobSize == size * sizeof(f32);
-      break;
-    }
-    case VEC0_METADATA_COLUMN_KIND_DOUBLE: {
       szMatch = blobSize == size * sizeof(double);
       break;
     }
@@ -5860,38 +5824,7 @@ int vec0_set_metadata_filter_bitmap(
       }
       break;
     }
-    case VEC0_METADATA_COLUMN_KIND_INT32: {
-      i32 * array = (i32*) buffer;
-      i32 target = sqlite3_value_int(value);
-      switch(op) {
-        case VEC0_METADATA_OPERATOR_EQ: {
-          for(int i = 0; i < size; i++) { bitmap_set(b, i, array[i] == target); }
-          break;
-        }
-        case VEC0_METADATA_OPERATOR_GT: {
-          for(int i = 0; i < size; i++) { bitmap_set(b, i, array[i] > target); }
-          break;
-        }
-        case VEC0_METADATA_OPERATOR_LE: {
-          for(int i = 0; i < size; i++) { bitmap_set(b, i, array[i] <= target); }
-          break;
-        }
-        case VEC0_METADATA_OPERATOR_LT: {
-          for(int i = 0; i < size; i++) { bitmap_set(b, i, array[i] < target); }
-          break;
-        }
-        case VEC0_METADATA_OPERATOR_GE: {
-          for(int i = 0; i < size; i++) { bitmap_set(b, i, array[i] >= target); }
-          break;
-        }
-        case VEC0_METADATA_OPERATOR_NE: {
-          for(int i = 0; i < size; i++) { bitmap_set(b, i, array[i] != target); }
-          break;
-        }
-      }
-      break;
-    }
-    case VEC0_METADATA_COLUMN_KIND_INT64: {
+    case VEC0_METADATA_COLUMN_KIND_INTEGER: {
       i64 * array = (i64*) buffer;
       i64 target = sqlite3_value_int64(value);
       switch(op) {
@@ -5923,37 +5856,6 @@ int vec0_set_metadata_filter_bitmap(
       break;
     }
     case VEC0_METADATA_COLUMN_KIND_FLOAT: {
-      f32 * array = (f32*) buffer;
-      f32 target = (f32) sqlite3_value_double(value);
-      switch(op) {
-        case VEC0_METADATA_OPERATOR_EQ: {
-          for(int i = 0; i < size; i++) { bitmap_set(b, i, array[i] == target); }
-          break;
-        }
-        case VEC0_METADATA_OPERATOR_GT: {
-          for(int i = 0; i < size; i++) { bitmap_set(b, i, array[i] > target); }
-          break;
-        }
-        case VEC0_METADATA_OPERATOR_LE: {
-          for(int i = 0; i < size; i++) { bitmap_set(b, i, array[i] <= target); }
-          break;
-        }
-        case VEC0_METADATA_OPERATOR_LT: {
-          for(int i = 0; i < size; i++) { bitmap_set(b, i, array[i] < target); }
-          break;
-        }
-        case VEC0_METADATA_OPERATOR_GE: {
-          for(int i = 0; i < size; i++) { bitmap_set(b, i, array[i] >= target); }
-          break;
-        }
-        case VEC0_METADATA_OPERATOR_NE: {
-          for(int i = 0; i < size; i++) { bitmap_set(b, i, array[i] != target); }
-          break;
-        }
-      }
-      break;
-    }
-    case VEC0_METADATA_COLUMN_KIND_DOUBLE: {
       double * array = (double*) buffer;
       double target = sqlite3_value_double(value);
       switch(op) {
@@ -7418,24 +7320,20 @@ int vec0_insert_metadata_values(vec0_vtab *p, int argc, sqlite3_value ** argv, i
       case VEC0_METADATA_COLUMN_KIND_BOOLEAN: {
         if(sqlite3_value_type(v) != SQLITE_INTEGER || ((sqlite3_value_int(v) != 0) && (sqlite3_value_int(v) != 1))) {
           rc = SQLITE_ERROR;
-          vtab_set_error(&p->base, "Expected 0 or 1 for BOOLEAN metadata column %s.%s.%s", p->schemaName, p->tableName, p->shadowMetadataChunksNames[metadata_idx]);
+          vtab_set_error(&p->base, "Expected 0 or 1 for BOOLEAN metadata column %.*s", p->metadata_columns[metadata_idx].name_length, p->metadata_columns[metadata_idx].name);
           goto done;
         }
         break;
       }
-      case VEC0_METADATA_COLUMN_KIND_INT32: {
-        // TODO verify v is SQLITE_INTEGER, fits in int32
-        break;
-      }
-      case VEC0_METADATA_COLUMN_KIND_INT64: {
-        // TODO verify v is SQLITE_INTEGER, fits in int64
+      case VEC0_METADATA_COLUMN_KIND_INTEGER: {
+        if(sqlite3_value_type(v) != SQLITE_INTEGER) {
+          rc = SQLITE_ERROR;
+          vtab_set_error(&p->base, "Expected integer for INTEGER metadata column %.*s, received %s", p->metadata_columns[metadata_idx].name_length, p->metadata_columns[metadata_idx].name, type_name(sqlite3_value_type(v)));
+          goto done;
+        }
         break;
       }
       case VEC0_METADATA_COLUMN_KIND_FLOAT: {
-        // TODO verify v is SQLITE_FLOAT
-        break;
-      }
-      case VEC0_METADATA_COLUMN_KIND_DOUBLE: {
         // TODO verify v is SQLITE_FLOAT
         break;
       }
@@ -7470,22 +7368,12 @@ int vec0_insert_metadata_values(vec0_vtab *p, int argc, sqlite3_value ** argv, i
         rc = sqlite3_blob_write(blobValue, &block, sizeof(u8), chunk_offset / CHAR_BIT);
         break;
       }
-      case VEC0_METADATA_COLUMN_KIND_INT32: {
-        int value = sqlite3_value_int(v);
-        rc = sqlite3_blob_write(blobValue, &value, sizeof(value), chunk_offset * sizeof(i32));
-        break;
-      }
-      case VEC0_METADATA_COLUMN_KIND_INT64: {
+      case VEC0_METADATA_COLUMN_KIND_INTEGER: {
         i64 value = sqlite3_value_int64(v);
         rc = sqlite3_blob_write(blobValue, &value, sizeof(value), chunk_offset * sizeof(i64));
         break;
       }
       case VEC0_METADATA_COLUMN_KIND_FLOAT: {
-        float value = (float) sqlite3_value_double(v);
-        rc = sqlite3_blob_write(blobValue, &value, sizeof(value), chunk_offset * sizeof(float));
-        break;
-      }
-      case VEC0_METADATA_COLUMN_KIND_DOUBLE: {
         double value = sqlite3_value_double(v);
         rc = sqlite3_blob_write(blobValue, &value, sizeof(value), chunk_offset * sizeof(double));
         break;

@@ -17,7 +17,7 @@ def test_constructor_limit(db, snapshot):
 
 def test_normal(db, snapshot):
     db.execute(
-        "create virtual table v using vec0(vector float[1], n1 int, n2 int64, f float, d double, t text, chunk_size=8)"
+        "create virtual table v using vec0(vector float[1], b boolean, n int, f float, t text, chunk_size=8)"
     )
     assert exec(
         db, "select * from sqlite_master where type = 'table' order by name"
@@ -25,12 +25,10 @@ def test_normal(db, snapshot):
 
     assert vec0_shadow_table_contents(db, "v") == snapshot()
 
-    INSERT = "insert into v(vector, n1, n2, f, d, t) values (?, ?, ?, ?, ?, ?)"
-    assert exec(db, INSERT, [b"\x11\x11\x11\x11", 1, 1, 1.1, 1.1, "one"]) == snapshot()
-    assert exec(db, INSERT, [b"\x22\x22\x22\x22", 2, 2, 2.2, 2.2, "two"]) == snapshot()
-    assert (
-        exec(db, INSERT, [b"\x33\x33\x33\x33", 3, 3, 3.3, 3.3, "three"]) == snapshot()
-    )
+    INSERT = "insert into v(vector, b, n, f, t) values (?, ?, ?, ?, ?)"
+    assert exec(db, INSERT, [b"\x11\x11\x11\x11", 1, 1, 1.1, "one"]) == snapshot()
+    assert exec(db, INSERT, [b"\x22\x22\x22\x22", 1, 2, 2.2, "two"]) == snapshot()
+    assert exec(db, INSERT, [b"\x33\x33\x33\x33", 1, 3, 3.3, "three"]) == snapshot()
 
     assert exec(db, "select * from v") == snapshot()
     assert vec0_shadow_table_contents(db, "v") == snapshot()
@@ -47,7 +45,21 @@ def test_normal(db, snapshot):
 
 
 def test_types(db, snapshot):
-    pass
+    db.execute(
+        "create virtual table v using vec0(vector float[1], b boolean, n int, f float, t text, chunk_size=8)"
+    )
+    INSERT = "insert into v(vector, b, n, f, t) values (?, ?, ?, ?, ?)"
+
+    assert exec(db, INSERT, [b"\x11\x11\x11\x11", 1, 1, 1.1, "test"]) == snapshot(
+        name="legal"
+    )
+
+    # fmt: off
+    assert exec(db, INSERT, [b"\x11\x11\x11\x11", 'illegal', 1, 1.1, 'test']) == snapshot(name="illegal-boolean")
+    assert exec(db, INSERT, [b"\x11\x11\x11\x11", 1, 'illegal', 1.1, 'test']) == snapshot(name="illegal-int")
+    assert exec(db, INSERT, [b"\x11\x11\x11\x11", 1, 1, 'illegal', 'test']) == snapshot(name="illegal-float")
+    assert exec(db, INSERT, [b"\x11\x11\x11\x11", 1, 1, 1.1, 420]) == snapshot(name="illegal-text")
+    # fmt: on
 
 
 def test_updates(db, snapshot):

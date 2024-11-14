@@ -295,11 +295,6 @@
       'rows': list([
       ]),
     }),
-    'v_metadata_chunks04': OrderedDict({
-      'sql': 'select * from v_metadata_chunks04',
-      'rows': list([
-      ]),
-    }),
     'v_rowids': OrderedDict({
       'sql': 'select * from v_rowids',
       'rows': list([
@@ -314,21 +309,21 @@
 # ---
 # name: test_normal.2
   OrderedDict({
-    'sql': 'insert into v(vector, n1, n2, f, d, t) values (?, ?, ?, ?, ?, ?)',
+    'sql': 'insert into v(vector, b, n, f, t) values (?, ?, ?, ?, ?)',
     'rows': list([
     ]),
   })
 # ---
 # name: test_normal.3
   OrderedDict({
-    'sql': 'insert into v(vector, n1, n2, f, d, t) values (?, ?, ?, ?, ?, ?)',
+    'sql': 'insert into v(vector, b, n, f, t) values (?, ?, ?, ?, ?)',
     'rows': list([
     ]),
   })
 # ---
 # name: test_normal.4
   OrderedDict({
-    'sql': 'insert into v(vector, n1, n2, f, d, t) values (?, ?, ?, ?, ?, ?)',
+    'sql': 'insert into v(vector, b, n, f, t) values (?, ?, ?, ?, ?)',
     'rows': list([
     ]),
   })
@@ -340,28 +335,25 @@
       OrderedDict({
         'rowid': 1,
         'vector': b'\x11\x11\x11\x11',
-        'n1': 1,
-        'n2': 1,
-        'f': 1.100000023841858,
-        'd': 1.1,
+        'b': 1,
+        'n': 1,
+        'f': 1.1,
         't': 'one',
       }),
       OrderedDict({
         'rowid': 2,
         'vector': b'""""',
-        'n1': 2,
-        'n2': 2,
-        'f': 2.200000047683716,
-        'd': 2.2,
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
         't': 'two',
       }),
       OrderedDict({
         'rowid': 3,
         'vector': b'3333',
-        'n1': 3,
-        'n2': 3,
-        'f': 3.299999952316284,
-        'd': 3.3,
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
         't': 'three',
       }),
     ]),
@@ -385,7 +377,7 @@
       'rows': list([
         OrderedDict({
           'rowid': 1,
-          'data': b'\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+          'data': b'\x07',
         }),
       ]),
     }),
@@ -403,21 +395,12 @@
       'rows': list([
         OrderedDict({
           'rowid': 1,
-          'data': b'\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+          'data': b'\x9a\x99\x99\x99\x99\x99\xf1?\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
         }),
       ]),
     }),
     'v_metadata_chunks03': OrderedDict({
       'sql': 'select * from v_metadata_chunks03',
-      'rows': list([
-        OrderedDict({
-          'rowid': 1,
-          'data': b'\x9a\x99\x99\x99\x99\x99\xf1?\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
-        }),
-      ]),
-    }),
-    'v_metadata_chunks04': OrderedDict({
-      'sql': 'select * from v_metadata_chunks04',
       'rows': list([
         OrderedDict({
           'rowid': 1,
@@ -475,7 +458,7 @@
         'name': 'v',
         'tbl_name': 'v',
         'rootpage': 0,
-        'sql': 'CREATE VIRTUAL TABLE v using vec0(vector float[1], n1 int, n2 int64, f float, d double, t text, chunk_size=8)',
+        'sql': 'CREATE VIRTUAL TABLE v using vec0(vector float[1], b boolean, n int, f float, t text, chunk_size=8)',
       }),
       OrderedDict({
         'type': 'table',
@@ -511,13 +494,6 @@
         'tbl_name': 'v_metadata_chunks03',
         'rootpage': 13,
         'sql': 'CREATE TABLE "v_metadata_chunks03"(rowid PRIMARY KEY, data BLOB NOT NULL)',
-      }),
-      OrderedDict({
-        'type': 'table',
-        'name': 'v_metadata_chunks04',
-        'tbl_name': 'v_metadata_chunks04',
-        'rootpage': 15,
-        'sql': 'CREATE TABLE "v_metadata_chunks04"(rowid PRIMARY KEY, data BLOB NOT NULL)',
       }),
       OrderedDict({
         'type': 'table',
@@ -719,19 +695,19 @@
       'rows': list([
         OrderedDict({
           'rowid': 1,
-          'data': b'\x99\x00\x00\x00~\x01\x00\x005\x00\x00\x00\xd2\x00\x00\x00]\x00\x00\x00\xa7\x00\x00\x00\xe2\x01\x00\x00-\x01\x00\x00',
+          'data': b'\x99\x00\x00\x00\x00\x00\x00\x00~\x01\x00\x00\x00\x00\x00\x005\x00\x00\x00\x00\x00\x00\x00\xd2\x00\x00\x00\x00\x00\x00\x00]\x00\x00\x00\x00\x00\x00\x00\xa7\x00\x00\x00\x00\x00\x00\x00\xe2\x01\x00\x00\x00\x00\x00\x00-\x01\x00\x00\x00\x00\x00\x00',
         }),
         OrderedDict({
           'rowid': 2,
-          'data': b'\x86\x00\x00\x00B\x00\x00\x00X\x00\x00\x00;\x00\x00\x00\xa7\x01\x00\x00\x13\x01\x00\x00\xbf\x00\x00\x00:\x01\x00\x00',
+          'data': b'\x86\x00\x00\x00\x00\x00\x00\x00B\x00\x00\x00\x00\x00\x00\x00X\x00\x00\x00\x00\x00\x00\x00;\x00\x00\x00\x00\x00\x00\x00\xa7\x01\x00\x00\x00\x00\x00\x00\x13\x01\x00\x00\x00\x00\x00\x00\xbf\x00\x00\x00\x00\x00\x00\x00:\x01\x00\x00\x00\x00\x00\x00',
         }),
         OrderedDict({
           'rowid': 3,
-          'data': b'J\x00\x00\x00\xc9\x00\x00\x00\x8f\x01\x00\x00\xba\x00\x00\x00V\x01\x00\x00\xc3\x01\x00\x00\n\x02\x00\x00\x0f\x01\x00\x00',
+          'data': b'J\x00\x00\x00\x00\x00\x00\x00\xc9\x00\x00\x00\x00\x00\x00\x00\x8f\x01\x00\x00\x00\x00\x00\x00\xba\x00\x00\x00\x00\x00\x00\x00V\x01\x00\x00\x00\x00\x00\x00\xc3\x01\x00\x00\x00\x00\x00\x00\n\x02\x00\x00\x00\x00\x00\x00\x0f\x01\x00\x00\x00\x00\x00\x00',
         }),
         OrderedDict({
           'rowid': 4,
-          'data': b'6\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+          'data': b'6\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
         }),
       ]),
     }),
@@ -740,19 +716,19 @@
       'rows': list([
         OrderedDict({
           'rowid': 1,
-          'data': b'33\x93@ff&@\x00\x00\xa0@ff\x86@\x9a\x99Y@ff\x96@\x9a\x999@\x00\x00\xa0@',
+          'data': b'ffffff\x12@\xcd\xcc\xcc\xcc\xcc\xcc\x04@\x00\x00\x00\x00\x00\x00\x14@\xcd\xcc\xcc\xcc\xcc\xcc\x10@333333\x0b@\xcd\xcc\xcc\xcc\xcc\xcc\x12@333333\x07@\x00\x00\x00\x00\x00\x00\x14@',
         }),
         OrderedDict({
           'rowid': 2,
-          'data': b'33\x83@\xcd\xccL@\xcd\xcc\x9c@333@\x00\x00\x90@fff@\xcd\xcc\x8c@\x9a\x99\x89@',
+          'data': b'ffffff\x10@\x9a\x99\x99\x99\x99\x99\t@\x9a\x99\x99\x99\x99\x99\x13@ffffff\x06@\x00\x00\x00\x00\x00\x00\x12@\xcd\xcc\xcc\xcc\xcc\xcc\x0c@\x9a\x99\x99\x99\x99\x99\x11@333333\x11@',
         }),
         OrderedDict({
           'rowid': 3,
-          'data': b'\x00\x00@@\x00\x00\xa0@\xcd\xcc,@\x9a\x99\x99@\x00\x00\x80@\xcd\xcc\x8c@33\x93@\x9a\x99\x89@',
+          'data': b'\x00\x00\x00\x00\x00\x00\x08@\x00\x00\x00\x00\x00\x00\x14@\x9a\x99\x99\x99\x99\x99\x05@333333\x13@\x00\x00\x00\x00\x00\x00\x10@\x9a\x99\x99\x99\x99\x99\x11@ffffff\x12@333333\x11@',
         }),
         OrderedDict({
           'rowid': 4,
-          'data': b'\x9a\x99y@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+          'data': b'333333\x0f@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
         }),
       ]),
     }),
@@ -987,7 +963,7 @@
         'title': 'Dune',
         'genre': 'scifi',
         'num_reviews': 451,
-        'mean_rating': 4.400000095367432,
+        'mean_rating': 4.4,
         'is_favorited': 1,
         'distance': 6.5,
       }),
@@ -1112,22 +1088,22 @@
     'rows': list([
       OrderedDict({
         'movie_id': 19,
-        'mean_rating': 2.700000047683716,
+        'mean_rating': 2.7,
         'distance': 81.0,
       }),
       OrderedDict({
         'movie_id': 12,
-        'mean_rating': 2.799999952316284,
+        'mean_rating': 2.8,
         'distance': 88.0,
       }),
       OrderedDict({
         'movie_id': 7,
-        'mean_rating': 2.9000000953674316,
+        'mean_rating': 2.9,
         'distance': 93.0,
       }),
       OrderedDict({
         'movie_id': 2,
-        'mean_rating': 2.5999999046325684,
+        'mean_rating': 2.6,
         'distance': 98.0,
       }),
     ]),
@@ -1139,17 +1115,17 @@
     'rows': list([
       OrderedDict({
         'movie_id': 24,
-        'mean_rating': 4.300000190734863,
+        'mean_rating': 4.3,
         'distance': 76.0,
       }),
       OrderedDict({
         'movie_id': 23,
-        'mean_rating': 4.599999904632568,
+        'mean_rating': 4.6,
         'distance': 77.0,
       }),
       OrderedDict({
         'movie_id': 22,
-        'mean_rating': 4.400000095367432,
+        'mean_rating': 4.4,
         'distance': 78.0,
       }),
       OrderedDict({
@@ -1159,7 +1135,7 @@
       }),
       OrderedDict({
         'movie_id': 20,
-        'mean_rating': 4.800000190734863,
+        'mean_rating': 4.8,
         'distance': 80.0,
       }),
     ]),
@@ -1168,6 +1144,39 @@
 # name: test_stress.8
   OrderedDict({
     'sql': "select movie_id, mean_rating, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited = TRUE",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_types[illegal-boolean]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Expected 0 or 1 for BOOLEAN metadata column b',
+  })
+# ---
+# name: test_types[illegal-float]
+  OrderedDict({
+    'sql': 'insert into v(vector, b, n, f, t) values (?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_types[illegal-int]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Expected integer for INTEGER metadata column n, received TEXT',
+  })
+# ---
+# name: test_types[illegal-text]
+  OrderedDict({
+    'sql': 'insert into v(vector, b, n, f, t) values (?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_types[legal]
+  OrderedDict({
+    'sql': 'insert into v(vector, b, n, f, t) values (?, ?, ?, ?, ?)',
     'rows': list([
     ]),
   })
