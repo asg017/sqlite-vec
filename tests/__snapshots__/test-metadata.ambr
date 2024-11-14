@@ -328,3 +328,443 @@
     ]),
   })
 # ---
+# name: test_stress
+  dict({
+    'vec_movies_auxiliary': OrderedDict({
+      'sql': 'select * from vec_movies_auxiliary',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'value00': 'The Conjuring',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'value00': 'Dumb and Dumber',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'value00': 'Interstellar',
+        }),
+        OrderedDict({
+          'rowid': 4,
+          'value00': 'The Lord of the Rings: The Fellowship of the Ring',
+        }),
+        OrderedDict({
+          'rowid': 5,
+          'value00': 'An Inconvenient Truth',
+        }),
+        OrderedDict({
+          'rowid': 6,
+          'value00': 'Hereditary',
+        }),
+        OrderedDict({
+          'rowid': 7,
+          'value00': 'Anchorman: The Legend of Ron Burgundy',
+        }),
+        OrderedDict({
+          'rowid': 8,
+          'value00': 'Blade Runner 2049',
+        }),
+        OrderedDict({
+          'rowid': 9,
+          'value00': "Harry Potter and the Sorcerer's Stone",
+        }),
+        OrderedDict({
+          'rowid': 10,
+          'value00': 'Free Solo',
+        }),
+        OrderedDict({
+          'rowid': 11,
+          'value00': 'Get Out',
+        }),
+        OrderedDict({
+          'rowid': 12,
+          'value00': 'The Hangover',
+        }),
+        OrderedDict({
+          'rowid': 13,
+          'value00': 'The Matrix',
+        }),
+        OrderedDict({
+          'rowid': 14,
+          'value00': "Pan's Labyrinth",
+        }),
+        OrderedDict({
+          'rowid': 15,
+          'value00': '13th',
+        }),
+        OrderedDict({
+          'rowid': 16,
+          'value00': 'It Follows',
+        }),
+        OrderedDict({
+          'rowid': 17,
+          'value00': 'Step Brothers',
+        }),
+        OrderedDict({
+          'rowid': 18,
+          'value00': 'Inception',
+        }),
+        OrderedDict({
+          'rowid': 19,
+          'value00': 'The Shape of Water',
+        }),
+        OrderedDict({
+          'rowid': 20,
+          'value00': "Won't You Be My Neighbor?",
+        }),
+        OrderedDict({
+          'rowid': 21,
+          'value00': 'Gravity',
+        }),
+        OrderedDict({
+          'rowid': 22,
+          'value00': 'Dune',
+        }),
+        OrderedDict({
+          'rowid': 23,
+          'value00': 'The Martian',
+        }),
+        OrderedDict({
+          'rowid': 24,
+          'value00': 'A Quiet Place',
+        }),
+        OrderedDict({
+          'rowid': 25,
+          'value00': 'The Chronicles of Narnia: The Lion, the Witch and the Wardrobe',
+        }),
+      ]),
+    }),
+    'vec_movies_chunks': OrderedDict({
+      'sql': 'select * from vec_movies_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\xff',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'chunk_id': 2,
+          'size': 8,
+          'validity': b'\xff',
+          'rowids': b'\t\x00\x00\x00\x00\x00\x00\x00\n\x00\x00\x00\x00\x00\x00\x00\x0b\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00\x00\x00\x00\x00\x0e\x00\x00\x00\x00\x00\x00\x00\x0f\x00\x00\x00\x00\x00\x00\x00\x10\x00\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'chunk_id': 3,
+          'size': 8,
+          'validity': b'\xff',
+          'rowids': b'\x11\x00\x00\x00\x00\x00\x00\x00\x12\x00\x00\x00\x00\x00\x00\x00\x13\x00\x00\x00\x00\x00\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x15\x00\x00\x00\x00\x00\x00\x00\x16\x00\x00\x00\x00\x00\x00\x00\x17\x00\x00\x00\x00\x00\x00\x00\x18\x00\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'chunk_id': 4,
+          'size': 8,
+          'validity': b'\x01',
+          'rowids': b'\x19\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'vec_movies_metadata_chunks00': OrderedDict({
+      'sql': 'select * from vec_movies_metadata_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x06\x00\x00\x00horror\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00comedy\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00scifi\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00fantasy\x00\x00\x00\x00\x00\x0b\x00\x00\x00documentary\x00\x06\x00\x00\x00horror\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00comedy\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00scifi\x00\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'data': b'\x07\x00\x00\x00fantasy\x00\x00\x00\x00\x00\x0b\x00\x00\x00documentary\x00\x06\x00\x00\x00horror\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00comedy\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00scifi\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00fantasy\x00\x00\x00\x00\x00\x0b\x00\x00\x00documentary\x00\x06\x00\x00\x00horror\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'data': b'\x06\x00\x00\x00comedy\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00scifi\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00fantasy\x00\x00\x00\x00\x00\x0b\x00\x00\x00documentary\x00\x05\x00\x00\x00scifi\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00scifi\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00scifi\x00\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00horror\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'rowid': 4,
+          'data': b'\x07\x00\x00\x00fantasy\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'vec_movies_metadata_chunks01': OrderedDict({
+      'sql': 'select * from vec_movies_metadata_chunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x99\x00\x00\x00~\x01\x00\x005\x00\x00\x00\xd2\x00\x00\x00]\x00\x00\x00\xa7\x00\x00\x00\xe2\x01\x00\x00-\x01\x00\x00',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'data': b'\x86\x00\x00\x00B\x00\x00\x00X\x00\x00\x00;\x00\x00\x00\xa7\x01\x00\x00\x13\x01\x00\x00\xbf\x00\x00\x00:\x01\x00\x00',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'data': b'J\x00\x00\x00\xc9\x00\x00\x00\x8f\x01\x00\x00\xba\x00\x00\x00V\x01\x00\x00\xc3\x01\x00\x00\n\x02\x00\x00\x0f\x01\x00\x00',
+        }),
+        OrderedDict({
+          'rowid': 4,
+          'data': b'6\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'vec_movies_metadata_chunks02': OrderedDict({
+      'sql': 'select * from vec_movies_metadata_chunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'33\x93@ff&@\x00\x00\xa0@ff\x86@\x9a\x99Y@ff\x96@\x9a\x999@\x00\x00\xa0@',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'data': b'33\x83@\xcd\xccL@\xcd\xcc\x9c@333@\x00\x00\x90@fff@\xcd\xcc\x8c@\x9a\x99\x89@',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'data': b'\x00\x00@@\x00\x00\xa0@\xcd\xcc,@\x9a\x99\x99@\x00\x00\x80@\xcd\xcc\x8c@33\x93@\x9a\x99\x89@',
+        }),
+        OrderedDict({
+          'rowid': 4,
+          'data': b'\x9a\x99y@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'vec_movies_rowids': OrderedDict({
+      'sql': 'select * from vec_movies_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+        OrderedDict({
+          'rowid': 4,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 3,
+        }),
+        OrderedDict({
+          'rowid': 5,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 4,
+        }),
+        OrderedDict({
+          'rowid': 6,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 5,
+        }),
+        OrderedDict({
+          'rowid': 7,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 6,
+        }),
+        OrderedDict({
+          'rowid': 8,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 7,
+        }),
+        OrderedDict({
+          'rowid': 9,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 10,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 11,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 2,
+        }),
+        OrderedDict({
+          'rowid': 12,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 3,
+        }),
+        OrderedDict({
+          'rowid': 13,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 4,
+        }),
+        OrderedDict({
+          'rowid': 14,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 5,
+        }),
+        OrderedDict({
+          'rowid': 15,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 6,
+        }),
+        OrderedDict({
+          'rowid': 16,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 7,
+        }),
+        OrderedDict({
+          'rowid': 17,
+          'id': None,
+          'chunk_id': 3,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 18,
+          'id': None,
+          'chunk_id': 3,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 19,
+          'id': None,
+          'chunk_id': 3,
+          'chunk_offset': 2,
+        }),
+        OrderedDict({
+          'rowid': 20,
+          'id': None,
+          'chunk_id': 3,
+          'chunk_offset': 3,
+        }),
+        OrderedDict({
+          'rowid': 21,
+          'id': None,
+          'chunk_id': 3,
+          'chunk_offset': 4,
+        }),
+        OrderedDict({
+          'rowid': 22,
+          'id': None,
+          'chunk_id': 3,
+          'chunk_offset': 5,
+        }),
+        OrderedDict({
+          'rowid': 23,
+          'id': None,
+          'chunk_id': 3,
+          'chunk_offset': 6,
+        }),
+        OrderedDict({
+          'rowid': 24,
+          'id': None,
+          'chunk_id': 3,
+          'chunk_offset': 7,
+        }),
+        OrderedDict({
+          'rowid': 25,
+          'id': None,
+          'chunk_id': 4,
+          'chunk_offset': 0,
+        }),
+      ]),
+    }),
+    'vec_movies_vector_chunks00': OrderedDict({
+      'sql': 'select * from vec_movies_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x00\x00\x80?\x00\x00\x00@\x00\x00@@\x00\x00\x80@\x00\x00\xa0@\x00\x00\xc0@\x00\x00\xe0@\x00\x00\x00A',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'vectors': b'\x00\x00\x10A\x00\x00 A\x00\x000A\x00\x00@A\x00\x00PA\x00\x00`A\x00\x00pA\x00\x00\x80A',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'vectors': b'\x00\x00\x88A\x00\x00\x90A\x00\x00\x98A\x00\x00\xa0A\x00\x00\xa8A\x00\x00\xb0A\x00\x00\xb8A\x00\x00\xc0A',
+        }),
+        OrderedDict({
+          'rowid': 4,
+          'vectors': b'\x00\x00\xc8A\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_stress.1
+  OrderedDict({
+    'sql': '''
+      
+                select
+                  movie_id,
+                  title,
+                  genre,
+                  num_reviews,
+                  mean_rating,
+                  distance
+                from vec_movies
+                where synopsis_embedding match '[15.5]'
+                  and genre = 'scifi'
+                  and num_reviews between 100 and 500
+                  and mean_rating > 3.5
+                  and k = 5;
+              
+    ''',
+    'rows': list([
+      OrderedDict({
+        'movie_id': 13,
+        'title': 'The Matrix',
+        'genre': 'scifi',
+        'num_reviews': 423,
+        'mean_rating': 4.5,
+        'distance': 2.5,
+      }),
+      OrderedDict({
+        'movie_id': 18,
+        'title': 'Inception',
+        'genre': 'scifi',
+        'num_reviews': 201,
+        'mean_rating': 5.0,
+        'distance': 2.5,
+      }),
+      OrderedDict({
+        'movie_id': 21,
+        'title': 'Gravity',
+        'genre': 'scifi',
+        'num_reviews': 342,
+        'mean_rating': 4.0,
+        'distance': 5.5,
+      }),
+      OrderedDict({
+        'movie_id': 22,
+        'title': 'Dune',
+        'genre': 'scifi',
+        'num_reviews': 451,
+        'mean_rating': 4.400000095367432,
+        'distance': 6.5,
+      }),
+      OrderedDict({
+        'movie_id': 8,
+        'title': 'Blade Runner 2049',
+        'genre': 'scifi',
+        'num_reviews': 301,
+        'mean_rating': 5.0,
+        'distance': 7.5,
+      }),
+    ]),
+  })
+# ---
