@@ -7475,6 +7475,7 @@ int vec0_insert_metadata_values(vec0_vtab *p, int argc, sqlite3_value ** argv, i
         int n = sqlite3_value_bytes(v);
         if(n <= 12) {
           u8 view[VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
+          memset(view, 0, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH);
           memcpy(view, &n, sizeof(int));
           memcpy(view+4, s, n);
 
