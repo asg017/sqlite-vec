@@ -4314,7 +4314,7 @@ complete:
   return rc;
 }
 
-inline int vec0_metadata_chunk_size(vec0_metadata_column_kind kind, int chunk_size) {
+int vec0_metadata_chunk_size(vec0_metadata_column_kind kind, int chunk_size) {
   switch(kind) {
     case VEC0_METADATA_COLUMN_KIND_BOOLEAN:
       return chunk_size / 8;
