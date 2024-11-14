@@ -5,6 +5,214 @@
     'message': 'vec0 constructor error: More than 16 metadata columns were provided',
   })
 # ---
+# name: test_idxstr
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and is_favorited = true",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Aa_',
+        'id': 2,
+        'notused': 0,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-float !=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and mean_rating != NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Df_',
+        'id': 2,
+        'notused': 0,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-float <=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and mean_rating <= NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Dc_',
+        'id': 2,
+        'notused': 0,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-float <]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and mean_rating < NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Dd_',
+        'id': 2,
+        'notused': 0,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-float >=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and mean_rating >= NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&De_',
+        'id': 2,
+        'notused': 0,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-float >]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and mean_rating > NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Db_',
+        'id': 2,
+        'notused': 0,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-int !=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and num_reviews != NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Cf_',
+        'id': 2,
+        'notused': 0,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-int <=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and num_reviews <= NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Cc_',
+        'id': 2,
+        'notused': 0,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-int <]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and num_reviews < NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Cd_',
+        'id': 2,
+        'notused': 0,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-int >=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and num_reviews >= NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Ce_',
+        'id': 2,
+        'notused': 0,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-int >]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and num_reviews > NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Cb_',
+        'id': 2,
+        'notused': 0,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-text !=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and genre != NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Bf_',
+        'id': 2,
+        'notused': 0,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-text <=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and genre <= NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Bc_',
+        'id': 2,
+        'notused': 0,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-text <]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and genre < NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Bd_',
+        'id': 2,
+        'notused': 0,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-text >=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and genre >= NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Be_',
+        'id': 2,
+        'notused': 0,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-text >]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and genre > NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Bb_',
+        'id': 2,
+        'notused': 0,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
 # name: test_knn.1
   dict({
     'error': 'OperationalError',
@@ -469,6 +677,27 @@
       'rows': list([
         OrderedDict({
           'rowid': 1,
+          'data': b'p',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'data': b'U',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'data': b'\xff',
+        }),
+        OrderedDict({
+          'rowid': 4,
+          'data': b'\x01',
+        }),
+      ]),
+    }),
+    'vec_movies_metadata_chunks01': OrderedDict({
+      'sql': 'select * from vec_movies_metadata_chunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
           'data': b'\x06\x00\x00\x00horror\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00comedy\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00scifi\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00fantasy\x00\x00\x00\x00\x00\x0b\x00\x00\x00documentary\x00\x06\x00\x00\x00horror\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00comedy\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00scifi\x00\x00\x00\x00\x00\x00\x00',
         }),
         OrderedDict({
@@ -485,8 +714,8 @@
         }),
       ]),
     }),
-    'vec_movies_metadata_chunks01': OrderedDict({
-      'sql': 'select * from vec_movies_metadata_chunks01',
+    'vec_movies_metadata_chunks02': OrderedDict({
+      'sql': 'select * from vec_movies_metadata_chunks02',
       'rows': list([
         OrderedDict({
           'rowid': 1,
@@ -506,8 +735,8 @@
         }),
       ]),
     }),
-    'vec_movies_metadata_chunks02': OrderedDict({
-      'sql': 'select * from vec_movies_metadata_chunks02',
+    'vec_movies_metadata_chunks03': OrderedDict({
+      'sql': 'select * from vec_movies_metadata_chunks03',
       'rows': list([
         OrderedDict({
           'rowid': 1,
@@ -715,6 +944,7 @@
                   genre,
                   num_reviews,
                   mean_rating,
+                  is_favorited,
                   distance
                 from vec_movies
                 where synopsis_embedding match '[15.5]'
@@ -731,6 +961,7 @@
         'genre': 'scifi',
         'num_reviews': 423,
         'mean_rating': 4.5,
+        'is_favorited': 1,
         'distance': 2.5,
       }),
       OrderedDict({
@@ -739,6 +970,7 @@
         'genre': 'scifi',
         'num_reviews': 201,
         'mean_rating': 5.0,
+        'is_favorited': 1,
         'distance': 2.5,
       }),
       OrderedDict({
@@ -747,6 +979,7 @@
         'genre': 'scifi',
         'num_reviews': 342,
         'mean_rating': 4.0,
+        'is_favorited': 1,
         'distance': 5.5,
       }),
       OrderedDict({
@@ -755,6 +988,7 @@
         'genre': 'scifi',
         'num_reviews': 451,
         'mean_rating': 4.400000095367432,
+        'is_favorited': 1,
         'distance': 6.5,
       }),
       OrderedDict({
@@ -763,8 +997,178 @@
         'genre': 'scifi',
         'num_reviews': 301,
         'mean_rating': 5.0,
+        'is_favorited': 0,
         'distance': 7.5,
       }),
+    ]),
+  })
+# ---
+# name: test_stress.2
+  OrderedDict({
+    'sql': "select movie_id, genre, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and genre = 'horror'",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 24,
+        'genre': 'horror',
+        'distance': 76.0,
+      }),
+      OrderedDict({
+        'movie_id': 16,
+        'genre': 'horror',
+        'distance': 84.0,
+      }),
+      OrderedDict({
+        'movie_id': 11,
+        'genre': 'horror',
+        'distance': 89.0,
+      }),
+      OrderedDict({
+        'movie_id': 6,
+        'genre': 'horror',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'movie_id': 1,
+        'genre': 'horror',
+        'distance': 99.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress.3
+  OrderedDict({
+    'sql': "select movie_id, genre, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and genre = 'comedy'",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 17,
+        'genre': 'comedy',
+        'distance': 83.0,
+      }),
+      OrderedDict({
+        'movie_id': 12,
+        'genre': 'comedy',
+        'distance': 88.0,
+      }),
+      OrderedDict({
+        'movie_id': 7,
+        'genre': 'comedy',
+        'distance': 93.0,
+      }),
+      OrderedDict({
+        'movie_id': 2,
+        'genre': 'comedy',
+        'distance': 98.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress.4
+  OrderedDict({
+    'sql': "select movie_id, num_reviews, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and num_reviews between 100 and 500",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 25,
+        'num_reviews': 310,
+        'distance': 75.0,
+      }),
+      OrderedDict({
+        'movie_id': 24,
+        'num_reviews': 271,
+        'distance': 76.0,
+      }),
+      OrderedDict({
+        'movie_id': 22,
+        'num_reviews': 451,
+        'distance': 78.0,
+      }),
+      OrderedDict({
+        'movie_id': 21,
+        'num_reviews': 342,
+        'distance': 79.0,
+      }),
+      OrderedDict({
+        'movie_id': 20,
+        'num_reviews': 186,
+        'distance': 80.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress.5
+  OrderedDict({
+    'sql': "select movie_id, num_reviews, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and num_reviews >= 500",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 23,
+        'num_reviews': 522,
+        'distance': 77.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress.6
+  OrderedDict({
+    'sql': "select movie_id, mean_rating, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and mean_rating < 3.0",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 19,
+        'mean_rating': 2.700000047683716,
+        'distance': 81.0,
+      }),
+      OrderedDict({
+        'movie_id': 12,
+        'mean_rating': 2.799999952316284,
+        'distance': 88.0,
+      }),
+      OrderedDict({
+        'movie_id': 7,
+        'mean_rating': 2.9000000953674316,
+        'distance': 93.0,
+      }),
+      OrderedDict({
+        'movie_id': 2,
+        'mean_rating': 2.5999999046325684,
+        'distance': 98.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress.7
+  OrderedDict({
+    'sql': "select movie_id, mean_rating, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and mean_rating between 4.0 and 5.0",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 24,
+        'mean_rating': 4.300000190734863,
+        'distance': 76.0,
+      }),
+      OrderedDict({
+        'movie_id': 23,
+        'mean_rating': 4.599999904632568,
+        'distance': 77.0,
+      }),
+      OrderedDict({
+        'movie_id': 22,
+        'mean_rating': 4.400000095367432,
+        'distance': 78.0,
+      }),
+      OrderedDict({
+        'movie_id': 21,
+        'mean_rating': 4.0,
+        'distance': 79.0,
+      }),
+      OrderedDict({
+        'movie_id': 20,
+        'mean_rating': 4.800000190734863,
+        'distance': 80.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress.8
+  OrderedDict({
+    'sql': "select movie_id, mean_rating, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited = TRUE",
+    'rows': list([
     ]),
   })
 # ---

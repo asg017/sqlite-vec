@@ -80,6 +80,66 @@ def test_knn(db, snapshot):
     )
 
 
+def test_idxstr(db, snapshot):
+    db.execute(
+        """
+          create virtual table vec_movies using vec0(
+            movie_id integer primary key,
+            synopsis_embedding float[1],
+            +title text,
+            is_favorited boolean,
+            genre text,
+            num_reviews int,
+            mean_rating float,
+            chunk_size=8
+          );
+        """
+    )
+
+    assert (
+        eqp(
+            db,
+            "select * from vec_movies where synopsis_embedding match '' and k = 0 and is_favorited = true",
+        )
+        == snapshot()
+    )
+
+    ops = ["<", ">", "<=", ">=", "!="]
+
+    for op in ops:
+        assert eqp(
+            db,
+            f"select * from vec_movies where synopsis_embedding match '' and k = 0 and genre {op} NULL",
+        ) == snapshot(name=f"knn-constraint-text {op}")
+
+    for op in ops:
+        assert eqp(
+            db,
+            f"select * from vec_movies where synopsis_embedding match '' and k = 0 and num_reviews {op} NULL",
+        ) == snapshot(name=f"knn-constraint-int {op}")
+
+    for op in ops:
+        assert eqp(
+            db,
+            f"select * from vec_movies where synopsis_embedding match '' and k = 0 and mean_rating {op} NULL",
+        ) == snapshot(name=f"knn-constraint-float {op}")
+
+    # for op in ops:
+    #    assert eqp(
+    #        db,
+    #        f"select * from vec_movies where synopsis_embedding match '' and k = 0 and is_favorited {op} NULL",
+    #    ) == snapshot(name=f"knn-constraint-boolean {op}")
+
+
+def eqp(db, sql):
+    o = OrderedDict()
+    o["sql"] = sql
+    o["plan"] = [
+        dict(row) for row in db.execute(f"explain query plan {sql}").fetchall()
+    ]
+    return o
+
+
 def test_stress(db, snapshot):
     db.execute(
         """
@@ -87,6 +147,7 @@ def test_stress(db, snapshot):
             movie_id integer primary key,
             synopsis_embedding float[1],
             +title text,
+            is_favorited boolean,
             genre text,
             num_reviews int,
             mean_rating float,
@@ -97,33 +158,33 @@ def test_stress(db, snapshot):
 
     db.execute(
         """
-          INSERT INTO vec_movies(movie_id, synopsis_embedding, genre, title, num_reviews, mean_rating)
+          INSERT INTO vec_movies(movie_id, synopsis_embedding, is_favorited, genre, title, num_reviews, mean_rating)
           VALUES
-            (1, '[1]', 'horror', 'The Conjuring', 153, 4.6),
-            (2, '[2]', 'comedy', 'Dumb and Dumber', 382, 2.6),
-            (3, '[3]', 'scifi', 'Interstellar', 53, 5.0),
-            (4, '[4]', 'fantasy', 'The Lord of the Rings: The Fellowship of the Ring', 210, 4.2),
-            (5, '[5]', 'documentary', 'An Inconvenient Truth', 93, 3.4),
-            (6, '[6]', 'horror', 'Hereditary', 167, 4.7),
-            (7, '[7]', 'comedy', 'Anchorman: The Legend of Ron Burgundy', 482, 2.9),
-            (8, '[8]', 'scifi', 'Blade Runner 2049', 301, 5.0),
-            (9, '[9]', 'fantasy', 'Harry Potter and the Sorcerer''s Stone', 134, 4.1),
-            (10, '[10]', 'documentary', 'Free Solo', 66, 3.2),
-            (11, '[11]', 'horror', 'Get Out', 88, 4.9),
-            (12, '[12]', 'comedy', 'The Hangover', 59, 2.8),
-            (13, '[13]', 'scifi', 'The Matrix', 423, 4.5),
-            (14, '[14]', 'fantasy', 'Pan''s Labyrinth', 275, 3.6),
-            (15, '[15]', 'documentary', '13th', 191, 4.4),
-            (16, '[16]', 'horror', 'It Follows', 314, 4.3),
-            (17, '[17]', 'comedy', 'Step Brothers', 74, 3.0),
-            (18, '[18]', 'scifi', 'Inception', 201, 5.0),
-            (19, '[19]', 'fantasy', 'The Shape of Water', 399, 2.7),
-            (20, '[20]', 'documentary', 'Won''t You Be My Neighbor?', 186, 4.8),
-            (21, '[21]', 'scifi', 'Gravity', 342, 4.0),
-            (22, '[22]', 'scifi', 'Dune', 451, 4.4),
-            (23, '[23]', 'scifi', 'The Martian', 522, 4.6),
-            (24, '[24]', 'horror', 'A Quiet Place', 271, 4.3),
-            (25, '[25]', 'fantasy', 'The Chronicles of Narnia: The Lion, the Witch and the Wardrobe', 310, 3.9);
+            (1, '[1]', 0, 'horror', 'The Conjuring', 153, 4.6),
+            (2, '[2]', 0, 'comedy', 'Dumb and Dumber', 382, 2.6),
+            (3, '[3]', 0, 'scifi', 'Interstellar', 53, 5.0),
+            (4, '[4]', 0, 'fantasy', 'The Lord of the Rings: The Fellowship of the Ring', 210, 4.2),
+            (5, '[5]', 1, 'documentary', 'An Inconvenient Truth', 93, 3.4),
+            (6, '[6]', 1, 'horror', 'Hereditary', 167, 4.7),
+            (7, '[7]', 1, 'comedy', 'Anchorman: The Legend of Ron Burgundy', 482, 2.9),
+            (8, '[8]', 0, 'scifi', 'Blade Runner 2049', 301, 5.0),
+            (9, '[9]', 1, 'fantasy', 'Harry Potter and the Sorcerer''s Stone', 134, 4.1),
+            (10, '[10]', 0, 'documentary', 'Free Solo', 66, 3.2),
+            (11, '[11]', 1, 'horror', 'Get Out', 88, 4.9),
+            (12, '[12]', 0, 'comedy', 'The Hangover', 59, 2.8),
+            (13, '[13]', 1, 'scifi', 'The Matrix', 423, 4.5),
+            (14, '[14]', 0, 'fantasy', 'Pan''s Labyrinth', 275, 3.6),
+            (15, '[15]', 1, 'documentary', '13th', 191, 4.4),
+            (16, '[16]', 0, 'horror', 'It Follows', 314, 4.3),
+            (17, '[17]', 1, 'comedy', 'Step Brothers', 74, 3.0),
+            (18, '[18]', 1, 'scifi', 'Inception', 201, 5.0),
+            (19, '[19]', 1, 'fantasy', 'The Shape of Water', 399, 2.7),
+            (20, '[20]', 1, 'documentary', 'Won''t You Be My Neighbor?', 186, 4.8),
+            (21, '[21]', 1, 'scifi', 'Gravity', 342, 4.0),
+            (22, '[22]', 1, 'scifi', 'Dune', 451, 4.4),
+            (23, '[23]', 1, 'scifi', 'The Martian', 522, 4.6),
+            (24, '[24]', 1, 'horror', 'A Quiet Place', 271, 4.3),
+            (25, '[25]', 1, 'fantasy', 'The Chronicles of Narnia: The Lion, the Witch and the Wardrobe', 310, 3.9);
 
         """
     )
@@ -139,6 +200,7 @@ def test_stress(db, snapshot):
             genre,
             num_reviews,
             mean_rating,
+            is_favorited,
             distance
           from vec_movies
           where synopsis_embedding match '[15.5]'
@@ -147,6 +209,57 @@ def test_stress(db, snapshot):
             and mean_rating > 3.5
             and k = 5;
         """,
+        )
+        == snapshot()
+    )
+
+    assert (
+        exec(
+            db,
+            "select movie_id, genre, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and genre = 'horror'",
+        )
+        == snapshot()
+    )
+    assert (
+        exec(
+            db,
+            "select movie_id, genre, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and genre = 'comedy'",
+        )
+        == snapshot()
+    )
+    assert (
+        exec(
+            db,
+            "select movie_id, num_reviews, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and num_reviews between 100 and 500",
+        )
+        == snapshot()
+    )
+    assert (
+        exec(
+            db,
+            "select movie_id, num_reviews, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and num_reviews >= 500",
+        )
+        == snapshot()
+    )
+    assert (
+        exec(
+            db,
+            "select movie_id, mean_rating, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and mean_rating < 3.0",
+        )
+        == snapshot()
+    )
+    assert (
+        exec(
+            db,
+            "select movie_id, mean_rating, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and mean_rating between 4.0 and 5.0",
+        )
+        == snapshot()
+    )
+
+    assert (
+        exec(
+            db,
+            "select movie_id, mean_rating, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited = TRUE",
         )
         == snapshot()
     )

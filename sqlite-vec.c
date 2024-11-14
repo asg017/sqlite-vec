@@ -4061,7 +4061,13 @@ int vec0_result_metadata_value_for_rowid(vec0_vtab *p, i64 rowid, int metadata_i
   }
   switch(p->metadata_columns[metadata_idx].kind) {
     case VEC0_METADATA_COLUMN_KIND_BOOLEAN: {
-      // TODO handle boolean values
+      u8 block;
+      rc = sqlite3_blob_read(blobValue, &block, sizeof(block), chunk_offset / CHAR_BIT);
+      if(rc != SQLITE_OK) {
+        goto done;
+      }
+      int value = block >> ((chunk_offset % CHAR_BIT)) & 1;
+      sqlite3_result_int(context, value);
       break;
     }
     case VEC0_METADATA_COLUMN_KIND_INT32: {
@@ -7410,7 +7416,7 @@ int vec0_insert_metadata_values(vec0_vtab *p, int argc, sqlite3_value ** argv, i
     // verify input value matches column type
     switch(kind) {
       case VEC0_METADATA_COLUMN_KIND_BOOLEAN: {
-        if(sqlite3_value_type(v) != SQLITE_INTEGER || (sqlite3_value_int(v) != 0) || (sqlite3_value_int(v) != 1)) {
+        if(sqlite3_value_type(v) != SQLITE_INTEGER || ((sqlite3_value_int(v) != 0) && (sqlite3_value_int(v) != 1))) {
           rc = SQLITE_ERROR;
           vtab_set_error(&p->base, "Expected 0 or 1 for BOOLEAN metadata column %s.%s.%s", p->schemaName, p->tableName, p->shadowMetadataChunksNames[metadata_idx]);
           goto done;
@@ -7447,7 +7453,21 @@ int vec0_insert_metadata_values(vec0_vtab *p, int argc, sqlite3_value ** argv, i
     }
     switch(kind) {
       case VEC0_METADATA_COLUMN_KIND_BOOLEAN: {
-        //sqlite3_blob_write(blobValue, )
+        u8 block;
+        int value = sqlite3_value_int(v);
+        rc = sqlite3_blob_read(blobValue, &block, sizeof(u8), (int) (chunk_offset / CHAR_BIT));
+        if(rc != SQLITE_OK) {
+          // TODO
+          goto done;
+        }
+
+        if (value) {
+          block |= 1 << (chunk_offset % CHAR_BIT);
+        } else {
+          block &= ~(1 << (chunk_offset % CHAR_BIT));
+        }
+
+        rc = sqlite3_blob_write(blobValue, &block, sizeof(u8), chunk_offset / CHAR_BIT);
         break;
       }
       case VEC0_METADATA_COLUMN_KIND_INT32: {
