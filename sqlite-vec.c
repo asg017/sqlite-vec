@@ -4074,7 +4074,12 @@ int vec0_result_metadata_value_for_rowid(vec0_vtab *p, i64 rowid, int metadata_i
       break;
     }
     case VEC0_METADATA_COLUMN_KIND_INT64: {
-      // TODO handle int64 values
+      i64 value;
+      rc = sqlite3_blob_read(blobValue, &value, sizeof(value), chunk_offset * sizeof(i64));
+      if(rc != SQLITE_OK) {
+        goto done;
+      }
+      sqlite3_result_int64(context, value);
       break;
     }
     case VEC0_METADATA_COLUMN_KIND_FLOAT: {
@@ -4087,7 +4092,13 @@ int vec0_result_metadata_value_for_rowid(vec0_vtab *p, i64 rowid, int metadata_i
       break;
     }
     case VEC0_METADATA_COLUMN_KIND_DOUBLE: {
-      // TODO handle double values
+      double value;
+      rc = sqlite3_blob_read(blobValue, &value, sizeof(value), chunk_offset * sizeof(double));
+      if(rc != SQLITE_OK) {
+        goto done;
+      }
+      sqlite3_result_double(context, value);
+      break;
       break;
     }
     case VEC0_METADATA_COLUMN_KIND_TEXT: {
@@ -5482,6 +5493,15 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
         case SQLITE_INDEX_CONSTRAINT_NE: {
           value = VEC0_METADATA_OPERATOR_NE;
           break;
+        }
+        default: {
+          // IMP: V16511_00582
+          rc = SQLITE_ERROR;
+          vtab_set_error(pVTab,
+          "An illegal WHERE constraint was provided on a vec0 metadata column in a KNN query. "
+          "Only one of EQUALS, GREATER_THAN, LESS_THAN_OR_EQUAL, LESS_THAN, GREATER_THAN_OR_EQUAL, NOT_EQUALS is allowed."
+          );
+          goto done;
         }
       }
 

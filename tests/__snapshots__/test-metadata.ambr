@@ -1,0 +1,330 @@
+# serializer version: 1
+# name: test_constructor_limit[max 16 metadata columns]
+  dict({
+    'error': 'OperationalError',
+    'message': 'vec0 constructor error: More than 16 metadata columns were provided',
+  })
+# ---
+# name: test_knn.1
+  dict({
+    'error': 'OperationalError',
+    'message': 'An illegal WHERE constraint was provided on a vec0 metadata column in a KNN query. Only one of EQUALS, GREATER_THAN, LESS_THAN_OR_EQUAL, LESS_THAN, GREATER_THAN_OR_EQUAL, NOT_EQUALS is allowed.',
+  })
+# ---
+# name: test_knn[sqlite_master]
+  OrderedDict({
+    'sql': "select * from sqlite_master where type = 'table' order by name",
+    'rows': list([
+      OrderedDict({
+        'type': 'table',
+        'name': 'sqlite_sequence',
+        'tbl_name': 'sqlite_sequence',
+        'rootpage': 3,
+        'sql': 'CREATE TABLE sqlite_sequence(name,seq)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v',
+        'tbl_name': 'v',
+        'rootpage': 0,
+        'sql': 'CREATE VIRTUAL TABLE v using vec0(vector float[1], name text, chunk_size=8)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_chunks',
+        'tbl_name': 'v_chunks',
+        'rootpage': 2,
+        'sql': 'CREATE TABLE "v_chunks"(chunk_id INTEGER PRIMARY KEY AUTOINCREMENT,size INTEGER NOT NULL,validity BLOB NOT NULL,rowids BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_metadata_chunks00',
+        'tbl_name': 'v_metadata_chunks00',
+        'rootpage': 7,
+        'sql': 'CREATE TABLE "v_metadata_chunks00"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_rowids',
+        'tbl_name': 'v_rowids',
+        'rootpage': 4,
+        'sql': 'CREATE TABLE "v_rowids"(rowid INTEGER PRIMARY KEY AUTOINCREMENT,id,chunk_id INTEGER,chunk_offset INTEGER)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_vector_chunks00',
+        'tbl_name': 'v_vector_chunks00',
+        'rootpage': 5,
+        'sql': 'CREATE TABLE "v_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)',
+      }),
+    ]),
+  })
+# ---
+# name: test_normal.1
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+      ]),
+    }),
+    'v_metadata_chunks00': OrderedDict({
+      'sql': 'select * from v_metadata_chunks00',
+      'rows': list([
+      ]),
+    }),
+    'v_metadata_chunks01': OrderedDict({
+      'sql': 'select * from v_metadata_chunks01',
+      'rows': list([
+      ]),
+    }),
+    'v_metadata_chunks02': OrderedDict({
+      'sql': 'select * from v_metadata_chunks02',
+      'rows': list([
+      ]),
+    }),
+    'v_metadata_chunks03': OrderedDict({
+      'sql': 'select * from v_metadata_chunks03',
+      'rows': list([
+      ]),
+    }),
+    'v_metadata_chunks04': OrderedDict({
+      'sql': 'select * from v_metadata_chunks04',
+      'rows': list([
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+      ]),
+    }),
+  })
+# ---
+# name: test_normal.2
+  OrderedDict({
+    'sql': 'insert into v(vector, n1, n2, f, d, t) values (?, ?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_normal.3
+  OrderedDict({
+    'sql': 'insert into v(vector, n1, n2, f, d, t) values (?, ?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_normal.4
+  OrderedDict({
+    'sql': 'insert into v(vector, n1, n2, f, d, t) values (?, ?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_normal.5
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'n1': 1,
+        'n2': 1,
+        'f': 1.100000023841858,
+        'd': 1.1,
+        't': 'one',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'n1': 2,
+        'n2': 2,
+        'f': 2.200000047683716,
+        'd': 2.2,
+        't': 'two',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'n1': 3,
+        'n2': 3,
+        'f': 3.299999952316284,
+        'd': 3.3,
+        't': 'three',
+      }),
+    ]),
+  })
+# ---
+# name: test_normal.6
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks00': OrderedDict({
+      'sql': 'select * from v_metadata_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks01': OrderedDict({
+      'sql': 'select * from v_metadata_chunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks02': OrderedDict({
+      'sql': 'select * from v_metadata_chunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks03': OrderedDict({
+      'sql': 'select * from v_metadata_chunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x9a\x99\x99\x99\x99\x99\xf1?\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks04': OrderedDict({
+      'sql': 'select * from v_metadata_chunks04',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x03\x00\x00\x00one?\x01\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00two@\x01\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00three\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_normal[sqlite_master]
+  OrderedDict({
+    'sql': "select * from sqlite_master where type = 'table' order by name",
+    'rows': list([
+      OrderedDict({
+        'type': 'table',
+        'name': 'sqlite_sequence',
+        'tbl_name': 'sqlite_sequence',
+        'rootpage': 3,
+        'sql': 'CREATE TABLE sqlite_sequence(name,seq)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v',
+        'tbl_name': 'v',
+        'rootpage': 0,
+        'sql': 'CREATE VIRTUAL TABLE v using vec0(vector float[1], n1 int, n2 int64, f float, d double, t text, chunk_size=8)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_chunks',
+        'tbl_name': 'v_chunks',
+        'rootpage': 2,
+        'sql': 'CREATE TABLE "v_chunks"(chunk_id INTEGER PRIMARY KEY AUTOINCREMENT,size INTEGER NOT NULL,validity BLOB NOT NULL,rowids BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_metadata_chunks00',
+        'tbl_name': 'v_metadata_chunks00',
+        'rootpage': 7,
+        'sql': 'CREATE TABLE "v_metadata_chunks00"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_metadata_chunks01',
+        'tbl_name': 'v_metadata_chunks01',
+        'rootpage': 9,
+        'sql': 'CREATE TABLE "v_metadata_chunks01"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_metadata_chunks02',
+        'tbl_name': 'v_metadata_chunks02',
+        'rootpage': 11,
+        'sql': 'CREATE TABLE "v_metadata_chunks02"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_metadata_chunks03',
+        'tbl_name': 'v_metadata_chunks03',
+        'rootpage': 13,
+        'sql': 'CREATE TABLE "v_metadata_chunks03"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_metadata_chunks04',
+        'tbl_name': 'v_metadata_chunks04',
+        'rootpage': 15,
+        'sql': 'CREATE TABLE "v_metadata_chunks04"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_rowids',
+        'tbl_name': 'v_rowids',
+        'rootpage': 4,
+        'sql': 'CREATE TABLE "v_rowids"(rowid INTEGER PRIMARY KEY AUTOINCREMENT,id,chunk_id INTEGER,chunk_offset INTEGER)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_vector_chunks00',
+        'tbl_name': 'v_vector_chunks00',
+        'rootpage': 5,
+        'sql': 'CREATE TABLE "v_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)',
+      }),
+    ]),
+  })
+# ---

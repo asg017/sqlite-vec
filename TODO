@@ -18,6 +18,7 @@
 - DELETE and UPDATE support
 - large strings
 - date/datetime
-- `v in (...)` handling
-- remaining TODO items
-- dictionary encoding?
+- later
+  - `v in (...)` handling
+  - remaining TODO items
+  - dictionary encoding?

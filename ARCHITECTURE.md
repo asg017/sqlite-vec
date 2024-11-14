@@ -52,3 +52,14 @@ The fourth character of the block is a `_` filler.
 `argv[i]` is the value of the rowid or id to match against for the point query.
 
 The remaining 3 characters of the block are `_` fillers.
+
+#### `VEC0_IDXSTR_KIND_METADATA_CONSTRAINT` (`'&'`)
+
+`argv[i]` is the value of the `WHERE` constraint for a metdata column in a KNN query.
+
+The second character of the block denotes which metadata column the constraint belongs to, using `A` to denote the first metadata column column, `B` for the second, etc. It is encoded with `'A' + metadata_idx` and can be decoded with `c - 'A'`.
+
+The third character of the block is the constraint operator. It will be one of `enum vec0_metadata_operator`, as only a subset of operators are supported on metadata column KNN filters.
+
+The foruth character of the block is a `_` filler.
+
