@@ -14,7 +14,7 @@
 
 # metadata filtering
 
-- UPDATE support
+- null!
 - date/datetime
 - later
   - `v in (...)` handling

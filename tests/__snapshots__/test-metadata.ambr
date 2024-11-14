@@ -1698,3 +1698,714 @@
     ]),
   })
 # ---
+# name: test_updates[1-init]
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks00': OrderedDict({
+      'sql': 'select * from v_metadata_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x07',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks01': OrderedDict({
+      'sql': 'select * from v_metadata_chunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks02': OrderedDict({
+      'sql': 'select * from v_metadata_chunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x9a\x99\x99\x99\x99\x99\xf1?\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks03': OrderedDict({
+      'sql': 'select * from v_metadata_chunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x05\x00\x00\x00test1\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_text_data_03': OrderedDict({
+      'sql': 'select * from v_metadata_text_data_03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_updates[general-update-contents]
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'b': 0,
+        'n': 11,
+        'f': 11.11,
+        't': 'newtest1',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123',
+      }),
+    ]),
+  })
+# ---
+# name: test_updates[general-update-shaodnw]
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks00': OrderedDict({
+      'sql': 'select * from v_metadata_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x06',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks01': OrderedDict({
+      'sql': 'select * from v_metadata_chunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x0b\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks02': OrderedDict({
+      'sql': 'select * from v_metadata_chunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\xb8\x1e\x85\xebQ8&@\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks03': OrderedDict({
+      'sql': 'select * from v_metadata_chunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x08\x00\x00\x00newtest1\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_text_data_03': OrderedDict({
+      'sql': 'select * from v_metadata_text_data_03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_updates[string-update-1-contents]
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'b': 0,
+        'n': 11,
+        'f': 11.11,
+        't': 'newtest1',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123-updated',
+      }),
+    ]),
+  })
+# ---
+# name: test_updates[string-update-1-shadow]
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks00': OrderedDict({
+      'sql': 'select * from v_metadata_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x06',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks01': OrderedDict({
+      'sql': 'select * from v_metadata_chunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x0b\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks02': OrderedDict({
+      'sql': 'select * from v_metadata_chunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\xb8\x1e\x85\xebQ8&@\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks03': OrderedDict({
+      'sql': 'select * from v_metadata_chunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x08\x00\x00\x00newtest1\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\x15\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_text_data_03': OrderedDict({
+      'sql': 'select * from v_metadata_text_data_03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123-updated',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_updates[string-update-2-contents]
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'b': 0,
+        'n': 11,
+        'f': 11.11,
+        't': 'newtest1',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2-short',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123-updated',
+      }),
+    ]),
+  })
+# ---
+# name: test_updates[string-update-2-shadow]
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks00': OrderedDict({
+      'sql': 'select * from v_metadata_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x06',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks01': OrderedDict({
+      'sql': 'select * from v_metadata_chunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x0b\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks02': OrderedDict({
+      'sql': 'select * from v_metadata_chunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\xb8\x1e\x85\xebQ8&@\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks03': OrderedDict({
+      'sql': 'select * from v_metadata_chunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x08\x00\x00\x00newtest1\x00\x00\x00\x00\x0b\x00\x00\x00test2-short\x00\x15\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_text_data_03': OrderedDict({
+      'sql': 'select * from v_metadata_text_data_03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123-updated',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_updates[string-update-3-contents]
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'b': 0,
+        'n': 11,
+        'f': 11.11,
+        't': 'newtest1',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2-long-long-long',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123-updated',
+      }),
+    ]),
+  })
+# ---
+# name: test_updates[string-update-3-shadow]
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks00': OrderedDict({
+      'sql': 'select * from v_metadata_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x06',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks01': OrderedDict({
+      'sql': 'select * from v_metadata_chunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x0b\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks02': OrderedDict({
+      'sql': 'select * from v_metadata_chunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\xb8\x1e\x85\xebQ8&@\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks03': OrderedDict({
+      'sql': 'select * from v_metadata_chunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x08\x00\x00\x00newtest1\x00\x00\x00\x00\x14\x00\x00\x00test2-long-l\x15\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_text_data_03': OrderedDict({
+      'sql': 'select * from v_metadata_text_data_03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123-updated',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'data': 'test2-long-long-long',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_updates[string-update-4-contents]
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'b': 0,
+        'n': 11,
+        'f': 11.11,
+        't': 'newtest1',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2-shortx',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123-updated',
+      }),
+    ]),
+  })
+# ---
+# name: test_updates[string-update-4-shadow]
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks00': OrderedDict({
+      'sql': 'select * from v_metadata_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x06',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks01': OrderedDict({
+      'sql': 'select * from v_metadata_chunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x0b\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks02': OrderedDict({
+      'sql': 'select * from v_metadata_chunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\xb8\x1e\x85\xebQ8&@\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_chunks03': OrderedDict({
+      'sql': 'select * from v_metadata_chunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x08\x00\x00\x00newtest1\x00\x00\x00\x00\x0c\x00\x00\x00test2-shortx\x15\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadata_text_data_03': OrderedDict({
+      'sql': 'select * from v_metadata_text_data_03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123-updated',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---

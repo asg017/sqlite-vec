@@ -7341,143 +7341,159 @@ cleanup:
   return rc;
 }
 
-/**
- * @brief Insert any provided metadata values
- *
- * @param p vec0_vtab
- * @param argc num args from xFilter()
- * @param argv  sqlite3_value args from xFilter()
- * @param chunk_id chunk_id to insert row into
- * @param chunk_offset offset the row/metadata value is assigned to
- * @return int
- */
-int vec0_insert_metadata_values(vec0_vtab *p, int argc, sqlite3_value ** argv, i64 chunk_id, i64 chunk_offset, i64 rowid) {
+int vec0_write_metadata_value(vec0_vtab *p, int metadata_column_idx, i64 rowid, i64 chunk_id, i64 chunk_offset, sqlite3_value * v, int isupdate) {
   int rc;
-  for(int i = 0; i < vec0_num_defined_user_columns(p); i++) {
-    if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_METADATA) {
-      continue;
-    }
-    int metadata_idx = p->user_column_idxs[i];
-    vec0_metadata_column_kind kind = p->metadata_columns[metadata_idx].kind;
-    sqlite3_value *v = argv[2 + VEC0_COLUMN_USERN_START + i];
+  struct Vec0MetadataColumnDefinition * metadata_column = &p->metadata_columns[metadata_column_idx];
+  vec0_metadata_column_kind kind = metadata_column->kind;
 
-    // verify input value matches column type
-    switch(kind) {
-      case VEC0_METADATA_COLUMN_KIND_BOOLEAN: {
-        if(sqlite3_value_type(v) != SQLITE_INTEGER || ((sqlite3_value_int(v) != 0) && (sqlite3_value_int(v) != 1))) {
-          rc = SQLITE_ERROR;
-          vtab_set_error(&p->base, "Expected 0 or 1 for BOOLEAN metadata column %.*s", p->metadata_columns[metadata_idx].name_length, p->metadata_columns[metadata_idx].name);
-          goto done;
-        }
-        break;
+  // verify input value matches column type
+  switch(kind) {
+    case VEC0_METADATA_COLUMN_KIND_BOOLEAN: {
+      if(sqlite3_value_type(v) != SQLITE_INTEGER || ((sqlite3_value_int(v) != 0) && (sqlite3_value_int(v) != 1))) {
+        rc = SQLITE_ERROR;
+        vtab_set_error(&p->base, "Expected 0 or 1 for BOOLEAN metadata column %.*s", metadata_column->name_length, metadata_column->name);
+        goto done;
       }
-      case VEC0_METADATA_COLUMN_KIND_INTEGER: {
-        if(sqlite3_value_type(v) != SQLITE_INTEGER) {
-          rc = SQLITE_ERROR;
-          vtab_set_error(&p->base, "Expected integer for INTEGER metadata column %.*s, received %s", p->metadata_columns[metadata_idx].name_length, p->metadata_columns[metadata_idx].name, type_name(sqlite3_value_type(v)));
-          goto done;
-        }
-        break;
-      }
-      case VEC0_METADATA_COLUMN_KIND_FLOAT: {
-        if(sqlite3_value_type(v) != SQLITE_FLOAT) {
-          rc = SQLITE_ERROR;
-          vtab_set_error(&p->base, "Expected float for FLOAT metadata column %.*s, received %s", p->metadata_columns[metadata_idx].name_length, p->metadata_columns[metadata_idx].name, type_name(sqlite3_value_type(v)));
-          goto done;
-        }
-        break;
-      }
-      case VEC0_METADATA_COLUMN_KIND_TEXT: {
-        if(sqlite3_value_type(v) != SQLITE_TEXT) {
-          rc = SQLITE_ERROR;
-          vtab_set_error(&p->base, "Expected text for TEXT metadata column %.*s, received %s", p->metadata_columns[metadata_idx].name_length, p->metadata_columns[metadata_idx].name, type_name(sqlite3_value_type(v)));
-          goto done;
-        }
-        break;
-      }
+      break;
     }
+    case VEC0_METADATA_COLUMN_KIND_INTEGER: {
+      if(sqlite3_value_type(v) != SQLITE_INTEGER) {
+        rc = SQLITE_ERROR;
+        vtab_set_error(&p->base, "Expected integer for INTEGER metadata column %.*s, received %s", metadata_column->name_length, metadata_column->name, type_name(sqlite3_value_type(v)));
+        goto done;
+      }
+      break;
+    }
+    case VEC0_METADATA_COLUMN_KIND_FLOAT: {
+      if(sqlite3_value_type(v) != SQLITE_FLOAT) {
+        rc = SQLITE_ERROR;
+        vtab_set_error(&p->base, "Expected float for FLOAT metadata column %.*s, received %s", metadata_column->name_length, metadata_column->name, type_name(sqlite3_value_type(v)));
+        goto done;
+      }
+      break;
+    }
+    case VEC0_METADATA_COLUMN_KIND_TEXT: {
+      if(sqlite3_value_type(v) != SQLITE_TEXT) {
+        rc = SQLITE_ERROR;
+        vtab_set_error(&p->base, "Expected text for TEXT metadata column %.*s, received %s", metadata_column->name_length, metadata_column->name, type_name(sqlite3_value_type(v)));
+        goto done;
+      }
+      break;
+    }
+  }
 
-    sqlite3_blob * blobValue;
-    rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowMetadataChunksNames[metadata_idx], "data", chunk_id, 1, &blobValue);
-    if(rc != SQLITE_OK) {
-      // TODO
-      goto done;
+  sqlite3_blob * blobValue = NULL;
+  rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowMetadataChunksNames[metadata_column_idx], "data", chunk_id, 1, &blobValue);
+  if(rc != SQLITE_OK) {
+    goto done;
+  }
+
+  switch(kind) {
+    case VEC0_METADATA_COLUMN_KIND_BOOLEAN: {
+      u8 block;
+      int value = sqlite3_value_int(v);
+      rc = sqlite3_blob_read(blobValue, &block, sizeof(u8), (int) (chunk_offset / CHAR_BIT));
+      if(rc != SQLITE_OK) {
+        goto done;
+      }
+
+      if (value) {
+        block |= 1 << (chunk_offset % CHAR_BIT);
+      } else {
+        block &= ~(1 << (chunk_offset % CHAR_BIT));
+      }
+
+      rc = sqlite3_blob_write(blobValue, &block, sizeof(u8), chunk_offset / CHAR_BIT);
+      break;
     }
-    switch(kind) {
-      case VEC0_METADATA_COLUMN_KIND_BOOLEAN: {
-        u8 block;
-        int value = sqlite3_value_int(v);
-        rc = sqlite3_blob_read(blobValue, &block, sizeof(u8), (int) (chunk_offset / CHAR_BIT));
+    case VEC0_METADATA_COLUMN_KIND_INTEGER: {
+      i64 value = sqlite3_value_int64(v);
+      rc = sqlite3_blob_write(blobValue, &value, sizeof(value), chunk_offset * sizeof(i64));
+      break;
+    }
+    case VEC0_METADATA_COLUMN_KIND_FLOAT: {
+      double value = sqlite3_value_double(v);
+      rc = sqlite3_blob_write(blobValue, &value, sizeof(value), chunk_offset * sizeof(double));
+      break;
+    }
+    case VEC0_METADATA_COLUMN_KIND_TEXT: {
+      int prev_n;
+      rc = sqlite3_blob_read(blobValue, &prev_n, sizeof(int), chunk_offset * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH);
+      if(rc != SQLITE_OK) {
+        goto done;
+      }
+
+      char * s = sqlite3_value_text(v);
+      int n = sqlite3_value_bytes(v);
+      u8 view[VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
+      memset(view, 0, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH);
+      memcpy(view, &n, sizeof(int));
+      memcpy(view+4, s, min(n, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH-4));
+
+      rc = sqlite3_blob_write(blobValue, &view, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH, chunk_offset * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH);
+      if(n > 12) {
+        const char * zSql;
+
+        if(isupdate && (prev_n > 12)) {
+          zSql = sqlite3_mprintf("UPDATE " VEC0_SHADOW_METADATA_TEXT_DATA_NAME " SET data = ?2 WHERE rowid = ?1", p->schemaName, p->tableName, metadata_column_idx);
+        }else {
+          zSql = sqlite3_mprintf("INSERT INTO " VEC0_SHADOW_METADATA_TEXT_DATA_NAME " (rowid, data) VALUES (?1, ?2)", p->schemaName, p->tableName, metadata_column_idx);
+        }
+        if(!zSql) {
+          rc = SQLITE_NOMEM;
+          goto done;
+        }
+        sqlite3_stmt * stmt;
+        rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
         if(rc != SQLITE_OK) {
-          // TODO
           goto done;
         }
+        sqlite3_bind_int64(stmt, 1, rowid);
+        sqlite3_bind_text(stmt, 2, s, n, SQLITE_STATIC);
+        rc = sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
 
-        if (value) {
-          block |= 1 << (chunk_offset % CHAR_BIT);
-        } else {
-          block &= ~(1 << (chunk_offset % CHAR_BIT));
+        if(rc != SQLITE_DONE) {
+          rc = SQLITE_ERROR;
+          goto done;
         }
-
-        rc = sqlite3_blob_write(blobValue, &block, sizeof(u8), chunk_offset / CHAR_BIT);
-        break;
       }
-      case VEC0_METADATA_COLUMN_KIND_INTEGER: {
-        i64 value = sqlite3_value_int64(v);
-        rc = sqlite3_blob_write(blobValue, &value, sizeof(value), chunk_offset * sizeof(i64));
-        break;
-      }
-      case VEC0_METADATA_COLUMN_KIND_FLOAT: {
-        double value = sqlite3_value_double(v);
-        rc = sqlite3_blob_write(blobValue, &value, sizeof(value), chunk_offset * sizeof(double));
-        break;
-      }
-      case VEC0_METADATA_COLUMN_KIND_TEXT: {
-        char * s = sqlite3_value_text(v);
-        int n = sqlite3_value_bytes(v);
-        u8 view[VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
-        memset(view, 0, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH);
-        memcpy(view, &n, sizeof(int));
-        memcpy(view+4, s, min(n, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH-4));
-
-        rc = sqlite3_blob_write(blobValue, &view, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH, chunk_offset * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH);
-        if(n > 12) {
-          const char * zSql = sqlite3_mprintf("INSERT INTO " VEC0_SHADOW_METADATA_TEXT_DATA_NAME " (rowid, data) VALUES (?, ?)", p->schemaName, p->tableName, metadata_idx);
-          if(!zSql) {
-            abort();
-          }
-          sqlite3_stmt * stmt;
-          rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
-          if(rc != SQLITE_OK) {
-            abort();
-          }
-          sqlite3_bind_int64(stmt, 1, rowid);
-          sqlite3_bind_text(stmt, 2, s, n, SQLITE_STATIC);
-          rc = sqlite3_step(stmt);
-          if(rc != SQLITE_DONE) {
-            abort();
-          }
-          sqlite3_finalize(stmt);
+      else if(prev_n > 12) {
+        const char * zSql = sqlite3_mprintf("DELETE FROM " VEC0_SHADOW_METADATA_TEXT_DATA_NAME " WHERE rowid = ?", p->schemaName, p->tableName, metadata_column_idx);
+        if(!zSql) {
+          rc = SQLITE_NOMEM;
+          goto done;
         }
-        break;
+        sqlite3_stmt * stmt;
+        rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
+        if(rc != SQLITE_OK) {
+          goto done;
+        }
+        sqlite3_bind_int64(stmt, 1, rowid);
+        rc = sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+
+        if(rc != SQLITE_DONE) {
+          rc = SQLITE_ERROR;
+          goto done;
+        }
       }
+      break;
     }
+  }
 
-    if(rc != SQLITE_OK) {
+  if(rc != SQLITE_OK) {
 
-    }
-    rc = sqlite3_blob_close(blobValue);
-    if(rc != SQLITE_OK) {
-      goto done;
-    }
-
-
+  }
+  rc = sqlite3_blob_close(blobValue);
+  if(rc != SQLITE_OK) {
+    goto done;
   }
 
   done:
     return rc;
-
 }
+
 
 /**
  * @brief Handles INSERT INTO operations on a vec0 table.
@@ -7690,9 +7706,17 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
     goto cleanup;
   }
 
-  rc = vec0_insert_metadata_values(p, argc, argv, chunk_rowid, chunk_offset, rowid);
-  if(rc != SQLITE_OK) {
-    goto cleanup;
+
+  for(int i = 0; i < vec0_num_defined_user_columns(p); i++) {
+    if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_METADATA) {
+      continue;
+    }
+    int metadata_idx = p->user_column_idxs[i];
+    sqlite3_value *v = argv[2 + VEC0_COLUMN_USERN_START + i];
+    rc = vec0_write_metadata_value(p, metadata_idx, rowid, chunk_rowid, chunk_offset, v, 0);
+    if(rc != SQLITE_OK) {
+      goto cleanup;
+    }
   }
 
   *pRowid = rowid;
@@ -7900,8 +7924,9 @@ int vec0Update_Delete_ClearMetadata(vec0_vtab *p, int metadata_idx, i64 rowid, i
       break;
     }
   }
+  int rc2;
   done:
-  int rc2 = sqlite3_blob_close(blobValue);
+  rc2 = sqlite3_blob_close(blobValue);
   if(rc == SQLITE_OK) {
     return rc2;
   }
@@ -7989,6 +8014,12 @@ int vec0Update_UpdateAuxColumn(vec0_vtab *p, int auxiliary_column_idx, sqlite3_v
   }
   sqlite3_finalize(stmt);
   return SQLITE_OK;
+}
+
+int vec0Update_UpdateMetadataColumn(vec0_vtab *p, int metadata_column_idx, sqlite3_value * value, i64 rowid) {
+  int rc;
+
+  return rc;
 }
 
 int vec0Update_UpdateVectorColumn(vec0_vtab *p, i64 chunk_id, i64 chunk_offset,
@@ -8131,9 +8162,23 @@ int vec0Update_Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv) {
     }
   }
 
-  // TODO handle metadata updates
+  // 4) handle metadata column updates
+  for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
+    if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_METADATA) {
+      continue;
+    }
+    int metadata_column_idx = p->user_column_idxs[i];
+    sqlite3_value * value = argv[2+VEC0_COLUMN_USERN_START + i];
+    if(sqlite3_value_nochange(value)) {
+      continue;
+    }
+    rc = vec0_write_metadata_value(p, metadata_column_idx, rowid, chunk_id, chunk_offset, value, 1);
+    if(rc != SQLITE_OK) {
+      return rc;
+    }
+  }
 
-  // 4) iterate over all new vectors, update the vectors
+  // 5) iterate over all new vectors, update the vectors
   for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
     if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_VECTOR) {
       continue;
