@@ -33,6 +33,9 @@ def test_normal(db, snapshot):
     assert exec(db, "select * from v") == snapshot()
     assert vec0_shadow_table_contents(db, "v") == snapshot()
 
+    assert exec(db, "drop table v") == snapshot()
+    assert exec(db, "select * from sqlite_master") == snapshot()
+
 
 #
 # assert exec(db, "select * from v") == snapshot()
@@ -42,6 +45,18 @@ def test_normal(db, snapshot):
 # assert exec(db, "select * from sqlite_master order by name") == snapshot(
 #    name="sqlite_master post drop"
 # )
+
+
+def test_long_text(db, snapshot):
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
+    )
+    assert vec0_shadow_table_contents(db, "v") == snapshot()
+    INSERT = "insert into v(vector, name) values (?, ?)"
+    assert exec(db, INSERT, [b"\x11\x11\x11\x11", "123456789a12"])
+    assert exec(db, INSERT, [b"\x11\x11\x11\x11", "123456789a123"])
+    assert exec(db, "select * from v") == snapshot()
+    assert vec0_shadow_table_contents(db, "v") == snapshot()
 
 
 def test_types(db, snapshot):

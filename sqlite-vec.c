@@ -3419,6 +3419,7 @@ static sqlite3_module vec_npy_eachModule = {
 #define VEC0_SHADOW_AUXILIARY_NAME "\"%w\".\"%w_auxiliary\""
 
 #define VEC0_SHADOW_METADATA_N_NAME "\"%w\".\"%w_metadata_chunks%02d\""
+#define VEC0_SHADOW_METADATA_TEXT_DATA_NAME "\"%w\".\"%w_metadata_text_data_%02d\""
 
 #define VEC_INTERAL_ERROR "Internal sqlite-vec error: "
 #define REPORT_URL "https://github.com/asg017/sqlite-vec/issues/new"
@@ -4094,8 +4095,23 @@ int vec0_result_metadata_value_for_rowid(vec0_vtab *p, i64 rowid, int metadata_i
         sqlite3_result_text(context, (const char*) (view + 4), length, SQLITE_TRANSIENT);
       }
       else {
-        fprintf(stderr, "TODO: handle longer strings in result_metadata_value\n");
-        abort();
+        sqlite3_stmt * stmt;
+        const char * zSql = sqlite3_mprintf("SELECT data FROM " VEC0_SHADOW_METADATA_TEXT_DATA_NAME " WHERE rowid = ?", p->schemaName, p->tableName, metadata_idx);
+        if(!zSql) {
+          abort();
+        }
+        rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
+        if(rc != SQLITE_OK) {
+          abort();
+        }
+        sqlite3_bind_int64(stmt, 1, rowid);
+        rc = sqlite3_step(stmt);
+        if(rc != SQLITE_ROW) {
+          abort();
+        }
+        sqlite3_result_value(context, sqlite3_column_value(stmt, 0));
+        sqlite3_finalize(stmt);
+        rc = SQLITE_OK;
       }
       break;
     }
@@ -5032,6 +5048,25 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
         goto error;
       }
       sqlite3_finalize(stmt);
+
+      if(pNew->metadata_columns[i].kind == VEC0_METADATA_COLUMN_KIND_TEXT) {
+        char *zSql = sqlite3_mprintf("CREATE TABLE " VEC0_SHADOW_METADATA_TEXT_DATA_NAME "(rowid PRIMARY KEY, data TEXT);",
+                                   pNew->schemaName, pNew->tableName, i);
+        if (!zSql) {
+          goto error;
+        }
+        rc = sqlite3_prepare_v2(db, zSql, -1, &stmt, 0);
+        sqlite3_free((void *)zSql);
+        if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
+          sqlite3_finalize(stmt);
+          *pzErr = sqlite3_mprintf(
+              "Could not create '_metadata_text_data_%02d' shadow table: %s", i,
+              sqlite3_errmsg(db));
+          goto error;
+        }
+        sqlite3_finalize(stmt);
+
+      }
     }
 
     if(pNew->numAuxiliaryColumns > 0) {
@@ -5149,6 +5184,17 @@ static int vec0Destroy(sqlite3_vtab *pVtab) {
       goto done;
     }
     sqlite3_finalize(stmt);
+
+    if(p->metadata_columns[i].kind == VEC0_METADATA_COLUMN_KIND_TEXT) {
+      zSql = sqlite3_mprintf("DROP TABLE " VEC0_SHADOW_METADATA_TEXT_DATA_NAME, p->schemaName,p->tableName, i);
+      rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, 0);
+      sqlite3_free((void *)zSql);
+      if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
+        rc = SQLITE_ERROR;
+        goto done;
+      }
+      sqlite3_finalize(stmt);
+    }
   }
 
   stmt = NULL;
@@ -7305,7 +7351,7 @@ cleanup:
  * @param chunk_offset offset the row/metadata value is assigned to
  * @return int
  */
-int vec0_insert_metadata_values(vec0_vtab *p, int argc, sqlite3_value ** argv, i64 chunk_id, i64 chunk_offset) {
+int vec0_insert_metadata_values(vec0_vtab *p, int argc, sqlite3_value ** argv, i64 chunk_id, i64 chunk_offset, i64 rowid) {
   int rc;
   for(int i = 0; i < vec0_num_defined_user_columns(p); i++) {
     if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_METADATA) {
@@ -7389,21 +7435,34 @@ int vec0_insert_metadata_values(vec0_vtab *p, int argc, sqlite3_value ** argv, i
       case VEC0_METADATA_COLUMN_KIND_TEXT: {
         char * s = sqlite3_value_text(v);
         int n = sqlite3_value_bytes(v);
-        if(n <= 12) {
-          u8 view[VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
-          memset(view, 0, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH);
-          memcpy(view, &n, sizeof(int));
-          memcpy(view+4, s, n);
+        u8 view[VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
+        memset(view, 0, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH);
+        memcpy(view, &n, sizeof(int));
+        memcpy(view+4, s, min(n, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH-4));
 
-          rc = sqlite3_blob_write(blobValue, &view, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH, chunk_offset * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH);
-        }
-        else {
-          fprintf(stderr, "TODO handle longer strings");
-          abort();
+        rc = sqlite3_blob_write(blobValue, &view, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH, chunk_offset * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH);
+        if(n > 12) {
+          const char * zSql = sqlite3_mprintf("INSERT INTO " VEC0_SHADOW_METADATA_TEXT_DATA_NAME " (rowid, data) VALUES (?, ?)", p->schemaName, p->tableName, metadata_idx);
+          if(!zSql) {
+            abort();
+          }
+          sqlite3_stmt * stmt;
+          rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
+          if(rc != SQLITE_OK) {
+            abort();
+          }
+          sqlite3_bind_int64(stmt, 1, rowid);
+          sqlite3_bind_text(stmt, 2, s, n, SQLITE_STATIC);
+          rc = sqlite3_step(stmt);
+          if(rc != SQLITE_DONE) {
+            abort();
+          }
+          sqlite3_finalize(stmt);
         }
         break;
       }
     }
+    printf("rc=%d\n", rc);
     if(rc != SQLITE_OK) {
 
     }
@@ -7631,7 +7690,7 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
     goto cleanup;
   }
 
-  rc = vec0_insert_metadata_values(p, argc, argv, chunk_rowid, chunk_offset);
+  rc = vec0_insert_metadata_values(p, argc, argv, chunk_rowid, chunk_offset, rowid);
   if(rc != SQLITE_OK) {
     goto cleanup;
   }
@@ -7993,7 +8052,7 @@ int vec0Update_Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv) {
     }
   }
 
-  // TODO handle metadata
+  // TODO handle metadata updates
 
   // 4) iterate over all new vectors, update the vectors
   for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
