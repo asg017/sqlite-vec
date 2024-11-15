@@ -46,7 +46,92 @@ def test_normal(db, snapshot):
 # )
 
 
-def test_long_text(db, snapshot):
+def test_text_knn(db, snapshot):
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
+    )
+    assert vec0_shadow_table_contents(db, "v") == snapshot()
+    INSERT = "insert into v(vector, name) values (?, ?)"
+    db.execute(
+        """
+      INSERT INTO v(vector, name) VALUES
+        ('[.11]', 'aaa'),
+        ('[.22]', 'bbb'),
+        ('[.33]', 'ccc'),
+        ('[.44]', 'ddd'),
+        ('[.55]', 'eee'),
+        ('[.66]', 'fff'),
+        ('[.77]', 'ggg'),
+        ('[.88]', 'hhh'),
+        ('[.99]', 'iii');
+    """
+    )
+    assert exec(db, "select * from v") == snapshot()
+    assert vec0_shadow_table_contents(db, "v") == snapshot()
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 5",
+        )
+        == snapshot()
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 5 and name < 'ddd'",
+        )
+        == snapshot()
+    )
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 5 and name <= 'ddd'",
+        )
+        == snapshot()
+    )
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 5 and name > 'fff'",
+        )
+        == snapshot()
+    )
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 5 and name >= 'fff'",
+        )
+        == snapshot()
+    )
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 5 and name = 'aaa'",
+        )
+        == snapshot()
+    )
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[.01]' and k = 5 and name != 'aaa'",
+        )
+        == snapshot()
+    )
+
+    # this break KNN :(
+    db.execute("insert into v(vector, name) values ('[3.0]', '1234567890123')")
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[.01]' and k = 5 and name != 'aaa'",
+        )
+        == snapshot()
+    )
+
+
+def test_long_text_updates(db, snapshot):
     db.execute(
         "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
     )
