@@ -2093,7 +2093,7 @@ typedef enum {
   VEC0_METADATA_COLUMN_KIND_INTEGER,
   VEC0_METADATA_COLUMN_KIND_FLOAT,
   VEC0_METADATA_COLUMN_KIND_TEXT,
-  // TODO: blob, date, datetime
+  // future: blob, date, datetime
 } vec0_metadata_column_kind;
 
 /**
@@ -5480,7 +5480,6 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
 
     }
 
-    // TODO: when aux branch is merge, move this loop logic to above loop
     for (int i = 0; i < pIdxInfo->nConstraint; i++) {
       if (!pIdxInfo->aConstraint[i].usable)
         continue;
@@ -5533,14 +5532,21 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
         }
       }
 
-      if(value) {
-        pIdxInfo->aConstraintUsage[i].argvIndex = argvIndex++;
-        pIdxInfo->aConstraintUsage[i].omit = 1;
-        sqlite3_str_appendchar(idxStr, 1, VEC0_IDXSTR_KIND_METADATA_CONSTRAINT);
-        sqlite3_str_appendchar(idxStr, 1, 'A' + metadata_idx);
-        sqlite3_str_appendchar(idxStr, 1, value);
-        sqlite3_str_appendchar(idxStr, 1, '_');
+      if(p->metadata_columns[metadata_idx].kind == VEC0_METADATA_COLUMN_KIND_BOOLEAN) {
+        if(!(value == VEC0_METADATA_OPERATOR_EQ || value == VEC0_METADATA_OPERATOR_NE)) {
+          // IMP: V10145_26984
+          rc = SQLITE_ERROR;
+          vtab_set_error(pVTab, "ONLY EQUALS (=) or NOT_EQUALS (!=) operators are allowed on boolean metadata columns.");
+          goto done;
+        }
       }
+
+      pIdxInfo->aConstraintUsage[i].argvIndex = argvIndex++;
+      pIdxInfo->aConstraintUsage[i].omit = 1;
+      sqlite3_str_appendchar(idxStr, 1, VEC0_IDXSTR_KIND_METADATA_CONSTRAINT);
+      sqlite3_str_appendchar(idxStr, 1, 'A' + metadata_idx);
+      sqlite3_str_appendchar(idxStr, 1, value);
+      sqlite3_str_appendchar(idxStr, 1, '_');
 
     }
 
@@ -5867,11 +5873,18 @@ int vec0_set_metadata_filter_bitmap(
   if(!buffer) {
     return SQLITE_NOMEM;
   }
-  sqlite3_blob_read(blob, buffer, blobSize, 0);
+  rc = sqlite3_blob_read(blob, buffer, blobSize, 0);
+  if(rc != SQLITE_OK) {
+    goto done;
+  }
   switch(kind) {
     case VEC0_METADATA_COLUMN_KIND_BOOLEAN: {
-      for(int i = 0; i < size; i++) {
-        // TODO boolean comparisions
+      int target = sqlite3_value_int(value);
+      if( (target && op == VEC0_METADATA_OPERATOR_EQ) || (!target && op == VEC0_METADATA_OPERATOR_NE)) {
+        for(int i = 0; i < size; i++) { bitmap_set(b, i, bitmap_get((u8*) buffer, i)); }
+      }
+      else {
+        for(int i = 0; i < size; i++) { bitmap_set(b, i, !bitmap_get((u8*) buffer, i)); }
       }
       break;
     }
@@ -5938,8 +5951,17 @@ int vec0_set_metadata_filter_bitmap(
       break;
     }
     case VEC0_METADATA_COLUMN_KIND_TEXT: {
-      // TODO check for and handle large strings
+      // TODO: handle large strings. For now just raise a generic error
+      for(int i = 0; i < size; i++) {
+        u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
+        int n = ((int*) view)[0];
+        if(n > 12) {
+          rc = SQLITE_ERROR;
+          goto done;
+        }
+      }
       const char * target = (const char *) sqlite3_value_text(value);
+
       switch(op) {
         case VEC0_METADATA_OPERATOR_EQ: {
           for(int i = 0; i < size; i++) {
@@ -5999,8 +6021,9 @@ int vec0_set_metadata_filter_bitmap(
       break;
     }
   }
-  sqlite3_free(buffer);
-  return SQLITE_OK;
+  done:
+    sqlite3_free(buffer);
+    return rc;
 }
 
 int vec0Filter_knn_chunks_iter(vec0_vtab *p, sqlite3_stmt *stmtChunks,

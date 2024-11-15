@@ -1638,11 +1638,138 @@
     ]),
   })
 # ---
-# name: test_stress.8
+# name: test_stress[bool-eq-false]
   OrderedDict({
-    'sql': "select movie_id, mean_rating, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited = TRUE",
+    'sql': "select movie_id, is_favorited, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited = FALSE",
     'rows': list([
+      OrderedDict({
+        'movie_id': 16,
+        'is_favorited': 0,
+        'distance': 84.0,
+      }),
+      OrderedDict({
+        'movie_id': 14,
+        'is_favorited': 0,
+        'distance': 86.0,
+      }),
+      OrderedDict({
+        'movie_id': 12,
+        'is_favorited': 0,
+        'distance': 88.0,
+      }),
+      OrderedDict({
+        'movie_id': 10,
+        'is_favorited': 0,
+        'distance': 90.0,
+      }),
+      OrderedDict({
+        'movie_id': 8,
+        'is_favorited': 0,
+        'distance': 92.0,
+      }),
     ]),
+  })
+# ---
+# name: test_stress[bool-eq-true]
+  OrderedDict({
+    'sql': "select movie_id, is_favorited, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited = TRUE",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 25,
+        'is_favorited': 1,
+        'distance': 75.0,
+      }),
+      OrderedDict({
+        'movie_id': 24,
+        'is_favorited': 1,
+        'distance': 76.0,
+      }),
+      OrderedDict({
+        'movie_id': 23,
+        'is_favorited': 1,
+        'distance': 77.0,
+      }),
+      OrderedDict({
+        'movie_id': 22,
+        'is_favorited': 1,
+        'distance': 78.0,
+      }),
+      OrderedDict({
+        'movie_id': 21,
+        'is_favorited': 1,
+        'distance': 79.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress[bool-ne-false]
+  OrderedDict({
+    'sql': "select movie_id, is_favorited, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited != FALSE",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 25,
+        'is_favorited': 1,
+        'distance': 75.0,
+      }),
+      OrderedDict({
+        'movie_id': 24,
+        'is_favorited': 1,
+        'distance': 76.0,
+      }),
+      OrderedDict({
+        'movie_id': 23,
+        'is_favorited': 1,
+        'distance': 77.0,
+      }),
+      OrderedDict({
+        'movie_id': 22,
+        'is_favorited': 1,
+        'distance': 78.0,
+      }),
+      OrderedDict({
+        'movie_id': 21,
+        'is_favorited': 1,
+        'distance': 79.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress[bool-ne-true]
+  OrderedDict({
+    'sql': "select movie_id, is_favorited, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited != TRUE",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 16,
+        'is_favorited': 0,
+        'distance': 84.0,
+      }),
+      OrderedDict({
+        'movie_id': 14,
+        'is_favorited': 0,
+        'distance': 86.0,
+      }),
+      OrderedDict({
+        'movie_id': 12,
+        'is_favorited': 0,
+        'distance': 88.0,
+      }),
+      OrderedDict({
+        'movie_id': 10,
+        'is_favorited': 0,
+        'distance': 90.0,
+      }),
+      OrderedDict({
+        'movie_id': 8,
+        'is_favorited': 0,
+        'distance': 92.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress[bool-other-op]
+  dict({
+    'error': 'OperationalError',
+    'message': 'ONLY EQUALS (=) or NOT_EQUALS (!=) operators are allowed on boolean metadata columns.',
   })
 # ---
 # name: test_types[illegal-boolean]

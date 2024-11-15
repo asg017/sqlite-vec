@@ -355,13 +355,28 @@ def test_stress(db, snapshot):
         == snapshot()
     )
 
-    assert (
-        exec(
-            db,
-            "select movie_id, mean_rating, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited = TRUE",
-        )
-        == snapshot()
-    )
+    assert exec(
+        db,
+        "select movie_id, is_favorited, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited = TRUE",
+    ) == snapshot(name="bool-eq-true")
+    assert exec(
+        db,
+        "select movie_id, is_favorited, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited != TRUE",
+    ) == snapshot(name="bool-ne-true")
+    assert exec(
+        db,
+        "select movie_id, is_favorited, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited = FALSE",
+    ) == snapshot(name="bool-eq-false")
+    assert exec(
+        db,
+        "select movie_id, is_favorited, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited != FALSE",
+    ) == snapshot(name="bool-ne-false")
+
+    # EVIDENCE-OF: V10145_26984
+    assert exec(
+        db,
+        "select movie_id, is_favorited, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited >= 999",
+    ) == snapshot(name="bool-other-op")
 
 
 def exec(db, sql, parameters=[]):
