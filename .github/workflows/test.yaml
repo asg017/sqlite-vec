@@ -141,12 +141,7 @@ jobs:
   build-linux-aarch64-extension:
     runs-on: ubuntu-latest
     steps:
-      - uses: green-coding-solutions/eco-ci-energy-estimation@v4
-        with:
-          task: start-measurement
       - uses: actions/checkout@v4
-        with:
-          version: "latest"
       - run: sudo apt-get install gcc-arm-linux-gnueabihf
       - run: ./scripts/vendor.sh
       - run: make sqlite-vec.h
@@ -155,13 +150,6 @@ jobs:
         with:
           name: sqlite-vec-linux-aarch64-extension
           path: dist/*
-      - uses: green-coding-solutions/eco-ci-energy-estimation@v4
-        with:
-          task: get-measurement
-          label: "all"
-      - uses: green-coding-solutions/eco-ci-energy-estimation@v4
-        with:
-          task: display-results
   build-wasm32-emscripten:
     runs-on: ubuntu-latest
     steps:

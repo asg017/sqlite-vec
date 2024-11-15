@@ -55,6 +55,18 @@ jobs:
         with:
           name: sqlite-vec-windows-x86_64-extension
           path: dist/*
+  build-linux-aarch64-extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get install gcc-arm-linux-gnueabihf
+      - run: ./scripts/vendor.sh
+      - run: make sqlite-vec.h
+      - run: make CC=arm-linux-gnueabihf-gcc loadable static
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-linux-aarch64-extension
+          path: dist/*
   build-cosmopolitan:
     runs-on: macos-latest
     permissions:
@@ -190,6 +202,10 @@ jobs:
         with:
           name: sqlite-vec-linux-x86_64-extension
           path: dist/linux-x86_64
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-linux-aarch64-extension
+          path: dist/linux-aarch64
       - uses: actions/download-artifact@v4
         with:
           name: sqlite-vec-macos-x86_64-extension
