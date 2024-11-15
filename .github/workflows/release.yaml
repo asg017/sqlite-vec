@@ -255,7 +255,7 @@ jobs:
           name: sqlite-vec-iossimulator-x86_64-extension
           path: dist/iossimulator-x86_64
       - run: |
-          curl -L https://github.com/asg017/sqlite-dist/releases/download/v0.0.1-alpha.16/sqlite-dist-x86_64-unknown-linux-gnu.tar.xz \
+          curl -L https://github.com/asg017/sqlite-dist/releases/download/v0.0.1-alpha.17/sqlite-dist-x86_64-unknown-linux-gnu.tar.xz \
             | tar xfJ - --strip-components 1
       - run: make sqlite-vec.h
       - run: ./sqlite-dist ./sqlite-dist.toml --input dist/ --output distx/ --version $(cat VERSION)
