@@ -617,6 +617,12 @@
     ]),
   })
 # ---
+# name: test_long_text_knn[knn-eq-true]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
 # name: test_long_text_updates
   dict({
     'v_chunks': OrderedDict({

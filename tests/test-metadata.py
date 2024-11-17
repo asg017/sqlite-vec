@@ -137,10 +137,26 @@ def test_long_text_updates(db, snapshot):
     )
     assert vec0_shadow_table_contents(db, "v") == snapshot()
     INSERT = "insert into v(vector, name) values (?, ?)"
-    assert exec(db, INSERT, [b"\x11\x11\x11\x11", "123456789a12"])
-    assert exec(db, INSERT, [b"\x11\x11\x11\x11", "123456789a123"])
+    exec(db, INSERT, [b"\x11\x11\x11\x11", "123456789a12"])
+    exec(db, INSERT, [b"\x11\x11\x11\x11", "123456789a123"])
     assert exec(db, "select * from v") == snapshot()
     assert vec0_shadow_table_contents(db, "v") == snapshot()
+
+
+def test_long_text_knn(db, snapshot):
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
+    )
+    INSERT = "insert into v(vector, name) values (?, ?)"
+    exec(db, INSERT, [b"\x11\x11\x11\x11", "aaaaaaaaaaaa_aaa"])
+    exec(db, INSERT, [b"\x11\x11\x11\x11", "aaaaaaaaaaaa_bbb"])
+    exec(db, INSERT, [b"\x11\x11\x11\x11", "aaaaaaaaaaaa_ccc"])
+
+    assert exec(
+        db,
+        "select * from v where vector match X'11111111' and k = 5 and name = ?",
+        ["aaaaaaaaaaaa_aaa"],
+    ) == snapshot(name="knn-eq-true")
 
 
 def test_types(db, snapshot):
