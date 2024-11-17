@@ -617,10 +617,28 @@
     ]),
   })
 # ---
+# name: test_long_text_knn[knn-eq-short]
+  OrderedDict({
+    'sql': "select * from v where vector match X'11111111' and k = 5 and name = ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'aaaaaaaaaaaa',
+      }),
+    ]),
+  })
+# ---
 # name: test_long_text_knn[knn-eq-true]
-  dict({
-    'error': 'OperationalError',
-    'message': 'Could not filter metadata fields',
+  OrderedDict({
+    'sql': "select * from v where vector match X'11111111' and k = 5 and name = ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'aaaaaaaaaaaa_aaa',
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_updates
@@ -1416,7 +1434,6 @@
 # name: test_stress.1
   OrderedDict({
     'sql': '''
-      
                 select
                   movie_id,
                   title,
@@ -1431,7 +1448,6 @@
                   and num_reviews between 100 and 500
                   and mean_rating > 3.5
                   and k = 5;
-              
     ''',
     'rows': list([
       OrderedDict({

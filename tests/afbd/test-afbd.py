@@ -119,7 +119,7 @@ def tests_command(file_path):
 
     tests = [
         json.loads(row["data"])
-        for row in db.execute("select data from tests limit 2000").fetchall()
+        for row in db.execute("select data from tests").fetchall()
     ]
 
     num_or_skips = 0
@@ -179,8 +179,8 @@ def tests_command(file_path):
                     == diff["values_changed"][bkey]["new_value"]
                 )
             elif len(keys_changed) == 1:
-                v = int(akey.lstrip("root[").rstrip("]"))
-                assert v == len(expected_closest_ids)
+                v = int(keys_changed[0].lstrip("root[").rstrip("]"))
+                assert (v + 1) == len(expected_closest_ids)
             else:
                 raise Exception("fuck")
             num_1off_errors += 1

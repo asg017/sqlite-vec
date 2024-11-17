@@ -1,5 +1,43 @@
 ## `vec0`
 
+### Shadow Tables
+
+#### `xyz_chunks`
+
+- `chunk_id INTEGER`
+- `size INTEGER`
+- `validity BLOB`
+- `rowids BLOB`
+
+
+#### `xyz_rowids`
+
+- `rowid INTEGER`
+- `id`
+- `chunk_id INTEGER`
+- `chunk_offset INTEGER`
+
+#### `xyz_vector_chunksNN`
+
+- `rowid INTEGER`
+- `vector BLOB`
+
+#### `xyz_auxiliary`
+
+- `rowid INTEGER`
+- `valueNN [type]`
+
+#### `xyz_metadata_chunksNN`
+
+- `rowid INTEGER`
+- `data BLOB`
+
+
+#### `xyz_metadata_text_data_00`
+
+- `rowid INTEGER`
+- `data TEXT`
+
 ### idxStr
 
 The `vec0` idxStr is a string composed of single "header" character and 0 or

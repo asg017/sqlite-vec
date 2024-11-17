@@ -148,10 +148,17 @@ def test_long_text_knn(db, snapshot):
         "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
     )
     INSERT = "insert into v(vector, name) values (?, ?)"
+    exec(db, INSERT, [b"\x11\x11\x11\x11", "aaaaaaaaaaaa"])
+    exec(db, INSERT, [b"\x11\x11\x11\x11", "bbbbbbbbbbbb"])
     exec(db, INSERT, [b"\x11\x11\x11\x11", "aaaaaaaaaaaa_aaa"])
     exec(db, INSERT, [b"\x11\x11\x11\x11", "aaaaaaaaaaaa_bbb"])
     exec(db, INSERT, [b"\x11\x11\x11\x11", "aaaaaaaaaaaa_ccc"])
 
+    assert exec(
+        db,
+        "select * from v where vector match X'11111111' and k = 5 and name = ?",
+        ["aaaaaaaaaaaa"],
+    ) == snapshot(name="knn-eq-short")
     assert exec(
         db,
         "select * from v where vector match X'11111111' and k = 5 and name = ?",

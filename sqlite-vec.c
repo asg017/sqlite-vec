@@ -5719,6 +5719,41 @@ int min_idx(const f32 *distances, i32 n, u8 *candidates, i32 *out, i32 k,
   return SQLITE_OK;
 }
 
+int vec0_get_metadata_text_long_value(
+  vec0_vtab * p,
+  sqlite3_stmt ** stmt,
+  int metadata_idx,
+  i64 rowid,
+  int *n,
+  char ** s) {
+  int rc;
+  if(!(*stmt)) {
+    const char * zSql = sqlite3_mprintf("select data from " VEC0_SHADOW_METADATA_TEXT_DATA_NAME " where rowid = ?", p->schemaName, p->tableName, metadata_idx);
+    if(!zSql) {
+      rc = SQLITE_NOMEM;
+      goto done;
+    }
+    rc = sqlite3_prepare_v2(p->db, zSql, -1, stmt, NULL);
+    sqlite3_free( (void *) zSql);
+    if(rc != SQLITE_OK) {
+      goto done;
+    }
+  }
+
+  sqlite3_reset(*stmt);
+  sqlite3_bind_int64(*stmt, 1, rowid);
+  rc = sqlite3_step(*stmt);
+  if(rc != SQLITE_ROW) {
+    rc = SQLITE_ERROR;
+    goto done;
+  }
+  *s = (char *) sqlite3_column_text(*stmt, 0);
+  *n = sqlite3_column_bytes(*stmt, 0);
+  rc = SQLITE_OK;
+  done:
+    return rc;
+}
+
 /**
  * @brief Crete at "iterator" (sqlite3_stmt) of chunks with the given constraints
  *
@@ -5845,6 +5880,28 @@ int vec0_set_metadata_filter_bitmap(
   if(rc != SQLITE_OK) {
     return rc;
   }
+  // TODO: only on text columns
+  sqlite3_blob * rowidsBlob;
+  rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowChunksName, "rowids", chunk_rowid, 0, &rowidsBlob);
+  if(rc != SQLITE_OK) {
+    return rc;
+  }
+  assert(sqlite3_blob_bytes(rowidsBlob) % sizeof(i64) == 0);
+  assert((sqlite3_blob_bytes(rowidsBlob) / sizeof(i64)) == size);
+  i64 * rowids;
+  rowids = sqlite3_malloc(sqlite3_blob_bytes(rowidsBlob));
+  if(!rowids) {
+    sqlite3_blob_close(rowidsBlob);
+    return SQLITE_NOMEM;
+  }
+
+  rc = sqlite3_blob_read(rowidsBlob, rowids, sqlite3_blob_bytes(rowidsBlob), 0);
+  if(rc != SQLITE_OK) {
+    sqlite3_blob_close(rowidsBlob);
+    return rc;
+  }
+  sqlite3_blob_close(rowidsBlob);
+
   vec0_metadata_column_kind kind = p->metadata_columns[metadata_idx].kind;
   int szMatch = 0;
   int blobSize = sqlite3_blob_bytes(blob);
@@ -5951,25 +6008,41 @@ int vec0_set_metadata_filter_bitmap(
       break;
     }
     case VEC0_METADATA_COLUMN_KIND_TEXT: {
-      // TODO: handle large strings. For now just raise a generic error
-      for(int i = 0; i < size; i++) {
-        u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
-        int n = ((int*) view)[0];
-        if(n > 12) {
-          rc = SQLITE_ERROR;
-          goto done;
-        }
-      }
       const char * target = (const char *) sqlite3_value_text(value);
+      int targetn = sqlite3_value_bytes(value);
 
       switch(op) {
         case VEC0_METADATA_OPERATOR_EQ: {
+          sqlite3_stmt * stmt = NULL;
           for(int i = 0; i < size; i++) {
             u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
             int n = ((int*) view)[0];
             char * s = (char *) &view[4];
-            bitmap_set(b, i, strncmp(s, target, n) == 0);
+            if(n != targetn) {
+              bitmap_set(b, i, 0);
+              continue;
+            }
+            int prefix_cmp = strncmp(s, target, min(n, 12));
+            if(n <= 12) {
+              bitmap_set(b, i, prefix_cmp == 0);
+            }
+            // if the prefix doesnt match, the rest of the string wont match
+            else if(prefix_cmp) {
+              bitmap_set(b, i, 0);
+            }
+            // need to consult
+            else {
+              char *slong;
+              int slongn;
+              rc = vec0_get_metadata_text_long_value(p, &stmt, metadata_idx, rowids[i], &slongn, &slong);
+              if(rc != SQLITE_OK) {
+                goto done;
+              }
+              assert(n == slongn);
+              bitmap_set(b, i, strncmp(slong, target, n) == 0);
+            }
           }
+          sqlite3_finalize(stmt);
           break;
         }
         case VEC0_METADATA_OPERATOR_NE: {
@@ -5977,6 +6050,7 @@ int vec0_set_metadata_filter_bitmap(
             u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
             int n = ((int*) view)[0];
             char * s = (char *) &view[4];
+            if(n > 12) {rc = SQLITE_ERROR;goto done;} /* TODO */
             bitmap_set(b, i, strncmp(s, target, n) != 0);
           }
           break;
@@ -5986,6 +6060,7 @@ int vec0_set_metadata_filter_bitmap(
             u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
             int n = ((int*) view)[0];
             char * s = (char *) &view[4];
+            if(n > 12) {rc = SQLITE_ERROR;goto done;} /* TODO */
             bitmap_set(b, i, strncmp(s, target, n) > 0);
           }
           break;
@@ -5995,6 +6070,7 @@ int vec0_set_metadata_filter_bitmap(
             u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
             int n = ((int*) view)[0];
             char * s = (char *) &view[4];
+            if(n > 12) {rc = SQLITE_ERROR;goto done;} /* TODO */
             bitmap_set(b, i, strncmp(s, target, n) >= 0);
           }
           break;
@@ -6004,6 +6080,7 @@ int vec0_set_metadata_filter_bitmap(
             u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
             int n = ((int*) view)[0];
             char * s = (char *) &view[4];
+            if(n > 12) {rc = SQLITE_ERROR;goto done;} /* TODO */
             bitmap_set(b, i, strncmp(s, target, n) <= 0);
           }
           break;
@@ -6013,6 +6090,7 @@ int vec0_set_metadata_filter_bitmap(
             u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
             int n = ((int*) view)[0];
             char * s = (char *) &view[4];
+            if(n > 12) {rc = SQLITE_ERROR;goto done;} /* TODO */
             bitmap_set(b, i, strncmp(s, target, n) < 0);
           }
           break;
@@ -6024,6 +6102,7 @@ int vec0_set_metadata_filter_bitmap(
   }
   done:
     sqlite3_free(buffer);
+    sqlite3_free(rowids);
     return rc;
 }
 
