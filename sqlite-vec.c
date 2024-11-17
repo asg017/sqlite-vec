@@ -5972,12 +5972,30 @@ int vec0_set_metadata_filter_bitmap(
           }
           break;
         }
+        case VEC0_METADATA_OPERATOR_NE: {
+          for(int i = 0; i < size; i++) {
+            u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
+            int n = ((int*) view)[0];
+            char * s = (char *) &view[4];
+            bitmap_set(b, i, strncmp(s, target, n) != 0);
+          }
+          break;
+        }
         case VEC0_METADATA_OPERATOR_GT: {
           for(int i = 0; i < size; i++) {
             u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
             int n = ((int*) view)[0];
             char * s = (char *) &view[4];
             bitmap_set(b, i, strncmp(s, target, n) > 0);
+          }
+          break;
+        }
+        case VEC0_METADATA_OPERATOR_GE: {
+          for(int i = 0; i < size; i++) {
+            u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
+            int n = ((int*) view)[0];
+            char * s = (char *) &view[4];
+            bitmap_set(b, i, strncmp(s, target, n) >= 0);
           }
           break;
         }
@@ -5999,24 +6017,7 @@ int vec0_set_metadata_filter_bitmap(
           }
           break;
         }
-        case VEC0_METADATA_OPERATOR_GE: {
-          for(int i = 0; i < size; i++) {
-            u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
-            int n = ((int*) view)[0];
-            char * s = (char *) &view[4];
-            bitmap_set(b, i, strncmp(s, target, n) >= 0);
-          }
-          break;
-        }
-        case VEC0_METADATA_OPERATOR_NE: {
-          for(int i = 0; i < size; i++) {
-            u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
-            int n = ((int*) view)[0];
-            char * s = (char *) &view[4];
-            bitmap_set(b, i, strncmp(s, target, n) != 0);
-          }
-          break;
-        }
+
       }
       break;
     }

@@ -26,3 +26,5 @@ sqlite-vec.h
 tmp/
 
 poetry.lock
+
+*.jsonl
