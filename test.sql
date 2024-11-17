@@ -1,9 +1,35 @@
 
 .load dist/vec0
-.echo on
 .bail on
 
 .mode qbox
+
+create virtual table v using vec0(
+  vector float[1],
+  +description text
+);
+insert into v(rowid, vector, description) values (1, '[1]', 'aaa');
+select * from v;
+
+.exit
+
+create virtual table vec_articles using vec0(
+  article_id integer primary key,
+  year integer partition key,
+  headline_embedding float[1],
+  +headline text,
+  +url text,
+  word_count integer,
+  print_section text,
+  print_page integer,
+  pub_date text,
+);
+
+insert into vec_articles values (1111, 2020, '[1]', 'headline', 'https://...', 200, 'A', 1, '2020-01-01');
+
+select * from vec_articles;
+
+.exit
 
 
 create table movies(movie_id integer primary key, synopsis text);

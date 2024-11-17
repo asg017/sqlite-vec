@@ -17,6 +17,7 @@
 - skip invalid validity entries in knn filter?
 - null!
 - date/datetime
+- [ ] test accessing aux values when rowid is different than 1,2,3 etc.
 - later
   - `v in (...)` handling
   - remaining TODO items
