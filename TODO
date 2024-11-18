@@ -14,11 +14,12 @@
 
 # metadata filtering
 - text comparisons (long)
-- skip invalid validity entries in knn filter?
-- null!
-- date/datetime
+- `v in (...)` handling
 - [ ] test accessing aux values when rowid is different than 1,2,3 etc.
+- [ ] add `xyz_info` shadow table with version etc.
 - later
-  - `v in (...)` handling
+  - null!
+  - date/datetime
   - remaining TODO items
+  - skip invalid validity entries in knn filter?
   - dictionary encoding?

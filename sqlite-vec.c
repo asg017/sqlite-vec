@@ -3433,7 +3433,7 @@ typedef struct vec0_vtab vec0_vtab;
 
 #define SQLITE_VEC_VEC0_MAX_DIMENSIONS 8192
 #define VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH 16
-#define VEC0_METADATA_TEXT_VIEW_SIZE_LENGTH 16
+#define VEC0_METADATA_TEXT_VIEW_DATA_LENGTH 12
 
 typedef enum {
   // vector column, ie "contents_embedding float[1024]"
@@ -4091,7 +4091,7 @@ int vec0_result_metadata_value_for_rowid(vec0_vtab *p, i64 rowid, int metadata_i
         goto done;
       }
       int length = ((int *)view)[0];
-      if(length <= 12) {
+      if(length <= VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {
         sqlite3_result_text(context, (const char*) (view + 4), length, SQLITE_TRANSIENT);
       }
       else {
@@ -5857,8 +5857,8 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
   sqlite3_stmt * stmt = NULL;
   i64 * rowids = NULL;
   sqlite3_blob * rowidsBlob;
-  const char * target = (const char *) sqlite3_value_text(value);
-  int targetn = sqlite3_value_bytes(value);
+  const char * sTarget = (const char *) sqlite3_value_text(value);
+  int nTarget = sqlite3_value_bytes(value);
 
 
   // TODO(perf): only text metadata news the rowids BLOB. Make it so that
@@ -5885,34 +5885,41 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
   sqlite3_blob_close(rowidsBlob);
 
   switch(op) {
+    char *sFull;
+    int nFull;
     case VEC0_METADATA_OPERATOR_EQ: {
       for(int i = 0; i < size; i++) {
         u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
-        int n = ((int*) view)[0];
-        char * s = (char *) &view[4];
-        if(n != targetn) {
+        int nPrefix = ((int*) view)[0];
+        char * sPrefix = (char *) &view[4];
+
+        // for EQ the text lengths must match
+        if(nPrefix != nTarget) {
           bitmap_set(b, i, 0);
           continue;
         }
-        int prefix_cmp = strncmp(s, target, min(n, 12));
-        if(n <= 12) {
-          bitmap_set(b, i, prefix_cmp == 0);
+        int cmpPrefix = strncmp(sPrefix, sTarget, min(nPrefix, VEC0_METADATA_TEXT_VIEW_DATA_LENGTH));
+
+        // for short strings, use the prefix comparison direclty
+        if(nPrefix <= VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {
+          bitmap_set(b, i, cmpPrefix == 0);
+          continue;
         }
-        // if the prefix doesnt match, the rest of the string wont match
-        else if(prefix_cmp) {
+        // for EQ on longs strings, the prefix must match
+        if(cmpPrefix) {
           bitmap_set(b, i, 0);
+          continue;
         }
-        // need to consult
-        else {
-          char *slong;
-          int slongn;
-          rc = vec0_get_metadata_text_long_value(p, &stmt, metadata_idx, rowids[i], &slongn, &slong);
-          if(rc != SQLITE_OK) {
-            goto done;
-          }
-          assert(n == slongn);
-          bitmap_set(b, i, strncmp(slong, target, n) == 0);
+        // consult the full string
+        rc = vec0_get_metadata_text_long_value(p, &stmt, metadata_idx, rowids[i], &nFull, &sFull);
+        if(rc != SQLITE_OK) {
+          goto done;
         }
+        if(nPrefix != nFull) {
+          rc = SQLITE_ERROR;
+          goto done;
+        }
+        bitmap_set(b, i, strncmp(sFull, sTarget, nFull) == 0);
       }
       break;
     }
@@ -5921,8 +5928,8 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
         u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
         int n = ((int*) view)[0];
         char * s = (char *) &view[4];
-        if(n > 12) {rc = SQLITE_ERROR;goto done;} /* TODO */
-        bitmap_set(b, i, strncmp(s, target, n) != 0);
+        if(n > VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {rc = SQLITE_ERROR;goto done;} /* TODO */
+        bitmap_set(b, i, strncmp(s, sTarget, n) != 0);
       }
       break;
     }
@@ -5931,8 +5938,8 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
         u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
         int n = ((int*) view)[0];
         char * s = (char *) &view[4];
-        if(n > 12) {rc = SQLITE_ERROR;goto done;} /* TODO */
-        bitmap_set(b, i, strncmp(s, target, n) > 0);
+        if(n > VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {rc = SQLITE_ERROR;goto done;} /* TODO */
+        bitmap_set(b, i, strncmp(s, sTarget, n) > 0);
       }
       break;
     }
@@ -5941,8 +5948,8 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
         u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
         int n = ((int*) view)[0];
         char * s = (char *) &view[4];
-        if(n > 12) {rc = SQLITE_ERROR;goto done;} /* TODO */
-        bitmap_set(b, i, strncmp(s, target, n) >= 0);
+        if(n > VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {rc = SQLITE_ERROR;goto done;} /* TODO */
+        bitmap_set(b, i, strncmp(s, sTarget, n) >= 0);
       }
       break;
     }
@@ -5951,8 +5958,8 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
         u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
         int n = ((int*) view)[0];
         char * s = (char *) &view[4];
-        if(n > 12) {rc = SQLITE_ERROR;goto done;} /* TODO */
-        bitmap_set(b, i, strncmp(s, target, n) <= 0);
+        if(n > VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {rc = SQLITE_ERROR;goto done;} /* TODO */
+        bitmap_set(b, i, strncmp(s, sTarget, n) <= 0);
       }
       break;
     }
@@ -5961,8 +5968,8 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
         u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
         int n = ((int*) view)[0];
         char * s = (char *) &view[4];
-        if(n > 12) {rc = SQLITE_ERROR;goto done;} /* TODO */
-        bitmap_set(b, i, strncmp(s, target, n) < 0);
+        if(n > VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {rc = SQLITE_ERROR;goto done;} /* TODO */
+        bitmap_set(b, i, strncmp(s, sTarget, n) < 0);
       }
       break;
     }
@@ -7572,10 +7579,10 @@ int vec0_write_metadata_value(vec0_vtab *p, int metadata_column_idx, i64 rowid, 
       memcpy(view+4, s, min(n, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH-4));
 
       rc = sqlite3_blob_write(blobValue, &view, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH, chunk_offset * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH);
-      if(n > 12) {
+      if(n > VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {
         const char * zSql;
 
-        if(isupdate && (prev_n > 12)) {
+        if(isupdate && (prev_n > VEC0_METADATA_TEXT_VIEW_DATA_LENGTH)) {
           zSql = sqlite3_mprintf("UPDATE " VEC0_SHADOW_METADATA_TEXT_DATA_NAME " SET data = ?2 WHERE rowid = ?1", p->schemaName, p->tableName, metadata_column_idx);
         }else {
           zSql = sqlite3_mprintf("INSERT INTO " VEC0_SHADOW_METADATA_TEXT_DATA_NAME " (rowid, data) VALUES (?1, ?2)", p->schemaName, p->tableName, metadata_column_idx);
@@ -7599,7 +7606,7 @@ int vec0_write_metadata_value(vec0_vtab *p, int metadata_column_idx, i64 rowid, 
           goto done;
         }
       }
-      else if(prev_n > 12) {
+      else if(prev_n > VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {
         const char * zSql = sqlite3_mprintf("DELETE FROM " VEC0_SHADOW_METADATA_TEXT_DATA_NAME " WHERE rowid = ?", p->schemaName, p->tableName, metadata_column_idx);
         if(!zSql) {
           rc = SQLITE_NOMEM;
@@ -8038,7 +8045,7 @@ int vec0Update_Delete_ClearMetadata(vec0_vtab *p, int metadata_idx, i64 rowid, i
         goto done;
       }
 
-      if(n > 12) {
+      if(n > VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {
         const char * zSql = sqlite3_mprintf("DELETE FROM " VEC0_SHADOW_METADATA_TEXT_DATA_NAME " WHERE rowid = ?", p->schemaName, p->tableName, metadata_idx);
         if(!zSql) {
           rc = SQLITE_NOMEM;
