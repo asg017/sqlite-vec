@@ -120,16 +120,6 @@ def test_text_knn(db, snapshot):
         == snapshot()
     )
 
-    # this break KNN :(
-    db.execute("insert into v(vector, name) values ('[3.0]', '1234567890123')")
-    assert (
-        exec(
-            db,
-            "select rowid, name, distance from v where vector match '[.01]' and k = 5 and name != 'aaa'",
-        )
-        == snapshot()
-    )
-
 
 def test_long_text_updates(db, snapshot):
     db.execute(

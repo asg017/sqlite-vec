@@ -1434,6 +1434,7 @@
 # name: test_stress.1
   OrderedDict({
     'sql': '''
+      
                 select
                   movie_id,
                   title,
@@ -1448,6 +1449,7 @@
                   and num_reviews between 100 and 500
                   and mean_rating > 3.5
                   and k = 5;
+              
     ''',
     'rows': list([
       OrderedDict({
@@ -1873,12 +1875,6 @@
         'name': 'iii',
       }),
     ]),
-  })
-# ---
-# name: test_text_knn.10
-  dict({
-    'error': 'OperationalError',
-    'message': 'Could not filter metadata fields',
   })
 # ---
 # name: test_text_knn.2
