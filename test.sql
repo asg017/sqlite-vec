@@ -4,6 +4,21 @@
 
 .mode qbox
 
+
+create table t as select value from json_each('["aaaa","aaaaaaaaaaaa_aaa","bbbb","bbbbbbbbbbbb_bbb","cccc","cccccccccccc_ccc"]') order by 1;
+
+
+.param set :p 'bbbbbbbbbbbb_ccc'
+
+select :p;
+
+select *
+from t
+where value > :p
+order by value desc;
+
+.exit
+
 create virtual table v using vec0(
   vector float[1],
   +description text
