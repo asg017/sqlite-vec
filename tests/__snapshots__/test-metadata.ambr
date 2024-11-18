@@ -619,45 +619,45 @@
 # ---
 # name: test_long_text_knn[eq-bbbb]
   OrderedDict({
-    'sql': "select * from v where vector match X'11111111' and k = 5 and name = ?",
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name = ?",
     'rows': list([
       OrderedDict({
         'rowid': 3,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'bbbb',
+        'distance': 97.0,
       }),
     ]),
   })
 # ---
 # name: test_long_text_knn[eq-bbbbbbbbbbbb_aaa]
   OrderedDict({
-    'sql': "select * from v where vector match X'11111111' and k = 5 and name = ?",
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name = ?",
     'rows': list([
     ]),
   })
 # ---
 # name: test_long_text_knn[eq-bbbbbbbbbbbb_bbb]
   OrderedDict({
-    'sql': "select * from v where vector match X'11111111' and k = 5 and name = ?",
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name = ?",
     'rows': list([
       OrderedDict({
         'rowid': 4,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
       }),
     ]),
   })
 # ---
 # name: test_long_text_knn[eq-bbbbbbbbbbbb_ccc]
   OrderedDict({
-    'sql': "select * from v where vector match X'11111111' and k = 5 and name = ?",
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name = ?",
     'rows': list([
     ]),
   })
 # ---
 # name: test_long_text_knn[eq-longlonglonglonglonglonglong]
   OrderedDict({
-    'sql': "select * from v where vector match X'11111111' and k = 5 and name = ?",
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name = ?",
     'rows': list([
     ]),
   })
@@ -784,160 +784,160 @@
 # ---
 # name: test_long_text_knn[ne-bbbb]
   OrderedDict({
-    'sql': "select * from v where vector match X'11111111' and k = 5 and name != ?",
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name != ?",
     'rows': list([
       OrderedDict({
         'rowid': 6,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
       }),
       OrderedDict({
         'rowid': 5,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'cccc',
+        'distance': 95.0,
       }),
       OrderedDict({
         'rowid': 4,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
       }),
       OrderedDict({
         'rowid': 2,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
       }),
       OrderedDict({
         'rowid': 1,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'aaaa',
+        'distance': 99.0,
       }),
     ]),
   })
 # ---
 # name: test_long_text_knn[ne-bbbbbbbbbbbb_aaa]
   OrderedDict({
-    'sql': "select * from v where vector match X'11111111' and k = 5 and name != ?",
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name != ?",
     'rows': list([
       OrderedDict({
         'rowid': 6,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
       }),
       OrderedDict({
         'rowid': 5,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'cccc',
+        'distance': 95.0,
       }),
       OrderedDict({
         'rowid': 4,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
       }),
       OrderedDict({
         'rowid': 3,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'bbbb',
+        'distance': 97.0,
       }),
       OrderedDict({
         'rowid': 2,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
       }),
     ]),
   })
 # ---
 # name: test_long_text_knn[ne-bbbbbbbbbbbb_bbb]
   OrderedDict({
-    'sql': "select * from v where vector match X'11111111' and k = 5 and name != ?",
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name != ?",
     'rows': list([
       OrderedDict({
         'rowid': 6,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
       }),
       OrderedDict({
         'rowid': 5,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'cccc',
+        'distance': 95.0,
       }),
       OrderedDict({
         'rowid': 3,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'bbbb',
+        'distance': 97.0,
       }),
       OrderedDict({
         'rowid': 2,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
       }),
       OrderedDict({
         'rowid': 1,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'aaaa',
+        'distance': 99.0,
       }),
     ]),
   })
 # ---
 # name: test_long_text_knn[ne-bbbbbbbbbbbb_ccc]
   OrderedDict({
-    'sql': "select * from v where vector match X'11111111' and k = 5 and name != ?",
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name != ?",
     'rows': list([
       OrderedDict({
         'rowid': 6,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
       }),
       OrderedDict({
         'rowid': 5,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'cccc',
+        'distance': 95.0,
       }),
       OrderedDict({
         'rowid': 4,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
       }),
       OrderedDict({
         'rowid': 3,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'bbbb',
+        'distance': 97.0,
       }),
       OrderedDict({
         'rowid': 2,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
       }),
     ]),
   })
 # ---
 # name: test_long_text_knn[ne-longlonglonglonglonglonglong]
   OrderedDict({
-    'sql': "select * from v where vector match X'11111111' and k = 5 and name != ?",
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name != ?",
     'rows': list([
       OrderedDict({
         'rowid': 6,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
       }),
       OrderedDict({
         'rowid': 5,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'cccc',
+        'distance': 95.0,
       }),
       OrderedDict({
         'rowid': 4,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
       }),
       OrderedDict({
         'rowid': 3,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'bbbb',
+        'distance': 97.0,
       }),
       OrderedDict({
         'rowid': 2,
-        'vector': b'\x11\x11\x11\x11',
         'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
       }),
     ]),
   })

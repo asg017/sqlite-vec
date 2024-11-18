@@ -138,12 +138,12 @@ def test_long_text_knn(db, snapshot):
         "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
     )
     INSERT = "insert into v(vector, name) values (?, ?)"
-    exec(db, INSERT, [b"\x11\x11\x11\x11", "aaaa"])
-    exec(db, INSERT, [b"\x11\x11\x11\x11", "aaaaaaaaaaaa_aaa"])
-    exec(db, INSERT, [b"\x11\x11\x11\x11", "bbbb"])
-    exec(db, INSERT, [b"\x11\x11\x11\x11", "bbbbbbbbbbbb_bbb"])
-    exec(db, INSERT, [b"\x11\x11\x11\x11", "cccc"])
-    exec(db, INSERT, [b"\x11\x11\x11\x11", "cccccccccccc_ccc"])
+    exec(db, INSERT, ["[1]", "aaaa"])
+    exec(db, INSERT, ["[2]", "aaaaaaaaaaaa_aaa"])
+    exec(db, INSERT, ["[3]", "bbbb"])
+    exec(db, INSERT, ["[4]", "bbbbbbbbbbbb_bbb"])
+    exec(db, INSERT, ["[5]", "cccc"])
+    exec(db, INSERT, ["[6]", "cccccccccccc_ccc"])
 
     tests = [
         "bbbb",
@@ -159,7 +159,7 @@ def test_long_text_knn(db, snapshot):
         for op, op_name in zip(ops, op_names):
             assert exec(
                 db,
-                f"select * from v where vector match X'11111111' and k = 5 and name {op} ?",
+                f"select rowid, name, distance from v where vector match '[100]' and k = 5 and name {op} ?",
                 [test],
             ) == snapshot(name=f"{op_name}-{test}")
 
