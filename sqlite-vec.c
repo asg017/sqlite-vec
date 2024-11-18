@@ -5968,19 +5968,19 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
         view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
         nPrefix = ((int*) view)[0];
         sPrefix = (char *) &view[4];
-        int cmpPrefix = strncmp(sPrefix, sTarget, min(nPrefix, VEC0_METADATA_TEXT_VIEW_DATA_LENGTH));
+        int cmpPrefix = strncmp(sPrefix, sTarget, min(min(nPrefix, VEC0_METADATA_TEXT_VIEW_DATA_LENGTH), nTarget));
 
-        // for short strings, use the prefix comparison direclty
-        if(nPrefix <= VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {
-          bitmap_set(b, i, cmpPrefix > 0);
+        if(nPrefix < VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {
+          // if prefix match, check which is longer
+          if(cmpPrefix == 0) {
+            bitmap_set(b, i, nPrefix > nTarget);
+          }
+          else {
+            bitmap_set(b, i, cmpPrefix > 0);
+          }
           continue;
         }
-
-        // for GT, only need to consult full string if EQ
-        if(cmpPrefix != 0) {
-          bitmap_set(b, i, cmpPrefix > 0);
-          continue;
-        }
+        // TODO(perf): may not need to compare full text in some cases
 
         rc = vec0_get_metadata_text_long_value(p, &stmt, metadata_idx, rowids[i], &nFull, &sFull);
         if(rc != SQLITE_OK) {
@@ -5996,11 +5996,32 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
     }
     case VEC0_METADATA_OPERATOR_GE: {
       for(int i = 0; i < size; i++) {
-        u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
-        int n = ((int*) view)[0];
-        char * s = (char *) &view[4];
-        if(n > VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {rc = SQLITE_ERROR;goto done;} /* TODO */
-        bitmap_set(b, i, strncmp(s, sTarget, n) >= 0);
+        view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
+        nPrefix = ((int*) view)[0];
+        sPrefix = (char *) &view[4];
+        int cmpPrefix = strncmp(sPrefix, sTarget, min(min(nPrefix, VEC0_METADATA_TEXT_VIEW_DATA_LENGTH), nTarget));
+
+        if(nPrefix < VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {
+          // if prefix match, check which is longer
+          if(cmpPrefix == 0) {
+            bitmap_set(b, i, nPrefix >= nTarget);
+          }
+          else {
+            bitmap_set(b, i, cmpPrefix >= 0);
+          }
+          continue;
+        }
+        // TODO(perf): may not need to compare full text in some cases
+
+        rc = vec0_get_metadata_text_long_value(p, &stmt, metadata_idx, rowids[i], &nFull, &sFull);
+        if(rc != SQLITE_OK) {
+          goto done;
+        }
+        if(nPrefix != nFull) {
+          rc = SQLITE_ERROR;
+          goto done;
+        }
+        bitmap_set(b, i, strncmp(sFull, sTarget, nFull) >= 0);
       }
       break;
     }

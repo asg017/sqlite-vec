@@ -147,6 +147,8 @@ def test_long_text_knn(db, snapshot):
 
     tests = [
         "bbbb",
+        "bb",
+        "bbbbbb",
         "bbbbbbbbbbbb_bbb",
         "bbbbbbbbbbbb_aaa",
         "bbbbbbbbbbbb_ccc",
