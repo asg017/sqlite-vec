@@ -783,33 +783,163 @@
   })
 # ---
 # name: test_long_text_knn[ne-bbbb]
-  dict({
-    'error': 'OperationalError',
-    'message': 'unrecognized token: "!"',
+  OrderedDict({
+    'sql': "select * from v where vector match X'11111111' and k = 5 and name != ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'cccccccccccc_ccc',
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'cccc',
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'bbbbbbbbbbbb_bbb',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'aaaaaaaaaaaa_aaa',
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'aaaa',
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[ne-bbbbbbbbbbbb_aaa]
-  dict({
-    'error': 'OperationalError',
-    'message': 'unrecognized token: "!"',
+  OrderedDict({
+    'sql': "select * from v where vector match X'11111111' and k = 5 and name != ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'cccccccccccc_ccc',
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'cccc',
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'bbbbbbbbbbbb_bbb',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'bbbb',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'aaaaaaaaaaaa_aaa',
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[ne-bbbbbbbbbbbb_bbb]
-  dict({
-    'error': 'OperationalError',
-    'message': 'unrecognized token: "!"',
+  OrderedDict({
+    'sql': "select * from v where vector match X'11111111' and k = 5 and name != ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'cccccccccccc_ccc',
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'cccc',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'bbbb',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'aaaaaaaaaaaa_aaa',
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'aaaa',
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[ne-bbbbbbbbbbbb_ccc]
-  dict({
-    'error': 'OperationalError',
-    'message': 'unrecognized token: "!"',
+  OrderedDict({
+    'sql': "select * from v where vector match X'11111111' and k = 5 and name != ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'cccccccccccc_ccc',
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'cccc',
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'bbbbbbbbbbbb_bbb',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'bbbb',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'aaaaaaaaaaaa_aaa',
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[ne-longlonglonglonglonglonglong]
-  dict({
-    'error': 'OperationalError',
-    'message': 'unrecognized token: "!"',
+  OrderedDict({
+    'sql': "select * from v where vector match X'11111111' and k = 5 and name != ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'cccccccccccc_ccc',
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'cccc',
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'bbbbbbbbbbbb_bbb',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'bbbb',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'aaaaaaaaaaaa_aaa',
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_updates

@@ -5885,13 +5885,16 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
   sqlite3_blob_close(rowidsBlob);
 
   switch(op) {
+    int nPrefix;
+    char * sPrefix;
     char *sFull;
     int nFull;
+    u8 * view;
     case VEC0_METADATA_OPERATOR_EQ: {
       for(int i = 0; i < size; i++) {
-        u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
-        int nPrefix = ((int*) view)[0];
-        char * sPrefix = (char *) &view[4];
+        view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
+        nPrefix = ((int*) view)[0];
+        sPrefix = (char *) &view[4];
 
         // for EQ the text lengths must match
         if(nPrefix != nTarget) {
@@ -5925,11 +5928,39 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
     }
     case VEC0_METADATA_OPERATOR_NE: {
       for(int i = 0; i < size; i++) {
-        u8 * view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
-        int n = ((int*) view)[0];
-        char * s = (char *) &view[4];
-        if(n > VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {rc = SQLITE_ERROR;goto done;} /* TODO */
-        bitmap_set(b, i, strncmp(s, sTarget, n) != 0);
+        view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
+        nPrefix = ((int*) view)[0];
+        sPrefix = (char *) &view[4];
+
+        // for NE if text lengths dont match, it never will
+        if(nPrefix != nTarget) {
+          bitmap_set(b, i, 1);
+          continue;
+        }
+
+        int cmpPrefix = strncmp(sPrefix, sTarget, min(nPrefix, VEC0_METADATA_TEXT_VIEW_DATA_LENGTH));
+
+        // for short strings, use the prefix comparison direclty
+        if(nPrefix <= VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {
+          bitmap_set(b, i, cmpPrefix != 0);
+          continue;
+        }
+        // for NE on longs strings, if prefixes dont match, then long string wont
+        if(cmpPrefix) {
+          bitmap_set(b, i, 1);
+          continue;
+        }
+        // consult the full string
+        rc = vec0_get_metadata_text_long_value(p, &stmt, metadata_idx, rowids[i], &nFull, &sFull);
+        if(rc != SQLITE_OK) {
+          goto done;
+        }
+        if(nPrefix != nFull) {
+          rc = SQLITE_ERROR;
+          goto done;
+        }
+        bitmap_set(b, i, strncmp(sFull, sTarget, nFull) != 0);
+
       }
       break;
     }

@@ -152,7 +152,7 @@ def test_long_text_knn(db, snapshot):
         "bbbbbbbbbbbb_ccc",
         "longlonglonglonglonglonglong",
     ]
-    ops = ["=", "!-", "<", "<=", ">", ">="]
+    ops = ["=", "!=", "<", "<=", ">", ">="]
     op_names = ["eq", "ne", "lt", "le", "gt", "ge"]
 
     for test in tests:
