@@ -13,7 +13,6 @@
   - perf: LEFT JOIN aux table to rowids query in vec0_cursor for rowid/point stmts, to avoid N lookup queries
 
 # metadata filtering
-- text comparisons (long)
 - `v in (...)` handling
 - [ ] test accessing aux values when rowid is different than 1,2,3 etc.
 - [ ] add `xyz_info` shadow table with version etc.

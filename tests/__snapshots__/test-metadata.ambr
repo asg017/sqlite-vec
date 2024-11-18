@@ -955,87 +955,331 @@
   })
 # ---
 # name: test_long_text_knn[le-bb]
-  dict({
-    'error': 'OperationalError',
-    'message': 'Could not filter metadata fields',
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name <= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[le-bbbb]
-  dict({
-    'error': 'OperationalError',
-    'message': 'Could not filter metadata fields',
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name <= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[le-bbbbbb]
-  dict({
-    'error': 'OperationalError',
-    'message': 'Could not filter metadata fields',
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name <= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[le-bbbbbbbbbbbb_aaa]
-  dict({
-    'error': 'OperationalError',
-    'message': 'Could not filter metadata fields',
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name <= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[le-bbbbbbbbbbbb_bbb]
-  dict({
-    'error': 'OperationalError',
-    'message': 'Could not filter metadata fields',
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name <= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[le-bbbbbbbbbbbb_ccc]
-  dict({
-    'error': 'OperationalError',
-    'message': 'Could not filter metadata fields',
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name <= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[le-longlonglonglonglonglonglong]
-  dict({
-    'error': 'OperationalError',
-    'message': 'Could not filter metadata fields',
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name <= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[lt-bb]
-  dict({
-    'error': 'OperationalError',
-    'message': 'Could not filter metadata fields',
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name < ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[lt-bbbb]
-  dict({
-    'error': 'OperationalError',
-    'message': 'Could not filter metadata fields',
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name < ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[lt-bbbbbb]
-  dict({
-    'error': 'OperationalError',
-    'message': 'Could not filter metadata fields',
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name < ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[lt-bbbbbbbbbbbb_aaa]
-  dict({
-    'error': 'OperationalError',
-    'message': 'Could not filter metadata fields',
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name < ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[lt-bbbbbbbbbbbb_bbb]
-  dict({
-    'error': 'OperationalError',
-    'message': 'Could not filter metadata fields',
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name < ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[lt-bbbbbbbbbbbb_ccc]
-  dict({
-    'error': 'OperationalError',
-    'message': 'Could not filter metadata fields',
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name < ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[lt-longlonglonglonglonglonglong]
-  dict({
-    'error': 'OperationalError',
-    'message': 'Could not filter metadata fields',
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name < ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+    ]),
   })
 # ---
 # name: test_long_text_knn[ne-bb]
