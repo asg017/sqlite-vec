@@ -5852,11 +5852,37 @@ int vec0_chunks_iter(vec0_vtab * p, const char * idxStr, int argc, sqlite3_value
   return rc;
 }
 
-int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void * buffer, int size, vec0_metadata_operator op, u8* b, int metadata_idx, i64 *rowids) {
+int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void * buffer, int size, vec0_metadata_operator op, u8* b, int metadata_idx, int chunk_rowid) {
   int rc;
   sqlite3_stmt * stmt = NULL;
+  i64 * rowids = NULL;
+  sqlite3_blob * rowidsBlob;
   const char * target = (const char *) sqlite3_value_text(value);
   int targetn = sqlite3_value_bytes(value);
+
+
+  // TODO(perf): only text metadata news the rowids BLOB. Make it so that
+  // rowids BLOB is re-used when multiple fitlers on text columns,
+  // ex "name BETWEEN 'a' and 'b'""
+  rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowChunksName, "rowids", chunk_rowid, 0, &rowidsBlob);
+  if(rc != SQLITE_OK) {
+    return rc;
+  }
+  assert(sqlite3_blob_bytes(rowidsBlob) % sizeof(i64) == 0);
+  assert((sqlite3_blob_bytes(rowidsBlob) / sizeof(i64)) == size);
+
+  rowids = sqlite3_malloc(sqlite3_blob_bytes(rowidsBlob));
+  if(!rowids) {
+    sqlite3_blob_close(rowidsBlob);
+    return SQLITE_NOMEM;
+  }
+
+  rc = sqlite3_blob_read(rowidsBlob, rowids, sqlite3_blob_bytes(rowidsBlob), 0);
+  if(rc != SQLITE_OK) {
+    sqlite3_blob_close(rowidsBlob);
+    return rc;
+  }
+  sqlite3_blob_close(rowidsBlob);
 
   switch(op) {
     case VEC0_METADATA_OPERATOR_EQ: {
@@ -5946,6 +5972,7 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
 
   done:
     sqlite3_finalize(stmt);
+    sqlite3_free(rowids);
     return rc;
 
 }
@@ -5978,27 +6005,6 @@ int vec0_set_metadata_filter_bitmap(
   if(rc != SQLITE_OK) {
     return rc;
   }
-  // TODO: only on text columns
-  sqlite3_blob * rowidsBlob;
-  rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowChunksName, "rowids", chunk_rowid, 0, &rowidsBlob);
-  if(rc != SQLITE_OK) {
-    return rc;
-  }
-  assert(sqlite3_blob_bytes(rowidsBlob) % sizeof(i64) == 0);
-  assert((sqlite3_blob_bytes(rowidsBlob) / sizeof(i64)) == size);
-  i64 * rowids;
-  rowids = sqlite3_malloc(sqlite3_blob_bytes(rowidsBlob));
-  if(!rowids) {
-    sqlite3_blob_close(rowidsBlob);
-    return SQLITE_NOMEM;
-  }
-
-  rc = sqlite3_blob_read(rowidsBlob, rowids, sqlite3_blob_bytes(rowidsBlob), 0);
-  if(rc != SQLITE_OK) {
-    sqlite3_blob_close(rowidsBlob);
-    return rc;
-  }
-  sqlite3_blob_close(rowidsBlob);
 
   vec0_metadata_column_kind kind = p->metadata_columns[metadata_idx].kind;
   int szMatch = 0;
@@ -6106,13 +6112,12 @@ int vec0_set_metadata_filter_bitmap(
       break;
     }
     case VEC0_METADATA_COLUMN_KIND_TEXT: {
-      vec0_metadata_filter_text(p, value, buffer, size, op, b, metadata_idx, rowids);
+      vec0_metadata_filter_text(p, value, buffer, size, op, b, metadata_idx, chunk_rowid);
       break;
     }
   }
   done:
     sqlite3_free(buffer);
-    sqlite3_free(rowids);
     return rc;
 }
 
