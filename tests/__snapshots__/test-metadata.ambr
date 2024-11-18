@@ -617,28 +617,199 @@
     ]),
   })
 # ---
-# name: test_long_text_knn[knn-eq-short]
-  OrderedDict({
-    'sql': "select * from v where vector match X'11111111' and k = 5 and name = ?",
-    'rows': list([
-      OrderedDict({
-        'rowid': 1,
-        'vector': b'\x11\x11\x11\x11',
-        'name': 'aaaaaaaaaaaa',
-      }),
-    ]),
-  })
-# ---
-# name: test_long_text_knn[knn-eq-true]
+# name: test_long_text_knn[eq-bbbb]
   OrderedDict({
     'sql': "select * from v where vector match X'11111111' and k = 5 and name = ?",
     'rows': list([
       OrderedDict({
         'rowid': 3,
         'vector': b'\x11\x11\x11\x11',
-        'name': 'aaaaaaaaaaaa_aaa',
+        'name': 'bbbb',
       }),
     ]),
+  })
+# ---
+# name: test_long_text_knn[eq-bbbbbbbbbbbb_aaa]
+  OrderedDict({
+    'sql': "select * from v where vector match X'11111111' and k = 5 and name = ?",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_long_text_knn[eq-bbbbbbbbbbbb_bbb]
+  OrderedDict({
+    'sql': "select * from v where vector match X'11111111' and k = 5 and name = ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'vector': b'\x11\x11\x11\x11',
+        'name': 'bbbbbbbbbbbb_bbb',
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[eq-bbbbbbbbbbbb_ccc]
+  OrderedDict({
+    'sql': "select * from v where vector match X'11111111' and k = 5 and name = ?",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_long_text_knn[eq-longlonglonglonglonglonglong]
+  OrderedDict({
+    'sql': "select * from v where vector match X'11111111' and k = 5 and name = ?",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_long_text_knn[ge-bbbb]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[ge-bbbbbbbbbbbb_aaa]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[ge-bbbbbbbbbbbb_bbb]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[ge-bbbbbbbbbbbb_ccc]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[ge-longlonglonglonglonglonglong]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[gt-bbbb]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[gt-bbbbbbbbbbbb_aaa]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[gt-bbbbbbbbbbbb_bbb]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[gt-bbbbbbbbbbbb_ccc]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[gt-longlonglonglonglonglonglong]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[le-bbbb]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[le-bbbbbbbbbbbb_aaa]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[le-bbbbbbbbbbbb_bbb]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[le-bbbbbbbbbbbb_ccc]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[le-longlonglonglonglonglonglong]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[lt-bbbb]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[lt-bbbbbbbbbbbb_aaa]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[lt-bbbbbbbbbbbb_bbb]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[lt-bbbbbbbbbbbb_ccc]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[lt-longlonglonglonglonglonglong]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_long_text_knn[ne-bbbb]
+  dict({
+    'error': 'OperationalError',
+    'message': 'unrecognized token: "!"',
+  })
+# ---
+# name: test_long_text_knn[ne-bbbbbbbbbbbb_aaa]
+  dict({
+    'error': 'OperationalError',
+    'message': 'unrecognized token: "!"',
+  })
+# ---
+# name: test_long_text_knn[ne-bbbbbbbbbbbb_bbb]
+  dict({
+    'error': 'OperationalError',
+    'message': 'unrecognized token: "!"',
+  })
+# ---
+# name: test_long_text_knn[ne-bbbbbbbbbbbb_ccc]
+  dict({
+    'error': 'OperationalError',
+    'message': 'unrecognized token: "!"',
+  })
+# ---
+# name: test_long_text_knn[ne-longlonglonglonglonglonglong]
+  dict({
+    'error': 'OperationalError',
+    'message': 'unrecognized token: "!"',
   })
 # ---
 # name: test_long_text_updates

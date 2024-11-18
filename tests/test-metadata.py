@@ -138,22 +138,30 @@ def test_long_text_knn(db, snapshot):
         "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
     )
     INSERT = "insert into v(vector, name) values (?, ?)"
-    exec(db, INSERT, [b"\x11\x11\x11\x11", "aaaaaaaaaaaa"])
-    exec(db, INSERT, [b"\x11\x11\x11\x11", "bbbbbbbbbbbb"])
+    exec(db, INSERT, [b"\x11\x11\x11\x11", "aaaa"])
     exec(db, INSERT, [b"\x11\x11\x11\x11", "aaaaaaaaaaaa_aaa"])
-    exec(db, INSERT, [b"\x11\x11\x11\x11", "aaaaaaaaaaaa_bbb"])
-    exec(db, INSERT, [b"\x11\x11\x11\x11", "aaaaaaaaaaaa_ccc"])
+    exec(db, INSERT, [b"\x11\x11\x11\x11", "bbbb"])
+    exec(db, INSERT, [b"\x11\x11\x11\x11", "bbbbbbbbbbbb_bbb"])
+    exec(db, INSERT, [b"\x11\x11\x11\x11", "cccc"])
+    exec(db, INSERT, [b"\x11\x11\x11\x11", "cccccccccccc_ccc"])
 
-    assert exec(
-        db,
-        "select * from v where vector match X'11111111' and k = 5 and name = ?",
-        ["aaaaaaaaaaaa"],
-    ) == snapshot(name="knn-eq-short")
-    assert exec(
-        db,
-        "select * from v where vector match X'11111111' and k = 5 and name = ?",
-        ["aaaaaaaaaaaa_aaa"],
-    ) == snapshot(name="knn-eq-true")
+    tests = [
+        "bbbb",
+        "bbbbbbbbbbbb_bbb",
+        "bbbbbbbbbbbb_aaa",
+        "bbbbbbbbbbbb_ccc",
+        "longlonglonglonglonglonglong",
+    ]
+    ops = ["=", "!-", "<", "<=", ">", ">="]
+    op_names = ["eq", "ne", "lt", "le", "gt", "ge"]
+
+    for test in tests:
+        for op, op_name in zip(ops, op_names):
+            assert exec(
+                db,
+                f"select * from v where vector match X'11111111' and k = 5 and name {op} ?",
+                [test],
+            ) == snapshot(name=f"{op_name}-{test}")
 
 
 def test_types(db, snapshot):

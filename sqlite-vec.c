@@ -6119,7 +6119,10 @@ int vec0_set_metadata_filter_bitmap(
       break;
     }
     case VEC0_METADATA_COLUMN_KIND_TEXT: {
-      vec0_metadata_filter_text(p, value, buffer, size, op, b, metadata_idx, chunk_rowid);
+      rc = vec0_metadata_filter_text(p, value, buffer, size, op, b, metadata_idx, chunk_rowid);
+      if(rc != SQLITE_OK) {
+        goto done;
+      }
       break;
     }
   }
