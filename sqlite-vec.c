@@ -8188,15 +8188,15 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
       int v_type = sqlite3_value_type(v);
       if(v_type != SQLITE_NULL && (v_type != p->auxiliary_columns[auxiliary_key_idx].type)) {
         sqlite3_finalize(stmt);
-        rc = SQLITE_ERROR;
+        rc = SQLITE_CONSTRAINT;
         vtab_set_error(
-        pVTab,
-        "Auxiliary column type mismatch: The auxiliary column %.*s has type %s, but %s was provided.",
-        p->auxiliary_columns[auxiliary_key_idx].name_length,
-        p->auxiliary_columns[auxiliary_key_idx].name,
-        type_name(p->auxiliary_columns[auxiliary_key_idx].type),
-        type_name(v_type)
-      );
+          pVTab,
+          "Auxiliary column type mismatch: The auxiliary column %.*s has type %s, but %s was provided.",
+          p->auxiliary_columns[auxiliary_key_idx].name_length,
+          p->auxiliary_columns[auxiliary_key_idx].name,
+          type_name(p->auxiliary_columns[auxiliary_key_idx].type),
+          type_name(v_type)
+        );
         goto cleanup;
       }
       sqlite3_bind_value(stmt, 1 + 1 + auxiliary_key_idx, v);

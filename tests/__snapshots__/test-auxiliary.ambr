@@ -409,25 +409,25 @@
 # ---
 # name: test_types.3
   dict({
-    'error': 'OperationalError',
+    'error': 'IntegrityError',
     'message': 'Auxiliary column type mismatch: The auxiliary column aux_int has type INTEGER, but TEXT was provided.',
   })
 # ---
 # name: test_types.4
   dict({
-    'error': 'OperationalError',
+    'error': 'IntegrityError',
     'message': 'Auxiliary column type mismatch: The auxiliary column aux_float has type FLOAT, but TEXT was provided.',
   })
 # ---
 # name: test_types.5
   dict({
-    'error': 'OperationalError',
+    'error': 'IntegrityError',
     'message': 'Auxiliary column type mismatch: The auxiliary column aux_text has type TEXT, but INTEGER was provided.',
   })
 # ---
 # name: test_types.6
   dict({
-    'error': 'OperationalError',
+    'error': 'IntegrityError',
     'message': 'Auxiliary column type mismatch: The auxiliary column aux_blob has type BLOB, but INTEGER was provided.',
   })
 # ---

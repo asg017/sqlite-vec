@@ -49,13 +49,15 @@ def test_types(db, snapshot):
     )
     assert exec(db, "select * from v") == snapshot()
     INSERT = "insert into v(vector, aux_int, aux_float, aux_text, aux_blob) values (?, ?, ?, ?, ?)"
-
     assert (
         exec(db, INSERT, [b"\x11\x11\x11\x11", 1, 1.22, "text", b"blob"]) == snapshot()
     )
     assert exec(db, "select * from v") == snapshot()
 
+    # TODO: integrity test transaction failures in shadow tables
+    db.commit()
     # bad types
+    db.execute("BEGIN")
     assert (
         exec(db, INSERT, [b"\x11\x11\x11\x11", "not int", 1.2, "text", b"blob"])
         == snapshot()
@@ -66,6 +68,7 @@ def test_types(db, snapshot):
     )
     assert exec(db, INSERT, [b"\x11\x11\x11\x11", 1, 1.2, 1, b"blob"]) == snapshot()
     assert exec(db, INSERT, [b"\x11\x11\x11\x11", 1, 1.2, "text", 1]) == snapshot()
+    db.execute("ROLLBACK")
 
     # NULLs are totally chill
     assert exec(db, INSERT, [b"\x11\x11\x11\x11", None, None, None, None]) == snapshot()
