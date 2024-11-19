@@ -28,3 +28,6 @@ tmp/
 poetry.lock
 
 *.jsonl
+
+memstat.c
+memstat.*

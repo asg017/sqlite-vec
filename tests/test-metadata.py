@@ -1,5 +1,7 @@
+import pytest
 import sqlite3
 from collections import OrderedDict
+import json
 
 
 def test_constructor_limit(db, snapshot):
@@ -282,6 +284,87 @@ def test_knn(db, snapshot):
         )
         == snapshot()
     )
+
+
+SUPPORTS_VTAB_IN = sqlite3.sqlite_version_info[1] >= 38
+
+
+@pytest.mark.skipif(
+    not SUPPORTS_VTAB_IN, reason="requires vtab `x in (...)` support in SQLite >=3.38"
+)
+def test_vtab_in(db, snapshot):
+    db.execute(
+        "create virtual table v using vec0(vector float[1], n int, t text, b boolean, f float, chunk_size=8)"
+    )
+    db.executemany(
+        "insert into v(rowid, vector, n, t, b, f) values (?, ?, ?, ?, ?, ?)",
+        [
+            (1, "[1]", 999, "aaaa", 0, 1.1),
+            (2, "[2]", 555, "aaaa", 0, 1.1),
+            (3, "[3]", 999, "aaaa", 0, 1.1),
+            (4, "[4]", 555, "aaaa", 0, 1.1),
+            (5, "[5]", 999, "zzzz", 0, 1.1),
+            (6, "[6]", 555, "zzzz", 0, 1.1),
+            (7, "[7]", 999, "zzzz", 0, 1.1),
+            (8, "[8]", 555, "zzzz", 0, 1.1),
+        ],
+    )
+    assert exec(
+        db, "select *  from v where vector match '[0]' and k = 8 and b in (1, 0)"
+    ) == snapshot(name="block-bool")
+
+    assert exec(
+        db, "select *  from v where vector match '[0]' and k = 8 and f in (1.1, 0.0)"
+    ) == snapshot(name="block-float")
+
+    assert exec(
+        db,
+        "select rowid, n, distance  from v where vector match '[0]' and k = 8 and n in (555, 999)",
+    ) == snapshot(name="allow-int-all")
+    assert exec(
+        db,
+        "select rowid, n, distance from v where vector match '[0]' and k = 8 and n in (555, -1, -2)",
+    ) == snapshot(name="allow-int-superfluous")
+
+    assert exec(
+        db,
+        "select rowid, t, distance  from v where vector match '[0]' and k = 8 and t in ('aaaa', 'zzzz')",
+    ) == snapshot(name="allow-text-all")
+    assert exec(
+        db,
+        "select rowid, t, distance from v where vector match '[0]' and k = 8 and t in ('aaaa', 'foo', 'bar')",
+    ) == snapshot(name="allow-text-superfluous")
+
+
+def test_vtab_in_long_text(db, snapshot):
+    db.execute(
+        "create virtual table v using vec0(vector float[1], t text, chunk_size=8)"
+    )
+    data = [
+        (1, "aaaa"),
+        (2, "aaaaaaaaaaaa_aaa"),
+        (3, "bbbb"),
+        (4, "bbbbbbbbbbbb_bbb"),
+        (5, "cccc"),
+        (6, "cccccccccccc_ccc"),
+    ]
+    db.executemany(
+        "insert into v(rowid, vector, t) values (:rowid, printf('[%d]', :rowid), :vector)",
+        [{"rowid": row[0], "vector": row[1]} for row in data],
+    )
+
+    for _, lookup in data:
+        assert exec(
+            db,
+            "select rowid, t from v where vector match '[0]' and k = 10 and t in (?, 'nonsense')",
+            [lookup],
+        ) == snapshot(name=f"individual-{lookup}")
+
+    assert exec(
+        db,
+        "select rowid, t from v where vector match '[0]' and k = 10 and t in (select value from json_each(?))",
+        [json.dumps([row[1] for row in data])],
+    ) == snapshot(name="all")
 
 
 def test_idxstr(db, snapshot):

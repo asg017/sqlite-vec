@@ -22,3 +22,4 @@
   - remaining TODO items
   - skip invalid validity entries in knn filter?
   - dictionary encoding?
+  - partition `x in (...)` handling

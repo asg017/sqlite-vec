@@ -3806,3 +3806,260 @@
     }),
   })
 # ---
+# name: test_vtab_in[allow-int-all]
+  OrderedDict({
+    'sql': "select rowid, n, distance  from v where vector match '[0]' and k = 8 and n in (555, 999)",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'n': 999,
+        'distance': 1.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'n': 555,
+        'distance': 2.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'n': 999,
+        'distance': 3.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'n': 555,
+        'distance': 4.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'n': 999,
+        'distance': 5.0,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'n': 555,
+        'distance': 6.0,
+      }),
+      OrderedDict({
+        'rowid': 7,
+        'n': 999,
+        'distance': 7.0,
+      }),
+      OrderedDict({
+        'rowid': 8,
+        'n': 555,
+        'distance': 8.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in[allow-int-superfluous]
+  OrderedDict({
+    'sql': "select rowid, n, distance from v where vector match '[0]' and k = 8 and n in (555, -1, -2)",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'n': 555,
+        'distance': 2.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'n': 555,
+        'distance': 4.0,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'n': 555,
+        'distance': 6.0,
+      }),
+      OrderedDict({
+        'rowid': 8,
+        'n': 555,
+        'distance': 8.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in[allow-text-all]
+  OrderedDict({
+    'sql': "select rowid, t, distance  from v where vector match '[0]' and k = 8 and t in ('aaaa', 'zzzz')",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        't': 'aaaa',
+        'distance': 1.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        't': 'aaaa',
+        'distance': 2.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        't': 'aaaa',
+        'distance': 3.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        't': 'aaaa',
+        'distance': 4.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        't': 'zzzz',
+        'distance': 5.0,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        't': 'zzzz',
+        'distance': 6.0,
+      }),
+      OrderedDict({
+        'rowid': 7,
+        't': 'zzzz',
+        'distance': 7.0,
+      }),
+      OrderedDict({
+        'rowid': 8,
+        't': 'zzzz',
+        'distance': 8.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in[allow-text-superfluous]
+  OrderedDict({
+    'sql': "select rowid, t, distance from v where vector match '[0]' and k = 8 and t in ('aaaa', 'foo', 'bar')",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        't': 'aaaa',
+        'distance': 1.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        't': 'aaaa',
+        'distance': 2.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        't': 'aaaa',
+        'distance': 3.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        't': 'aaaa',
+        'distance': 4.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in[block-bool]
+  dict({
+    'error': 'OperationalError',
+    'message': "'xxx in (...)' is only available on INTEGER or TEXT metadata columns.",
+  })
+# ---
+# name: test_vtab_in[block-float]
+  dict({
+    'error': 'OperationalError',
+    'message': "'xxx in (...)' is only available on INTEGER or TEXT metadata columns.",
+  })
+# ---
+# name: test_vtab_in_long_text[all]
+  OrderedDict({
+    'sql': "select rowid, t from v where vector match '[0]' and k = 10 and t in (select value from json_each(?))",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        't': 'aaaa',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        't': 'aaaaaaaaaaaa_aaa',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        't': 'bbbb',
+      }),
+      OrderedDict({
+        'rowid': 4,
+        't': 'bbbbbbbbbbbb_bbb',
+      }),
+      OrderedDict({
+        'rowid': 5,
+        't': 'cccc',
+      }),
+      OrderedDict({
+        'rowid': 6,
+        't': 'cccccccccccc_ccc',
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in_long_text[individual-aaaa]
+  OrderedDict({
+    'sql': "select rowid, t from v where vector match '[0]' and k = 10 and t in (?, 'nonsense')",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        't': 'aaaa',
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in_long_text[individual-aaaaaaaaaaaa_aaa]
+  OrderedDict({
+    'sql': "select rowid, t from v where vector match '[0]' and k = 10 and t in (?, 'nonsense')",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        't': 'aaaaaaaaaaaa_aaa',
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in_long_text[individual-bbbb]
+  OrderedDict({
+    'sql': "select rowid, t from v where vector match '[0]' and k = 10 and t in (?, 'nonsense')",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        't': 'bbbb',
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in_long_text[individual-bbbbbbbbbbbb_bbb]
+  OrderedDict({
+    'sql': "select rowid, t from v where vector match '[0]' and k = 10 and t in (?, 'nonsense')",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        't': 'bbbbbbbbbbbb_bbb',
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in_long_text[individual-cccc]
+  OrderedDict({
+    'sql': "select rowid, t from v where vector match '[0]' and k = 10 and t in (?, 'nonsense')",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        't': 'cccc',
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in_long_text[individual-cccccccccccc_ccc]
+  OrderedDict({
+    'sql': "select rowid, t from v where vector match '[0]' and k = 10 and t in (?, 'nonsense')",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        't': 'cccccccccccc_ccc',
+      }),
+    ]),
+  })
+# ---

@@ -5,6 +5,54 @@
 .mode qbox
 
 
+.load ./memstat
+.echo on
+
+select name, value from sqlite_memstat where name = 'MEMORY_USED';
+
+create virtual table v using vec0(
+  vector float[1],
+  name1 text,
+  name2 text,
+  age int,
+  chunk_size=8
+);
+
+select name, value from sqlite_memstat where name = 'MEMORY_USED';
+
+insert into v(vector, name1, name2, age) values
+  ('[1]', 'alex', 'xxxx', 1),
+  ('[2]', 'alex', 'aaaa', 2),
+  ('[3]', 'alex', 'aaaa', 3),
+  ('[4]', 'brian', 'aaaa', 1),
+  ('[5]', 'brian', 'aaaa', 2),
+  ('[6]', 'brian', 'aaaa', 3),
+  ('[7]', 'craig', 'aaaa', 1),
+  ('[8]', 'craig', 'xxxx', 2),
+  ('[9]', 'craig', 'xxxx', 3),
+  ('[10]', '123456789012345', 'xxxx', 3);
+
+select name, value from sqlite_memstat where name = 'MEMORY_USED';
+
+select rowid, name1, name2, age, vec_to_json(vector)
+from v
+where vector match '[0]'
+  and k = 5
+  and name1 in ('alex', 'brian', 'craig')
+  --and name2 in ('aaaa', 'xxxx')
+  and age in (1, 2, 3, 2222,3333,4444);
+
+select name, value from sqlite_memstat where name = 'MEMORY_USED';
+
+select rowid, name1, name2, age, vec_to_json(vector)
+from v
+where vector match '[0]'
+  and k = 5
+  and name1 in ('123456789012345', 'superfluous');
+
+
+.exit
+
 create virtual table v using vec0(
   vector float[1],
   +description text
