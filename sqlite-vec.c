@@ -5504,7 +5504,6 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
           if (sqlite3_libversion_number() >= 3038000) {
             vtabIn = sqlite3_vtab_in(pIdxInfo, i, -1);
           }
-          #endif
           if(vtabIn) {
             switch(p->metadata_columns[metadata_idx].kind) {
               case VEC0_METADATA_COLUMN_KIND_FLOAT:
@@ -5523,6 +5522,7 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
             value = VEC0_METADATA_OPERATOR_IN;
             sqlite3_vtab_in(pIdxInfo, i, 1);
           }
+          #endif
           else {
             value = VEC0_PARTITION_OPERATOR_EQ;
           }
