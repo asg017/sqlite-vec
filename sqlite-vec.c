@@ -5521,9 +5521,9 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
             }
             value = VEC0_METADATA_OPERATOR_IN;
             sqlite3_vtab_in(pIdxInfo, i, 1);
-          }
+          }else
           #endif
-          else {
+           {
             value = VEC0_PARTITION_OPERATOR_EQ;
           }
           break;
