@@ -1,0 +1,4097 @@
+# serializer version: 1
+# name: test_constructor_limit[max 16 metadata columns]
+  dict({
+    'error': 'OperationalError',
+    'message': 'vec0 constructor error: More than 16 metadata columns were provided',
+  })
+# ---
+# name: test_deletes
+  OrderedDict({
+    'sql': 'insert into v(rowid, vector, b, n, f, t) values (?, ?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_deletes.1
+  OrderedDict({
+    'sql': 'insert into v(rowid, vector, b, n, f, t) values (?, ?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_deletes.10
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x02',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x02',
+        }),
+      ]),
+    }),
+    'v_metadatachunks01': OrderedDict({
+      'sql': 'select * from v_metadatachunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks02': OrderedDict({
+      'sql': 'select * from v_metadatachunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x00\x00\x00\x00\x00\x00\x00\x00\x9a\x99\x99\x99\x99\x99\x01@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks03': OrderedDict({
+      'sql': 'select * from v_metadatachunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_deletes.2
+  OrderedDict({
+    'sql': 'insert into v(rowid, vector, b, n, f, t) values (?, ?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_deletes.3
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'b': 1,
+        'n': 1,
+        'f': 1.1,
+        't': 'test1',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123',
+      }),
+    ]),
+  })
+# ---
+# name: test_deletes.4
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x07',
+        }),
+      ]),
+    }),
+    'v_metadatachunks01': OrderedDict({
+      'sql': 'select * from v_metadatachunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks02': OrderedDict({
+      'sql': 'select * from v_metadatachunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x9a\x99\x99\x99\x99\x99\xf1?\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks03': OrderedDict({
+      'sql': 'select * from v_metadatachunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x05\x00\x00\x00test1\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_deletes.5
+  OrderedDict({
+    'sql': 'DELETE FROM v where rowid = 1',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_deletes.6
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123',
+      }),
+    ]),
+  })
+# ---
+# name: test_deletes.7
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x06',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x06',
+        }),
+      ]),
+    }),
+    'v_metadatachunks01': OrderedDict({
+      'sql': 'select * from v_metadatachunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks02': OrderedDict({
+      'sql': 'select * from v_metadatachunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x00\x00\x00\x00\x00\x00\x00\x00\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks03': OrderedDict({
+      'sql': 'select * from v_metadatachunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_deletes.8
+  OrderedDict({
+    'sql': 'DELETE FROM v where rowid = 3',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_deletes.9
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2',
+      }),
+    ]),
+  })
+# ---
+# name: test_errors
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x00\x00\x80?',
+        't': 'aaaaaaaaaaaax',
+      }),
+    ]),
+  })
+# ---
+# name: test_errors.1
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not extract metadata value for column t at rowid 1',
+  })
+# ---
+# name: test_idxstr
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and is_favorited = true",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Aa_',
+        'id': 2,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-float !=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and mean_rating != NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Df_',
+        'id': 2,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-float <=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and mean_rating <= NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Dc_',
+        'id': 2,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-float <]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and mean_rating < NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Dd_',
+        'id': 2,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-float >=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and mean_rating >= NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&De_',
+        'id': 2,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-float >]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and mean_rating > NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Db_',
+        'id': 2,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-int !=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and num_reviews != NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Cf_',
+        'id': 2,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-int <=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and num_reviews <= NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Cc_',
+        'id': 2,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-int <]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and num_reviews < NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Cd_',
+        'id': 2,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-int >=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and num_reviews >= NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Ce_',
+        'id': 2,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-int >]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and num_reviews > NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Cb_',
+        'id': 2,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-text !=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and genre != NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Bf_',
+        'id': 2,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-text <=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and genre <= NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Bc_',
+        'id': 2,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-text <]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and genre < NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Bd_',
+        'id': 2,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-text >=]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and genre >= NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Be_',
+        'id': 2,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_idxstr[knn-constraint-text >]
+  OrderedDict({
+    'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and genre > NULL",
+    'plan': list([
+      dict({
+        'detail': 'SCAN vec_movies VIRTUAL TABLE INDEX 0:3{___}___&Bb_',
+        'id': 2,
+        'parent': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_knn.1
+  dict({
+    'error': 'OperationalError',
+    'message': 'An illegal WHERE constraint was provided on a vec0 metadata column in a KNN query. Only one of EQUALS, GREATER_THAN, LESS_THAN_OR_EQUAL, LESS_THAN, GREATER_THAN_OR_EQUAL, NOT_EQUALS is allowed.',
+  })
+# ---
+# name: test_knn[sqlite_master]
+  OrderedDict({
+    'sql': "select * from sqlite_master where type = 'table' order by name",
+    'rows': list([
+      OrderedDict({
+        'type': 'table',
+        'name': 'sqlite_sequence',
+        'tbl_name': 'sqlite_sequence',
+        'rootpage': 5,
+        'sql': 'CREATE TABLE sqlite_sequence(name,seq)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v',
+        'tbl_name': 'v',
+        'rootpage': 0,
+        'sql': 'CREATE VIRTUAL TABLE v using vec0(vector float[1], name text, chunk_size=8)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_chunks',
+        'tbl_name': 'v_chunks',
+        'rootpage': 4,
+        'sql': 'CREATE TABLE "v_chunks"(chunk_id INTEGER PRIMARY KEY AUTOINCREMENT,size INTEGER NOT NULL,validity BLOB NOT NULL,rowids BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_info',
+        'tbl_name': 'v_info',
+        'rootpage': 2,
+        'sql': 'CREATE TABLE "v_info" (key text primary key, value any)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_metadatachunks00',
+        'tbl_name': 'v_metadatachunks00',
+        'rootpage': 9,
+        'sql': 'CREATE TABLE "v_metadatachunks00"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_metadatatext00',
+        'tbl_name': 'v_metadatatext00',
+        'rootpage': 11,
+        'sql': 'CREATE TABLE "v_metadatatext00"(rowid PRIMARY KEY, data TEXT)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_rowids',
+        'tbl_name': 'v_rowids',
+        'rootpage': 6,
+        'sql': 'CREATE TABLE "v_rowids"(rowid INTEGER PRIMARY KEY AUTOINCREMENT,id,chunk_id INTEGER,chunk_offset INTEGER)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_vector_chunks00',
+        'tbl_name': 'v_vector_chunks00',
+        'rootpage': 7,
+        'sql': 'CREATE TABLE "v_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)',
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[eq-bb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name = ?",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_long_text_knn[eq-bbbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name = ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[eq-bbbbbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name = ?",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_long_text_knn[eq-bbbbbbbbbbbb_aaa]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name = ?",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_long_text_knn[eq-bbbbbbbbbbbb_bbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name = ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[eq-bbbbbbbbbbbb_ccc]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name = ?",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_long_text_knn[eq-longlonglonglonglonglonglong]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name = ?",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_long_text_knn[ge-bb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name >= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[ge-bbbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name >= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[ge-bbbbbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name >= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[ge-bbbbbbbbbbbb_aaa]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name >= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[ge-bbbbbbbbbbbb_bbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name >= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[ge-bbbbbbbbbbbb_ccc]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name >= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[ge-longlonglonglonglonglonglong]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name >= ?",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_long_text_knn[gt-bb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name > ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[gt-bbbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name > ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[gt-bbbbbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name > ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[gt-bbbbbbbbbbbb_aaa]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name > ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[gt-bbbbbbbbbbbb_bbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name > ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[gt-bbbbbbbbbbbb_ccc]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name > ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[gt-longlonglonglonglonglonglong]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name > ?",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_long_text_knn[le-bb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name <= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[le-bbbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name <= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[le-bbbbbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name <= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[le-bbbbbbbbbbbb_aaa]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name <= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[le-bbbbbbbbbbbb_bbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name <= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[le-bbbbbbbbbbbb_ccc]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name <= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[le-longlonglonglonglonglonglong]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name <= ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[lt-bb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name < ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[lt-bbbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name < ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[lt-bbbbbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name < ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[lt-bbbbbbbbbbbb_aaa]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name < ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[lt-bbbbbbbbbbbb_bbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name < ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[lt-bbbbbbbbbbbb_ccc]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name < ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[lt-longlonglonglonglonglonglong]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name < ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[ne-bb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name != ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[ne-bbbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name != ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[ne-bbbbbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name != ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[ne-bbbbbbbbbbbb_aaa]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name != ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[ne-bbbbbbbbbbbb_bbb]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name != ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaaa',
+        'distance': 99.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[ne-bbbbbbbbbbbb_ccc]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name != ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_knn[ne-longlonglonglonglonglonglong]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[100]' and k = 5 and name != ?",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'name': 'cccccccccccc_ccc',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'cccc',
+        'distance': 95.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bbbbbbbbbbbb_bbb',
+        'distance': 96.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bbbb',
+        'distance': 97.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'aaaaaaaaaaaa_aaa',
+        'distance': 98.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_updates
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+      ]),
+    }),
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
+      'rows': list([
+      ]),
+    }),
+    'v_metadatatext00': OrderedDict({
+      'sql': 'select * from v_metadatatext00',
+      'rows': list([
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+      ]),
+    }),
+  })
+# ---
+# name: test_long_text_updates.1
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'name': '123456789a12',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x11\x11\x11\x11',
+        'name': '123456789a123',
+      }),
+    ]),
+  })
+# ---
+# name: test_long_text_updates.2
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x03',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x0c\x00\x00\x00123456789a12\r\x00\x00\x00123456789a12\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext00': OrderedDict({
+      'sql': 'select * from v_metadatatext00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 2,
+          'data': '123456789a123',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11\x11\x11\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_normal.1
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+      ]),
+    }),
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
+      'rows': list([
+      ]),
+    }),
+    'v_metadatachunks01': OrderedDict({
+      'sql': 'select * from v_metadatachunks01',
+      'rows': list([
+      ]),
+    }),
+    'v_metadatachunks02': OrderedDict({
+      'sql': 'select * from v_metadatachunks02',
+      'rows': list([
+      ]),
+    }),
+    'v_metadatachunks03': OrderedDict({
+      'sql': 'select * from v_metadatachunks03',
+      'rows': list([
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+      ]),
+    }),
+  })
+# ---
+# name: test_normal.2
+  OrderedDict({
+    'sql': 'insert into v(vector, b, n, f, t) values (?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_normal.3
+  OrderedDict({
+    'sql': 'insert into v(vector, b, n, f, t) values (?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_normal.4
+  OrderedDict({
+    'sql': 'insert into v(vector, b, n, f, t) values (?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_normal.5
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'b': 1,
+        'n': 1,
+        'f': 1.1,
+        't': 'one',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'two',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': 'three',
+      }),
+    ]),
+  })
+# ---
+# name: test_normal.6
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x07',
+        }),
+      ]),
+    }),
+    'v_metadatachunks01': OrderedDict({
+      'sql': 'select * from v_metadatachunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks02': OrderedDict({
+      'sql': 'select * from v_metadatachunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x9a\x99\x99\x99\x99\x99\xf1?\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks03': OrderedDict({
+      'sql': 'select * from v_metadatachunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x03\x00\x00\x00one\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00two\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00three\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_normal.7
+  OrderedDict({
+    'sql': 'drop table v',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_normal.8
+  OrderedDict({
+    'sql': 'select * from sqlite_master',
+    'rows': list([
+      OrderedDict({
+        'type': 'table',
+        'name': 'sqlite_sequence',
+        'tbl_name': 'sqlite_sequence',
+        'rootpage': 5,
+        'sql': 'CREATE TABLE sqlite_sequence(name,seq)',
+      }),
+    ]),
+  })
+# ---
+# name: test_normal[sqlite_master]
+  OrderedDict({
+    'sql': "select * from sqlite_master where type = 'table' order by name",
+    'rows': list([
+      OrderedDict({
+        'type': 'table',
+        'name': 'sqlite_sequence',
+        'tbl_name': 'sqlite_sequence',
+        'rootpage': 5,
+        'sql': 'CREATE TABLE sqlite_sequence(name,seq)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v',
+        'tbl_name': 'v',
+        'rootpage': 0,
+        'sql': 'CREATE VIRTUAL TABLE v using vec0(vector float[1], b boolean, n int, f float, t text, chunk_size=8)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_chunks',
+        'tbl_name': 'v_chunks',
+        'rootpage': 4,
+        'sql': 'CREATE TABLE "v_chunks"(chunk_id INTEGER PRIMARY KEY AUTOINCREMENT,size INTEGER NOT NULL,validity BLOB NOT NULL,rowids BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_info',
+        'tbl_name': 'v_info',
+        'rootpage': 2,
+        'sql': 'CREATE TABLE "v_info" (key text primary key, value any)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_metadatachunks00',
+        'tbl_name': 'v_metadatachunks00',
+        'rootpage': 9,
+        'sql': 'CREATE TABLE "v_metadatachunks00"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_metadatachunks01',
+        'tbl_name': 'v_metadatachunks01',
+        'rootpage': 11,
+        'sql': 'CREATE TABLE "v_metadatachunks01"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_metadatachunks02',
+        'tbl_name': 'v_metadatachunks02',
+        'rootpage': 13,
+        'sql': 'CREATE TABLE "v_metadatachunks02"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_metadatachunks03',
+        'tbl_name': 'v_metadatachunks03',
+        'rootpage': 15,
+        'sql': 'CREATE TABLE "v_metadatachunks03"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_metadatatext03',
+        'tbl_name': 'v_metadatatext03',
+        'rootpage': 17,
+        'sql': 'CREATE TABLE "v_metadatatext03"(rowid PRIMARY KEY, data TEXT)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_rowids',
+        'tbl_name': 'v_rowids',
+        'rootpage': 6,
+        'sql': 'CREATE TABLE "v_rowids"(rowid INTEGER PRIMARY KEY AUTOINCREMENT,id,chunk_id INTEGER,chunk_offset INTEGER)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_vector_chunks00',
+        'tbl_name': 'v_vector_chunks00',
+        'rootpage': 7,
+        'sql': 'CREATE TABLE "v_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)',
+      }),
+    ]),
+  })
+# ---
+# name: test_stress
+  dict({
+    'vec_movies_auxiliary': OrderedDict({
+      'sql': 'select * from vec_movies_auxiliary',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'value00': 'The Conjuring',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'value00': 'Dumb and Dumber',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'value00': 'Interstellar',
+        }),
+        OrderedDict({
+          'rowid': 4,
+          'value00': 'The Lord of the Rings: The Fellowship of the Ring',
+        }),
+        OrderedDict({
+          'rowid': 5,
+          'value00': 'An Inconvenient Truth',
+        }),
+        OrderedDict({
+          'rowid': 6,
+          'value00': 'Hereditary',
+        }),
+        OrderedDict({
+          'rowid': 7,
+          'value00': 'Anchorman: The Legend of Ron Burgundy',
+        }),
+        OrderedDict({
+          'rowid': 8,
+          'value00': 'Blade Runner 2049',
+        }),
+        OrderedDict({
+          'rowid': 9,
+          'value00': "Harry Potter and the Sorcerer's Stone",
+        }),
+        OrderedDict({
+          'rowid': 10,
+          'value00': 'Free Solo',
+        }),
+        OrderedDict({
+          'rowid': 11,
+          'value00': 'Get Out',
+        }),
+        OrderedDict({
+          'rowid': 12,
+          'value00': 'The Hangover',
+        }),
+        OrderedDict({
+          'rowid': 13,
+          'value00': 'The Matrix',
+        }),
+        OrderedDict({
+          'rowid': 14,
+          'value00': "Pan's Labyrinth",
+        }),
+        OrderedDict({
+          'rowid': 15,
+          'value00': '13th',
+        }),
+        OrderedDict({
+          'rowid': 16,
+          'value00': 'It Follows',
+        }),
+        OrderedDict({
+          'rowid': 17,
+          'value00': 'Step Brothers',
+        }),
+        OrderedDict({
+          'rowid': 18,
+          'value00': 'Inception',
+        }),
+        OrderedDict({
+          'rowid': 19,
+          'value00': 'The Shape of Water',
+        }),
+        OrderedDict({
+          'rowid': 20,
+          'value00': "Won't You Be My Neighbor?",
+        }),
+        OrderedDict({
+          'rowid': 21,
+          'value00': 'Gravity',
+        }),
+        OrderedDict({
+          'rowid': 22,
+          'value00': 'Dune',
+        }),
+        OrderedDict({
+          'rowid': 23,
+          'value00': 'The Martian',
+        }),
+        OrderedDict({
+          'rowid': 24,
+          'value00': 'A Quiet Place',
+        }),
+        OrderedDict({
+          'rowid': 25,
+          'value00': 'The Chronicles of Narnia: The Lion, the Witch and the Wardrobe',
+        }),
+      ]),
+    }),
+    'vec_movies_chunks': OrderedDict({
+      'sql': 'select * from vec_movies_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\xff',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'chunk_id': 2,
+          'size': 8,
+          'validity': b'\xff',
+          'rowids': b'\t\x00\x00\x00\x00\x00\x00\x00\n\x00\x00\x00\x00\x00\x00\x00\x0b\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00\x00\x00\x00\x00\x0e\x00\x00\x00\x00\x00\x00\x00\x0f\x00\x00\x00\x00\x00\x00\x00\x10\x00\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'chunk_id': 3,
+          'size': 8,
+          'validity': b'\xff',
+          'rowids': b'\x11\x00\x00\x00\x00\x00\x00\x00\x12\x00\x00\x00\x00\x00\x00\x00\x13\x00\x00\x00\x00\x00\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x15\x00\x00\x00\x00\x00\x00\x00\x16\x00\x00\x00\x00\x00\x00\x00\x17\x00\x00\x00\x00\x00\x00\x00\x18\x00\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'chunk_id': 4,
+          'size': 8,
+          'validity': b'\x01',
+          'rowids': b'\x19\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'vec_movies_metadatachunks00': OrderedDict({
+      'sql': 'select * from vec_movies_metadatachunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'p',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'data': b'U',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'data': b'\xff',
+        }),
+        OrderedDict({
+          'rowid': 4,
+          'data': b'\x01',
+        }),
+      ]),
+    }),
+    'vec_movies_metadatachunks01': OrderedDict({
+      'sql': 'select * from vec_movies_metadatachunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x06\x00\x00\x00horror\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00comedy\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00scifi\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00fantasy\x00\x00\x00\x00\x00\x0b\x00\x00\x00documentary\x00\x06\x00\x00\x00horror\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00comedy\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00scifi\x00\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'data': b'\x07\x00\x00\x00fantasy\x00\x00\x00\x00\x00\x0b\x00\x00\x00documentary\x00\x06\x00\x00\x00horror\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00comedy\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00scifi\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00fantasy\x00\x00\x00\x00\x00\x0b\x00\x00\x00documentary\x00\x06\x00\x00\x00horror\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'data': b'\x06\x00\x00\x00comedy\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00scifi\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00fantasy\x00\x00\x00\x00\x00\x0b\x00\x00\x00documentary\x00\x05\x00\x00\x00scifi\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00scifi\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00scifi\x00\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00horror\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'rowid': 4,
+          'data': b'\x07\x00\x00\x00fantasy\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'vec_movies_metadatachunks02': OrderedDict({
+      'sql': 'select * from vec_movies_metadatachunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x99\x00\x00\x00\x00\x00\x00\x00~\x01\x00\x00\x00\x00\x00\x005\x00\x00\x00\x00\x00\x00\x00\xd2\x00\x00\x00\x00\x00\x00\x00]\x00\x00\x00\x00\x00\x00\x00\xa7\x00\x00\x00\x00\x00\x00\x00\xe2\x01\x00\x00\x00\x00\x00\x00-\x01\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'data': b'\x86\x00\x00\x00\x00\x00\x00\x00B\x00\x00\x00\x00\x00\x00\x00X\x00\x00\x00\x00\x00\x00\x00;\x00\x00\x00\x00\x00\x00\x00\xa7\x01\x00\x00\x00\x00\x00\x00\x13\x01\x00\x00\x00\x00\x00\x00\xbf\x00\x00\x00\x00\x00\x00\x00:\x01\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'data': b'J\x00\x00\x00\x00\x00\x00\x00\xc9\x00\x00\x00\x00\x00\x00\x00\x8f\x01\x00\x00\x00\x00\x00\x00\xba\x00\x00\x00\x00\x00\x00\x00V\x01\x00\x00\x00\x00\x00\x00\xc3\x01\x00\x00\x00\x00\x00\x00\n\x02\x00\x00\x00\x00\x00\x00\x0f\x01\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'rowid': 4,
+          'data': b'6\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'vec_movies_metadatachunks03': OrderedDict({
+      'sql': 'select * from vec_movies_metadatachunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'ffffff\x12@\xcd\xcc\xcc\xcc\xcc\xcc\x04@\x00\x00\x00\x00\x00\x00\x14@\xcd\xcc\xcc\xcc\xcc\xcc\x10@333333\x0b@\xcd\xcc\xcc\xcc\xcc\xcc\x12@333333\x07@\x00\x00\x00\x00\x00\x00\x14@',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'data': b'ffffff\x10@\x9a\x99\x99\x99\x99\x99\t@\x9a\x99\x99\x99\x99\x99\x13@ffffff\x06@\x00\x00\x00\x00\x00\x00\x12@\xcd\xcc\xcc\xcc\xcc\xcc\x0c@\x9a\x99\x99\x99\x99\x99\x11@333333\x11@',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'data': b'\x00\x00\x00\x00\x00\x00\x08@\x00\x00\x00\x00\x00\x00\x14@\x9a\x99\x99\x99\x99\x99\x05@333333\x13@\x00\x00\x00\x00\x00\x00\x10@\x9a\x99\x99\x99\x99\x99\x11@ffffff\x12@333333\x11@',
+        }),
+        OrderedDict({
+          'rowid': 4,
+          'data': b'333333\x0f@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'vec_movies_metadatatext01': OrderedDict({
+      'sql': 'select * from vec_movies_metadatatext01',
+      'rows': list([
+      ]),
+    }),
+    'vec_movies_rowids': OrderedDict({
+      'sql': 'select * from vec_movies_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+        OrderedDict({
+          'rowid': 4,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 3,
+        }),
+        OrderedDict({
+          'rowid': 5,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 4,
+        }),
+        OrderedDict({
+          'rowid': 6,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 5,
+        }),
+        OrderedDict({
+          'rowid': 7,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 6,
+        }),
+        OrderedDict({
+          'rowid': 8,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 7,
+        }),
+        OrderedDict({
+          'rowid': 9,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 10,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 11,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 2,
+        }),
+        OrderedDict({
+          'rowid': 12,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 3,
+        }),
+        OrderedDict({
+          'rowid': 13,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 4,
+        }),
+        OrderedDict({
+          'rowid': 14,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 5,
+        }),
+        OrderedDict({
+          'rowid': 15,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 6,
+        }),
+        OrderedDict({
+          'rowid': 16,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 7,
+        }),
+        OrderedDict({
+          'rowid': 17,
+          'id': None,
+          'chunk_id': 3,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 18,
+          'id': None,
+          'chunk_id': 3,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 19,
+          'id': None,
+          'chunk_id': 3,
+          'chunk_offset': 2,
+        }),
+        OrderedDict({
+          'rowid': 20,
+          'id': None,
+          'chunk_id': 3,
+          'chunk_offset': 3,
+        }),
+        OrderedDict({
+          'rowid': 21,
+          'id': None,
+          'chunk_id': 3,
+          'chunk_offset': 4,
+        }),
+        OrderedDict({
+          'rowid': 22,
+          'id': None,
+          'chunk_id': 3,
+          'chunk_offset': 5,
+        }),
+        OrderedDict({
+          'rowid': 23,
+          'id': None,
+          'chunk_id': 3,
+          'chunk_offset': 6,
+        }),
+        OrderedDict({
+          'rowid': 24,
+          'id': None,
+          'chunk_id': 3,
+          'chunk_offset': 7,
+        }),
+        OrderedDict({
+          'rowid': 25,
+          'id': None,
+          'chunk_id': 4,
+          'chunk_offset': 0,
+        }),
+      ]),
+    }),
+    'vec_movies_vector_chunks00': OrderedDict({
+      'sql': 'select * from vec_movies_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x00\x00\x80?\x00\x00\x00@\x00\x00@@\x00\x00\x80@\x00\x00\xa0@\x00\x00\xc0@\x00\x00\xe0@\x00\x00\x00A',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'vectors': b'\x00\x00\x10A\x00\x00 A\x00\x000A\x00\x00@A\x00\x00PA\x00\x00`A\x00\x00pA\x00\x00\x80A',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'vectors': b'\x00\x00\x88A\x00\x00\x90A\x00\x00\x98A\x00\x00\xa0A\x00\x00\xa8A\x00\x00\xb0A\x00\x00\xb8A\x00\x00\xc0A',
+        }),
+        OrderedDict({
+          'rowid': 4,
+          'vectors': b'\x00\x00\xc8A\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_stress.1
+  OrderedDict({
+    'sql': '''
+      
+                select
+                  movie_id,
+                  title,
+                  genre,
+                  num_reviews,
+                  mean_rating,
+                  is_favorited,
+                  distance
+                from vec_movies
+                where synopsis_embedding match '[15.5]'
+                  and genre = 'scifi'
+                  and num_reviews between 100 and 500
+                  and mean_rating > 3.5
+                  and k = 5;
+              
+    ''',
+    'rows': list([
+      OrderedDict({
+        'movie_id': 13,
+        'title': 'The Matrix',
+        'genre': 'scifi',
+        'num_reviews': 423,
+        'mean_rating': 4.5,
+        'is_favorited': 1,
+        'distance': 2.5,
+      }),
+      OrderedDict({
+        'movie_id': 18,
+        'title': 'Inception',
+        'genre': 'scifi',
+        'num_reviews': 201,
+        'mean_rating': 5.0,
+        'is_favorited': 1,
+        'distance': 2.5,
+      }),
+      OrderedDict({
+        'movie_id': 21,
+        'title': 'Gravity',
+        'genre': 'scifi',
+        'num_reviews': 342,
+        'mean_rating': 4.0,
+        'is_favorited': 1,
+        'distance': 5.5,
+      }),
+      OrderedDict({
+        'movie_id': 22,
+        'title': 'Dune',
+        'genre': 'scifi',
+        'num_reviews': 451,
+        'mean_rating': 4.4,
+        'is_favorited': 1,
+        'distance': 6.5,
+      }),
+      OrderedDict({
+        'movie_id': 8,
+        'title': 'Blade Runner 2049',
+        'genre': 'scifi',
+        'num_reviews': 301,
+        'mean_rating': 5.0,
+        'is_favorited': 0,
+        'distance': 7.5,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress.2
+  OrderedDict({
+    'sql': "select movie_id, genre, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and genre = 'horror'",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 24,
+        'genre': 'horror',
+        'distance': 76.0,
+      }),
+      OrderedDict({
+        'movie_id': 16,
+        'genre': 'horror',
+        'distance': 84.0,
+      }),
+      OrderedDict({
+        'movie_id': 11,
+        'genre': 'horror',
+        'distance': 89.0,
+      }),
+      OrderedDict({
+        'movie_id': 6,
+        'genre': 'horror',
+        'distance': 94.0,
+      }),
+      OrderedDict({
+        'movie_id': 1,
+        'genre': 'horror',
+        'distance': 99.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress.3
+  OrderedDict({
+    'sql': "select movie_id, genre, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and genre = 'comedy'",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 17,
+        'genre': 'comedy',
+        'distance': 83.0,
+      }),
+      OrderedDict({
+        'movie_id': 12,
+        'genre': 'comedy',
+        'distance': 88.0,
+      }),
+      OrderedDict({
+        'movie_id': 7,
+        'genre': 'comedy',
+        'distance': 93.0,
+      }),
+      OrderedDict({
+        'movie_id': 2,
+        'genre': 'comedy',
+        'distance': 98.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress.4
+  OrderedDict({
+    'sql': "select movie_id, num_reviews, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and num_reviews between 100 and 500",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 25,
+        'num_reviews': 310,
+        'distance': 75.0,
+      }),
+      OrderedDict({
+        'movie_id': 24,
+        'num_reviews': 271,
+        'distance': 76.0,
+      }),
+      OrderedDict({
+        'movie_id': 22,
+        'num_reviews': 451,
+        'distance': 78.0,
+      }),
+      OrderedDict({
+        'movie_id': 21,
+        'num_reviews': 342,
+        'distance': 79.0,
+      }),
+      OrderedDict({
+        'movie_id': 20,
+        'num_reviews': 186,
+        'distance': 80.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress.5
+  OrderedDict({
+    'sql': "select movie_id, num_reviews, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and num_reviews >= 500",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 23,
+        'num_reviews': 522,
+        'distance': 77.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress.6
+  OrderedDict({
+    'sql': "select movie_id, mean_rating, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and mean_rating < 3.0",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 19,
+        'mean_rating': 2.7,
+        'distance': 81.0,
+      }),
+      OrderedDict({
+        'movie_id': 12,
+        'mean_rating': 2.8,
+        'distance': 88.0,
+      }),
+      OrderedDict({
+        'movie_id': 7,
+        'mean_rating': 2.9,
+        'distance': 93.0,
+      }),
+      OrderedDict({
+        'movie_id': 2,
+        'mean_rating': 2.6,
+        'distance': 98.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress.7
+  OrderedDict({
+    'sql': "select movie_id, mean_rating, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and mean_rating between 4.0 and 5.0",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 24,
+        'mean_rating': 4.3,
+        'distance': 76.0,
+      }),
+      OrderedDict({
+        'movie_id': 23,
+        'mean_rating': 4.6,
+        'distance': 77.0,
+      }),
+      OrderedDict({
+        'movie_id': 22,
+        'mean_rating': 4.4,
+        'distance': 78.0,
+      }),
+      OrderedDict({
+        'movie_id': 21,
+        'mean_rating': 4.0,
+        'distance': 79.0,
+      }),
+      OrderedDict({
+        'movie_id': 20,
+        'mean_rating': 4.8,
+        'distance': 80.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress[bool-eq-false]
+  OrderedDict({
+    'sql': "select movie_id, is_favorited, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited = FALSE",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 16,
+        'is_favorited': 0,
+        'distance': 84.0,
+      }),
+      OrderedDict({
+        'movie_id': 14,
+        'is_favorited': 0,
+        'distance': 86.0,
+      }),
+      OrderedDict({
+        'movie_id': 12,
+        'is_favorited': 0,
+        'distance': 88.0,
+      }),
+      OrderedDict({
+        'movie_id': 10,
+        'is_favorited': 0,
+        'distance': 90.0,
+      }),
+      OrderedDict({
+        'movie_id': 8,
+        'is_favorited': 0,
+        'distance': 92.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress[bool-eq-true]
+  OrderedDict({
+    'sql': "select movie_id, is_favorited, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited = TRUE",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 25,
+        'is_favorited': 1,
+        'distance': 75.0,
+      }),
+      OrderedDict({
+        'movie_id': 24,
+        'is_favorited': 1,
+        'distance': 76.0,
+      }),
+      OrderedDict({
+        'movie_id': 23,
+        'is_favorited': 1,
+        'distance': 77.0,
+      }),
+      OrderedDict({
+        'movie_id': 22,
+        'is_favorited': 1,
+        'distance': 78.0,
+      }),
+      OrderedDict({
+        'movie_id': 21,
+        'is_favorited': 1,
+        'distance': 79.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress[bool-ne-false]
+  OrderedDict({
+    'sql': "select movie_id, is_favorited, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited != FALSE",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 25,
+        'is_favorited': 1,
+        'distance': 75.0,
+      }),
+      OrderedDict({
+        'movie_id': 24,
+        'is_favorited': 1,
+        'distance': 76.0,
+      }),
+      OrderedDict({
+        'movie_id': 23,
+        'is_favorited': 1,
+        'distance': 77.0,
+      }),
+      OrderedDict({
+        'movie_id': 22,
+        'is_favorited': 1,
+        'distance': 78.0,
+      }),
+      OrderedDict({
+        'movie_id': 21,
+        'is_favorited': 1,
+        'distance': 79.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress[bool-ne-true]
+  OrderedDict({
+    'sql': "select movie_id, is_favorited, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited != TRUE",
+    'rows': list([
+      OrderedDict({
+        'movie_id': 16,
+        'is_favorited': 0,
+        'distance': 84.0,
+      }),
+      OrderedDict({
+        'movie_id': 14,
+        'is_favorited': 0,
+        'distance': 86.0,
+      }),
+      OrderedDict({
+        'movie_id': 12,
+        'is_favorited': 0,
+        'distance': 88.0,
+      }),
+      OrderedDict({
+        'movie_id': 10,
+        'is_favorited': 0,
+        'distance': 90.0,
+      }),
+      OrderedDict({
+        'movie_id': 8,
+        'is_favorited': 0,
+        'distance': 92.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_stress[bool-other-op]
+  dict({
+    'error': 'OperationalError',
+    'message': 'ONLY EQUALS (=) or NOT_EQUALS (!=) operators are allowed on boolean metadata columns.',
+  })
+# ---
+# name: test_text_knn
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+      ]),
+    }),
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
+      'rows': list([
+      ]),
+    }),
+    'v_metadatatext00': OrderedDict({
+      'sql': 'select * from v_metadatatext00',
+      'rows': list([
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+      ]),
+    }),
+  })
+# ---
+# name: test_text_knn.1
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\xaeG\xe1=',
+        'name': 'aaa',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\xaeGa>',
+        'name': 'bbb',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'\xc3\xf5\xa8>',
+        'name': 'ccc',
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'vector': b'\xaeG\xe1>',
+        'name': 'ddd',
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'vector': b'\xcd\xcc\x0c?',
+        'name': 'eee',
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'vector': b'\xc3\xf5(?',
+        'name': 'fff',
+      }),
+      OrderedDict({
+        'rowid': 7,
+        'vector': b'\xb8\x1eE?',
+        'name': 'ggg',
+      }),
+      OrderedDict({
+        'rowid': 8,
+        'vector': b'\xaeGa?',
+        'name': 'hhh',
+      }),
+      OrderedDict({
+        'rowid': 9,
+        'vector': b'\xa4p}?',
+        'name': 'iii',
+      }),
+    ]),
+  })
+# ---
+# name: test_text_knn.2
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\xff',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'chunk_id': 2,
+          'size': 8,
+          'validity': b'\x01',
+          'rowids': b'\t\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x03\x00\x00\x00aaa\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00bbb\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00ccc\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00ddd\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00eee\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00fff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00ggg\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00hhh\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'data': b'\x03\x00\x00\x00iii\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext00': OrderedDict({
+      'sql': 'select * from v_metadatatext00',
+      'rows': list([
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+        OrderedDict({
+          'rowid': 4,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 3,
+        }),
+        OrderedDict({
+          'rowid': 5,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 4,
+        }),
+        OrderedDict({
+          'rowid': 6,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 5,
+        }),
+        OrderedDict({
+          'rowid': 7,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 6,
+        }),
+        OrderedDict({
+          'rowid': 8,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 7,
+        }),
+        OrderedDict({
+          'rowid': 9,
+          'id': None,
+          'chunk_id': 2,
+          'chunk_offset': 0,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\xaeG\xe1=\xaeGa>\xc3\xf5\xa8>\xaeG\xe1>\xcd\xcc\x0c?\xc3\xf5(?\xb8\x1eE?\xaeGa?',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'vectors': b'\xa4p}?\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_text_knn.3
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 5",
+    'rows': list([
+      OrderedDict({
+        'rowid': 9,
+        'name': 'iii',
+        'distance': 0.009999990463256836,
+      }),
+      OrderedDict({
+        'rowid': 8,
+        'name': 'hhh',
+        'distance': 0.12000000476837158,
+      }),
+      OrderedDict({
+        'rowid': 7,
+        'name': 'ggg',
+        'distance': 0.23000001907348633,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'name': 'fff',
+        'distance': 0.3399999737739563,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'eee',
+        'distance': 0.44999998807907104,
+      }),
+    ]),
+  })
+# ---
+# name: test_text_knn.4
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 5 and name < 'ddd'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'ccc',
+        'distance': 0.6699999570846558,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'bbb',
+        'distance': 0.7799999713897705,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaa',
+        'distance': 0.8899999856948853,
+      }),
+    ]),
+  })
+# ---
+# name: test_text_knn.5
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 5 and name <= 'ddd'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'name': 'ddd',
+        'distance': 0.5600000023841858,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'ccc',
+        'distance': 0.6699999570846558,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'bbb',
+        'distance': 0.7799999713897705,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaa',
+        'distance': 0.8899999856948853,
+      }),
+    ]),
+  })
+# ---
+# name: test_text_knn.6
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 5 and name > 'fff'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 9,
+        'name': 'iii',
+        'distance': 0.009999990463256836,
+      }),
+      OrderedDict({
+        'rowid': 8,
+        'name': 'hhh',
+        'distance': 0.12000000476837158,
+      }),
+      OrderedDict({
+        'rowid': 7,
+        'name': 'ggg',
+        'distance': 0.23000001907348633,
+      }),
+    ]),
+  })
+# ---
+# name: test_text_knn.7
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 5 and name >= 'fff'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 9,
+        'name': 'iii',
+        'distance': 0.009999990463256836,
+      }),
+      OrderedDict({
+        'rowid': 8,
+        'name': 'hhh',
+        'distance': 0.12000000476837158,
+      }),
+      OrderedDict({
+        'rowid': 7,
+        'name': 'ggg',
+        'distance': 0.23000001907348633,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'name': 'fff',
+        'distance': 0.3399999737739563,
+      }),
+    ]),
+  })
+# ---
+# name: test_text_knn.8
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 5 and name = 'aaa'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'name': 'aaa',
+        'distance': 0.8899999856948853,
+      }),
+    ]),
+  })
+# ---
+# name: test_text_knn.9
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[.01]' and k = 5 and name != 'aaa'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'name': 'bbb',
+        'distance': 0.20999999344348907,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'ccc',
+        'distance': 0.320000022649765,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'ddd',
+        'distance': 0.4300000071525574,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'eee',
+        'distance': 0.5400000214576721,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'name': 'fff',
+        'distance': 0.6500000357627869,
+      }),
+    ]),
+  })
+# ---
+# name: test_types[illegal-boolean]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Expected 0 or 1 for BOOLEAN metadata column b',
+  })
+# ---
+# name: test_types[illegal-type-boolean]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Expected 0 or 1 for BOOLEAN metadata column b',
+  })
+# ---
+# name: test_types[illegal-type-float]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Expected float for FLOAT metadata column f, received TEXT',
+  })
+# ---
+# name: test_types[illegal-type-int]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Expected integer for INTEGER metadata column n, received TEXT',
+  })
+# ---
+# name: test_types[illegal-type-text]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Expected text for TEXT metadata column t, received INTEGER',
+  })
+# ---
+# name: test_types[legal]
+  OrderedDict({
+    'sql': 'insert into v(vector, b, n, f, t) values (?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_updates[1-init-contents]
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'b': 1,
+        'n': 1,
+        'f': 1.1,
+        't': 'test1',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123',
+      }),
+    ]),
+  })
+# ---
+# name: test_updates[1-init-shadow]
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x07',
+        }),
+      ]),
+    }),
+    'v_metadatachunks01': OrderedDict({
+      'sql': 'select * from v_metadatachunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks02': OrderedDict({
+      'sql': 'select * from v_metadatachunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x9a\x99\x99\x99\x99\x99\xf1?\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks03': OrderedDict({
+      'sql': 'select * from v_metadatachunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x05\x00\x00\x00test1\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_updates[general-update-contents]
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'b': 0,
+        'n': 11,
+        'f': 11.11,
+        't': 'newtest1',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123',
+      }),
+    ]),
+  })
+# ---
+# name: test_updates[general-update-shaodnw]
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x06',
+        }),
+      ]),
+    }),
+    'v_metadatachunks01': OrderedDict({
+      'sql': 'select * from v_metadatachunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x0b\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks02': OrderedDict({
+      'sql': 'select * from v_metadatachunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\xb8\x1e\x85\xebQ8&@\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks03': OrderedDict({
+      'sql': 'select * from v_metadatachunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x08\x00\x00\x00newtest1\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_updates[string-update-1-contents]
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'b': 0,
+        'n': 11,
+        'f': 11.11,
+        't': 'newtest1',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123-updated',
+      }),
+    ]),
+  })
+# ---
+# name: test_updates[string-update-1-shadow]
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x06',
+        }),
+      ]),
+    }),
+    'v_metadatachunks01': OrderedDict({
+      'sql': 'select * from v_metadatachunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x0b\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks02': OrderedDict({
+      'sql': 'select * from v_metadatachunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\xb8\x1e\x85\xebQ8&@\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks03': OrderedDict({
+      'sql': 'select * from v_metadatachunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x08\x00\x00\x00newtest1\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\x15\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123-updated',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_updates[string-update-2-contents]
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'b': 0,
+        'n': 11,
+        'f': 11.11,
+        't': 'newtest1',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2-short',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123-updated',
+      }),
+    ]),
+  })
+# ---
+# name: test_updates[string-update-2-shadow]
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x06',
+        }),
+      ]),
+    }),
+    'v_metadatachunks01': OrderedDict({
+      'sql': 'select * from v_metadatachunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x0b\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks02': OrderedDict({
+      'sql': 'select * from v_metadatachunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\xb8\x1e\x85\xebQ8&@\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks03': OrderedDict({
+      'sql': 'select * from v_metadatachunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x08\x00\x00\x00newtest1\x00\x00\x00\x00\x0b\x00\x00\x00test2-short\x00\x15\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123-updated',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_updates[string-update-3-contents]
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'b': 0,
+        'n': 11,
+        'f': 11.11,
+        't': 'newtest1',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2-long-long-long',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123-updated',
+      }),
+    ]),
+  })
+# ---
+# name: test_updates[string-update-3-shadow]
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x06',
+        }),
+      ]),
+    }),
+    'v_metadatachunks01': OrderedDict({
+      'sql': 'select * from v_metadatachunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x0b\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks02': OrderedDict({
+      'sql': 'select * from v_metadatachunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\xb8\x1e\x85\xebQ8&@\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks03': OrderedDict({
+      'sql': 'select * from v_metadatachunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x08\x00\x00\x00newtest1\x00\x00\x00\x00\x14\x00\x00\x00test2-long-l\x15\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123-updated',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'data': 'test2-long-long-long',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_updates[string-update-4-contents]
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'b': 0,
+        'n': 11,
+        'f': 11.11,
+        't': 'newtest1',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2-shortx',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123-updated',
+      }),
+    ]),
+  })
+# ---
+# name: test_updates[string-update-4-shadow]
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x06',
+        }),
+      ]),
+    }),
+    'v_metadatachunks01': OrderedDict({
+      'sql': 'select * from v_metadatachunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x0b\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks02': OrderedDict({
+      'sql': 'select * from v_metadatachunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\xb8\x1e\x85\xebQ8&@\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks03': OrderedDict({
+      'sql': 'select * from v_metadatachunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x08\x00\x00\x00newtest1\x00\x00\x00\x00\x0c\x00\x00\x00test2-shortx\x15\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123-updated',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_vtab_in[allow-int-all]
+  OrderedDict({
+    'sql': "select rowid, n, distance  from v where vector match '[0]' and k = 8 and n in (555, 999)",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'n': 999,
+        'distance': 1.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'n': 555,
+        'distance': 2.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'n': 999,
+        'distance': 3.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'n': 555,
+        'distance': 4.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'n': 999,
+        'distance': 5.0,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'n': 555,
+        'distance': 6.0,
+      }),
+      OrderedDict({
+        'rowid': 7,
+        'n': 999,
+        'distance': 7.0,
+      }),
+      OrderedDict({
+        'rowid': 8,
+        'n': 555,
+        'distance': 8.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in[allow-int-superfluous]
+  OrderedDict({
+    'sql': "select rowid, n, distance from v where vector match '[0]' and k = 8 and n in (555, -1, -2)",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'n': 555,
+        'distance': 2.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'n': 555,
+        'distance': 4.0,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'n': 555,
+        'distance': 6.0,
+      }),
+      OrderedDict({
+        'rowid': 8,
+        'n': 555,
+        'distance': 8.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in[allow-text-all]
+  OrderedDict({
+    'sql': "select rowid, t, distance  from v where vector match '[0]' and k = 8 and t in ('aaaa', 'zzzz')",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        't': 'aaaa',
+        'distance': 1.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        't': 'aaaa',
+        'distance': 2.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        't': 'aaaa',
+        'distance': 3.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        't': 'aaaa',
+        'distance': 4.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        't': 'zzzz',
+        'distance': 5.0,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        't': 'zzzz',
+        'distance': 6.0,
+      }),
+      OrderedDict({
+        'rowid': 7,
+        't': 'zzzz',
+        'distance': 7.0,
+      }),
+      OrderedDict({
+        'rowid': 8,
+        't': 'zzzz',
+        'distance': 8.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in[allow-text-superfluous]
+  OrderedDict({
+    'sql': "select rowid, t, distance from v where vector match '[0]' and k = 8 and t in ('aaaa', 'foo', 'bar')",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        't': 'aaaa',
+        'distance': 1.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        't': 'aaaa',
+        'distance': 2.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        't': 'aaaa',
+        'distance': 3.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        't': 'aaaa',
+        'distance': 4.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in[block-bool]
+  dict({
+    'error': 'OperationalError',
+    'message': "'xxx in (...)' is only available on INTEGER or TEXT metadata columns.",
+  })
+# ---
+# name: test_vtab_in[block-float]
+  dict({
+    'error': 'OperationalError',
+    'message': "'xxx in (...)' is only available on INTEGER or TEXT metadata columns.",
+  })
+# ---
+# name: test_vtab_in_long_text[all]
+  OrderedDict({
+    'sql': "select rowid, t from v where vector match '[0]' and k = 10 and t in (select value from json_each(?))",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        't': 'aaaa',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        't': 'aaaaaaaaaaaa_aaa',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        't': 'bbbb',
+      }),
+      OrderedDict({
+        'rowid': 4,
+        't': 'bbbbbbbbbbbb_bbb',
+      }),
+      OrderedDict({
+        'rowid': 5,
+        't': 'cccc',
+      }),
+      OrderedDict({
+        'rowid': 6,
+        't': 'cccccccccccc_ccc',
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in_long_text[individual-aaaa]
+  OrderedDict({
+    'sql': "select rowid, t from v where vector match '[0]' and k = 10 and t in (?, 'nonsense')",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        't': 'aaaa',
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in_long_text[individual-aaaaaaaaaaaa_aaa]
+  OrderedDict({
+    'sql': "select rowid, t from v where vector match '[0]' and k = 10 and t in (?, 'nonsense')",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        't': 'aaaaaaaaaaaa_aaa',
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in_long_text[individual-bbbb]
+  OrderedDict({
+    'sql': "select rowid, t from v where vector match '[0]' and k = 10 and t in (?, 'nonsense')",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        't': 'bbbb',
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in_long_text[individual-bbbbbbbbbbbb_bbb]
+  OrderedDict({
+    'sql': "select rowid, t from v where vector match '[0]' and k = 10 and t in (?, 'nonsense')",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        't': 'bbbbbbbbbbbb_bbb',
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in_long_text[individual-cccc]
+  OrderedDict({
+    'sql': "select rowid, t from v where vector match '[0]' and k = 10 and t in (?, 'nonsense')",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        't': 'cccc',
+      }),
+    ]),
+  })
+# ---
+# name: test_vtab_in_long_text[individual-cccccccccccc_ccc]
+  OrderedDict({
+    'sql': "select rowid, t from v where vector match '[0]' and k = 10 and t in (?, 'nonsense')",
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        't': 'cccccccccccc_ccc',
+      }),
+    ]),
+  })
+# ---

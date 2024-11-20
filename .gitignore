@@ -26,3 +26,8 @@ sqlite-vec.h
 tmp/
 
 poetry.lock
+
+*.jsonl
+
+memstat.c
+memstat.*

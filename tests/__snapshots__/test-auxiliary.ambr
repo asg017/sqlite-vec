@@ -316,7 +316,7 @@
         'type': 'table',
         'name': 'sqlite_sequence',
         'tbl_name': 'sqlite_sequence',
-        'rootpage': 3,
+        'rootpage': 5,
         'sql': 'CREATE TABLE sqlite_sequence(name,seq)',
       }),
     ]),
@@ -328,16 +328,23 @@
     'rows': list([
       OrderedDict({
         'type': 'index',
+        'name': 'sqlite_autoindex_v_info_1',
+        'tbl_name': 'v_info',
+        'rootpage': 3,
+        'sql': None,
+      }),
+      OrderedDict({
+        'type': 'index',
         'name': 'sqlite_autoindex_v_vector_chunks00_1',
         'tbl_name': 'v_vector_chunks00',
-        'rootpage': 6,
+        'rootpage': 8,
         'sql': None,
       }),
       OrderedDict({
         'type': 'table',
         'name': 'sqlite_sequence',
         'tbl_name': 'sqlite_sequence',
-        'rootpage': 3,
+        'rootpage': 5,
         'sql': 'CREATE TABLE sqlite_sequence(name,seq)',
       }),
       OrderedDict({
@@ -351,28 +358,35 @@
         'type': 'table',
         'name': 'v_auxiliary',
         'tbl_name': 'v_auxiliary',
-        'rootpage': 7,
+        'rootpage': 9,
         'sql': 'CREATE TABLE "v_auxiliary"( rowid integer PRIMARY KEY , value00)',
       }),
       OrderedDict({
         'type': 'table',
         'name': 'v_chunks',
         'tbl_name': 'v_chunks',
-        'rootpage': 2,
+        'rootpage': 4,
         'sql': 'CREATE TABLE "v_chunks"(chunk_id INTEGER PRIMARY KEY AUTOINCREMENT,size INTEGER NOT NULL,validity BLOB NOT NULL,rowids BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_info',
+        'tbl_name': 'v_info',
+        'rootpage': 2,
+        'sql': 'CREATE TABLE "v_info" (key text primary key, value any)',
       }),
       OrderedDict({
         'type': 'table',
         'name': 'v_rowids',
         'tbl_name': 'v_rowids',
-        'rootpage': 4,
+        'rootpage': 6,
         'sql': 'CREATE TABLE "v_rowids"(rowid INTEGER PRIMARY KEY AUTOINCREMENT,id,chunk_id INTEGER,chunk_offset INTEGER)',
       }),
       OrderedDict({
         'type': 'table',
         'name': 'v_vector_chunks00',
         'tbl_name': 'v_vector_chunks00',
-        'rootpage': 5,
+        'rootpage': 7,
         'sql': 'CREATE TABLE "v_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)',
       }),
     ]),
@@ -409,25 +423,25 @@
 # ---
 # name: test_types.3
   dict({
-    'error': 'OperationalError',
+    'error': 'IntegrityError',
     'message': 'Auxiliary column type mismatch: The auxiliary column aux_int has type INTEGER, but TEXT was provided.',
   })
 # ---
 # name: test_types.4
   dict({
-    'error': 'OperationalError',
+    'error': 'IntegrityError',
     'message': 'Auxiliary column type mismatch: The auxiliary column aux_float has type FLOAT, but TEXT was provided.',
   })
 # ---
 # name: test_types.5
   dict({
-    'error': 'OperationalError',
+    'error': 'IntegrityError',
     'message': 'Auxiliary column type mismatch: The auxiliary column aux_text has type TEXT, but INTEGER was provided.',
   })
 # ---
 # name: test_types.6
   dict({
-    'error': 'OperationalError',
+    'error': 'IntegrityError',
     'message': 'Auxiliary column type mismatch: The auxiliary column aux_blob has type BLOB, but INTEGER was provided.',
   })
 # ---
