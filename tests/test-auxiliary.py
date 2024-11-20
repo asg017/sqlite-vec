@@ -154,5 +154,7 @@ def vec0_shadow_table_contents(db, v):
     ]
     o = {}
     for shadow_table in shadow_tables:
+        if shadow_table.endswith("_info"):
+            continue
         o[shadow_table] = exec(db, f"select * from {shadow_table}")
     return o

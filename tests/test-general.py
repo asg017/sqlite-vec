@@ -22,6 +22,11 @@ def test_shadow(db, snapshot):
     )
 
 
+def test_info(db, snapshot):
+    db.execute("create virtual table v using vec0(a float[1])")
+    assert exec(db, "select key, typeof(value) from v_info order by 1") == snapshot()
+
+
 def exec(db, sql, parameters=[]):
     try:
         rows = db.execute(sql, parameters).fetchall()

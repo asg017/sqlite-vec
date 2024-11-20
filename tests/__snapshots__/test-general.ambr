@@ -1,34 +1,64 @@
 # serializer version: 1
+# name: test_info
+  OrderedDict({
+    'sql': 'select key, typeof(value) from v_info order by 1',
+    'rows': list([
+      OrderedDict({
+        'key': 'CREATE_VERSION',
+        'typeof(value)': 'text',
+      }),
+      OrderedDict({
+        'key': 'CREATE_VERSION_MAJOR',
+        'typeof(value)': 'integer',
+      }),
+      OrderedDict({
+        'key': 'CREATE_VERSION_MINOR',
+        'typeof(value)': 'integer',
+      }),
+      OrderedDict({
+        'key': 'CREATE_VERSION_PATCH',
+        'typeof(value)': 'integer',
+      }),
+    ]),
+  })
+# ---
 # name: test_shadow
   OrderedDict({
     'sql': 'select * from sqlite_master order by name',
     'rows': list([
       OrderedDict({
         'type': 'index',
+        'name': 'sqlite_autoindex_v_info_1',
+        'tbl_name': 'v_info',
+        'rootpage': 3,
+        'sql': None,
+      }),
+      OrderedDict({
+        'type': 'index',
         'name': 'sqlite_autoindex_v_metadatachunks00_1',
         'tbl_name': 'v_metadatachunks00',
-        'rootpage': 8,
+        'rootpage': 10,
         'sql': None,
       }),
       OrderedDict({
         'type': 'index',
         'name': 'sqlite_autoindex_v_metadatatext00_1',
         'tbl_name': 'v_metadatatext00',
-        'rootpage': 10,
+        'rootpage': 12,
         'sql': None,
       }),
       OrderedDict({
         'type': 'index',
         'name': 'sqlite_autoindex_v_vector_chunks00_1',
         'tbl_name': 'v_vector_chunks00',
-        'rootpage': 6,
+        'rootpage': 8,
         'sql': None,
       }),
       OrderedDict({
         'type': 'table',
         'name': 'sqlite_sequence',
         'tbl_name': 'sqlite_sequence',
-        'rootpage': 3,
+        'rootpage': 5,
         'sql': 'CREATE TABLE sqlite_sequence(name,seq)',
       }),
       OrderedDict({
@@ -42,42 +72,49 @@
         'type': 'table',
         'name': 'v_auxiliary',
         'tbl_name': 'v_auxiliary',
-        'rootpage': 11,
+        'rootpage': 13,
         'sql': 'CREATE TABLE "v_auxiliary"( rowid integer PRIMARY KEY , value00)',
       }),
       OrderedDict({
         'type': 'table',
         'name': 'v_chunks',
         'tbl_name': 'v_chunks',
-        'rootpage': 2,
+        'rootpage': 4,
         'sql': 'CREATE TABLE "v_chunks"(chunk_id INTEGER PRIMARY KEY AUTOINCREMENT,size INTEGER NOT NULL,sequence_id integer,partition00,validity BLOB NOT NULL, rowids BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_info',
+        'tbl_name': 'v_info',
+        'rootpage': 2,
+        'sql': 'CREATE TABLE "v_info" (key text primary key, value any)',
       }),
       OrderedDict({
         'type': 'table',
         'name': 'v_metadatachunks00',
         'tbl_name': 'v_metadatachunks00',
-        'rootpage': 7,
+        'rootpage': 9,
         'sql': 'CREATE TABLE "v_metadatachunks00"(rowid PRIMARY KEY, data BLOB NOT NULL)',
       }),
       OrderedDict({
         'type': 'table',
         'name': 'v_metadatatext00',
         'tbl_name': 'v_metadatatext00',
-        'rootpage': 9,
+        'rootpage': 11,
         'sql': 'CREATE TABLE "v_metadatatext00"(rowid PRIMARY KEY, data TEXT)',
       }),
       OrderedDict({
         'type': 'table',
         'name': 'v_rowids',
         'tbl_name': 'v_rowids',
-        'rootpage': 4,
+        'rootpage': 6,
         'sql': 'CREATE TABLE "v_rowids"(rowid INTEGER PRIMARY KEY AUTOINCREMENT,id,chunk_id INTEGER,chunk_offset INTEGER)',
       }),
       OrderedDict({
         'type': 'table',
         'name': 'v_vector_chunks00',
         'tbl_name': 'v_vector_chunks00',
-        'rootpage': 5,
+        'rootpage': 7,
         'sql': 'CREATE TABLE "v_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)',
       }),
     ]),
@@ -97,15 +134,15 @@
       }),
       OrderedDict({
         'schema': 'main',
-        'name': 'v_metadatatext00',
+        'name': 'v_chunks',
         'type': 'shadow',
-        'ncol': 2,
+        'ncol': 6,
         'wr': 0,
         'strict': 0,
       }),
       OrderedDict({
         'schema': 'main',
-        'name': 'v_metadatachunks00',
+        'name': 'v_info',
         'type': 'shadow',
         'ncol': 2,
         'wr': 0,
@@ -121,9 +158,17 @@
       }),
       OrderedDict({
         'schema': 'main',
-        'name': 'v_chunks',
+        'name': 'v_metadatachunks00',
         'type': 'shadow',
-        'ncol': 6,
+        'ncol': 2,
+        'wr': 0,
+        'strict': 0,
+      }),
+      OrderedDict({
+        'schema': 'main',
+        'name': 'v_metadatatext00',
+        'type': 'shadow',
+        'ncol': 2,
         'wr': 0,
         'strict': 0,
       }),

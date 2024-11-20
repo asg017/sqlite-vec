@@ -1022,6 +1022,7 @@ def test_vec0_drops():
     ] == [
         "t1",
         "t1_chunks",
+        "t1_info",
         "t1_rowids",
         "t1_vector_chunks00",
         "t1_vector_chunks01",
@@ -2215,6 +2216,9 @@ def test_smoke():
         },
         {
             "name": "vec_xyz_chunks",
+        },
+        {
+            "name": "vec_xyz_info",
         },
         {
             "name": "vec_xyz_rowids",

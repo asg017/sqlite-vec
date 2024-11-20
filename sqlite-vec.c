@@ -3375,6 +3375,8 @@ static sqlite3_module vec_npy_eachModule = {
 #define VEC0_COLUMN_OFFSET_DISTANCE 1
 #define VEC0_COLUMN_OFFSET_K 2
 
+#define VEC0_SHADOW_INFO_NAME "\"%w\".\"%w_info\""
+
 #define VEC0_SHADOW_CHUNKS_NAME "\"%w\".\"%w_chunks\""
 /// 1) schema, 2) original vtab table name
 #define VEC0_SHADOW_CHUNKS_CREATE                                              \
@@ -4963,6 +4965,59 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     sqlite3_stmt *stmt;
     int rc;
 
+    char * zCreateInfo = sqlite3_mprintf("CREATE TABLE "VEC0_SHADOW_INFO_NAME " (key text primary key, value any)", pNew->schemaName, pNew->tableName);
+    if(!zCreateInfo) {
+      goto error;
+    }
+    rc = sqlite3_prepare_v2(db, zCreateInfo, -1, &stmt, NULL);
+
+    sqlite3_free((void *) zCreateInfo);
+    if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
+      // TODO(IMP)
+      sqlite3_finalize(stmt);
+      *pzErr = sqlite3_mprintf("Could not create '_info' shadow table: %s",
+                               sqlite3_errmsg(db));
+      goto error;
+    }
+    sqlite3_finalize(stmt);
+
+    char * zSeedInfo = sqlite3_mprintf(
+      "INSERT INTO "VEC0_SHADOW_INFO_NAME "(key, value) VALUES "
+      "(?1, ?2), (?3, ?4), (?5, ?6), (?7, ?8) ",
+      pNew->schemaName, pNew->tableName
+    );
+    if(!zSeedInfo) {
+      goto error;
+    }
+    rc = sqlite3_prepare_v2(db, zSeedInfo, -1, &stmt, NULL);
+    sqlite3_free((void *) zSeedInfo);
+    if (rc != SQLITE_OK) {
+      // TODO(IMP)
+      sqlite3_finalize(stmt);
+      *pzErr = sqlite3_mprintf("Could not seed '_info' shadow table: %s",
+                               sqlite3_errmsg(db));
+      goto error;
+    }
+    sqlite3_bind_text(stmt, 1, "CREATE_VERSION", -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, SQLITE_VEC_VERSION, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 3, "CREATE_VERSION_MAJOR", -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 4, SQLITE_VEC_VERSION_MAJOR);
+    sqlite3_bind_text(stmt, 5, "CREATE_VERSION_MINOR", -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 6, SQLITE_VEC_VERSION_MINOR);
+    sqlite3_bind_text(stmt, 7, "CREATE_VERSION_PATCH", -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 8, SQLITE_VEC_VERSION_PATCH);
+
+    if(sqlite3_step(stmt) != SQLITE_DONE) {
+      // TODO(IMP)
+      sqlite3_finalize(stmt);
+      *pzErr = sqlite3_mprintf("Could not seed '_info' shadow table: %s",
+                               sqlite3_errmsg(db));
+      goto error;
+    }
+    sqlite3_finalize(stmt);
+
+
+
     // create the _chunks shadow table
     char *zCreateShadowChunks = NULL;
     if(pNew->numPartitionColumns) {
@@ -5132,7 +5187,7 @@ static int vec0Destroy(sqlite3_vtab *pVtab) {
   // Free up any sqlite3_stmt, otherwise DROPs on those tables will fail
   vec0_free_resources(p);
 
-  // later: can't evidence-of here, bc always gives "SQL logic error" instead of
+  // TODO(test) later: can't evidence-of here, bc always gives "SQL logic error" instead of
   // provided error
   zSql = sqlite3_mprintf("DROP TABLE " VEC0_SHADOW_CHUNKS_NAME, p->schemaName,
                          p->tableName);
@@ -5141,6 +5196,17 @@ static int vec0Destroy(sqlite3_vtab *pVtab) {
   if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
     rc = SQLITE_ERROR;
     vtab_set_error(pVtab, "could not drop chunks shadow table");
+    goto done;
+  }
+  sqlite3_finalize(stmt);
+
+  zSql = sqlite3_mprintf("DROP TABLE " VEC0_SHADOW_INFO_NAME, p->schemaName,
+                         p->tableName);
+  rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, 0);
+  sqlite3_free((void *)zSql);
+  if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
+    rc = SQLITE_ERROR;
+    vtab_set_error(pVtab, "could not drop info shadow table");
     goto done;
   }
   sqlite3_finalize(stmt);
@@ -8759,7 +8825,8 @@ static int vec0Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 }
 
 static int vec0ShadowName(const char *zName) {
-  static const char *azName[] = {"rowids", "chunks", "auxiliary",
+  static const char *azName[] = {
+    "rowids", "chunks", "auxiliary", "info",
 
   // Up to VEC0_MAX_METADATA_COLUMNS
   // TODO be smarter about this man
