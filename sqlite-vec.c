@@ -3411,7 +3411,6 @@ struct vec0_vtab {
 
   uint8_t user_column_idxs[VEC0_MAX_VECTOR_COLUMNS + VEC0_MAX_PARTITION_COLUMNS + VEC0_MAX_AUXILIARY_COLUMNS];
 
-
   // Name of all the vector chunk shadow tables.
   // Ex '_vector_chunks00'
   // Only the first numVectorColumns entries will be available.
