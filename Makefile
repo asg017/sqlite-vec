@@ -153,6 +153,9 @@ sqlite-vec.h: sqlite-vec.h.tmpl VERSION
 	VERSION=$(shell cat VERSION) \
 	DATE=$(shell date -r VERSION +'%FT%TZ%z') \
 	SOURCE=$(shell git log -n 1 --pretty=format:%H -- VERSION) \
+	VERSION_MAJOR=$$(echo $$VERSION | cut -d. -f1) \
+	VERSION_MINOR=$$(echo $$VERSION | cut -d. -f2) \
+	VERSION_PATCH=$$(echo $$VERSION | cut -d. -f3 | cut -d- -f1) \
 	envsubst < $< > $@
 
 clean:
