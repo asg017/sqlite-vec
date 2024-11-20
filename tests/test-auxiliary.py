@@ -49,6 +49,7 @@ def test_types(db, snapshot):
     )
     assert exec(db, "select * from v") == snapshot()
     INSERT = "insert into v(vector, aux_int, aux_float, aux_text, aux_blob) values (?, ?, ?, ?, ?)"
+
     assert (
         exec(db, INSERT, [b"\x11\x11\x11\x11", 1, 1.22, "text", b"blob"]) == snapshot()
     )

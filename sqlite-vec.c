@@ -5323,7 +5323,6 @@ typedef enum  {
   VEC0_PARTITION_OPERATOR_GE = 'e',
   VEC0_PARTITION_OPERATOR_NE = 'f',
 } vec0_partition_operator;
-
 typedef enum  {
   VEC0_METADATA_OPERATOR_EQ = 'a',
   VEC0_METADATA_OPERATOR_GT = 'b',
@@ -6825,7 +6824,6 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
   // array of `struct Vec0MetadataIn`, IF there are any `xxx in (...)` metadata constraints
   struct Array * aMetadataIn = NULL;
 
-
   int query_idx =-1;
   int k_idx = -1;
   int rowid_in_idx = -1;
@@ -7352,6 +7350,7 @@ static int vec0Column_fullscan(vec0_vtab *pVtab, vec0_cursor *pCur,
       sqlite3_result_error_code(context, rc);
     }
   }
+
   else if(vec0_column_idx_is_metadata(pVtab, i)) {
     if(sqlite3_vtab_nochange(context)) {
       return SQLITE_OK;
@@ -7373,6 +7372,7 @@ static int vec0Column_fullscan(vec0_vtab *pVtab, vec0_cursor *pCur,
       }
     }
   }
+
   return SQLITE_OK;
 }
 
@@ -7434,6 +7434,7 @@ static int vec0Column_point(vec0_vtab *pVtab, vec0_cursor *pCur,
       sqlite3_result_error_code(context, rc);
     }
   }
+
   else if(vec0_column_idx_is_metadata(pVtab, i)) {
     if(sqlite3_vtab_nochange(context)) {
       return SQLITE_OK;
@@ -7514,6 +7515,7 @@ static int vec0Column_knn(vec0_vtab *pVtab, vec0_cursor *pCur,
       sqlite3_result_error_code(context, rc);
     }
   }
+
   else if(vec0_column_idx_is_metadata(pVtab, i)) {
     int metadata_idx = vec0_column_idx_to_metadata_idx(pVtab, i);
     i64 rowid = pCur->knn_data->rowids[pCur->knn_data->current_idx];
@@ -8160,6 +8162,67 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
     }
   }
 
+  if(p->numAuxiliaryColumns > 0) {
+    sqlite3_stmt *stmt;
+    sqlite3_str * s = sqlite3_str_new(NULL);
+    sqlite3_str_appendf(s, "INSERT INTO " VEC0_SHADOW_AUXILIARY_NAME "(", p->schemaName, p->tableName);
+    for(int i = 0; i < p->numAuxiliaryColumns; i++) {
+      if(i!=0) {
+        sqlite3_str_appendchar(s, 1, ',');
+      }
+      sqlite3_str_appendf(s, "value%02d", i);
+    }
+    sqlite3_str_appendall(s, ") VALUES (");
+    for(int i = 0; i < p->numAuxiliaryColumns; i++) {
+      if(i!=0) {
+        sqlite3_str_appendchar(s, 1, ',');
+      }
+      sqlite3_str_appendchar(s, 1, '?');
+    }
+    sqlite3_str_appendall(s, ")");
+    char * zSql = sqlite3_str_finish(s);
+    // TODO double check error handling ehre
+    if(!zSql) {
+      rc = SQLITE_NOMEM;
+      goto cleanup;
+    }
+    rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
+    if(rc != SQLITE_OK) {
+      goto cleanup;
+    }
+
+    for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
+      if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_AUXILIARY) {
+        continue;
+      }
+      int auxiliary_key_idx = p->user_column_idxs[i];
+      sqlite3_value * v = argv[2+VEC0_COLUMN_USERN_START + i];
+      int v_type = sqlite3_value_type(v);
+      if(v_type != SQLITE_NULL && (v_type != p->auxiliary_columns[auxiliary_key_idx].type)) {
+        sqlite3_finalize(stmt);
+        rc = SQLITE_ERROR;
+        vtab_set_error(
+        pVTab,
+        "Auxiliary column type mismatch: The auxiliary column %.*s has type %s, but %s was provided.",
+        p->auxiliary_columns[auxiliary_key_idx].name_length,
+        p->auxiliary_columns[auxiliary_key_idx].name,
+        type_name(p->auxiliary_columns[auxiliary_key_idx].type),
+        type_name(v_type)
+      );
+        goto cleanup;
+      }
+      sqlite3_bind_value(stmt, 1 + auxiliary_key_idx, v);
+    }
+
+    rc = sqlite3_step(stmt);
+    if(rc != SQLITE_DONE) {
+      sqlite3_finalize(stmt);
+      rc = SQLITE_ERROR;
+      goto cleanup;
+    }
+    sqlite3_finalize(stmt);
+  }
+
   // read all the inserted vectors  into vectorDatas, validate their lengths.
   for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
     if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_VECTOR) {
@@ -8733,7 +8796,6 @@ int vec0Update_Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv) {
     if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_PARTITION) {
       continue;
     }
-    //int partition_key_idx = p->user_column_idxs[i];
     sqlite3_value * value = argv[2+VEC0_COLUMN_USERN_START + i];
     if(sqlite3_value_nochange(value)) {
       continue;

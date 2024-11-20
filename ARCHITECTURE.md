@@ -81,8 +81,7 @@ The remaining 3 characters of the block are `_` fillers.
 #### `VEC0_IDXSTR_KIND_KNN_ROWID_IN` (`'['`)
 
 `argv[i]` is the optional `rowid in (...)` value, and must be handled with
-[`sqlite3_vtab_in_first()` /
-`sqlite3_vtab_in_next()`](https://www.sqlite.org/c3ref/vtab_in_first.html).
+[`sqlite3_vtab_in_first()` / `sqlite3_vtab_in_next()`](https://www.sqlite.org/c3ref/vtab_in_first.html).
 
 The remaining 3 characters of the block are `_` fillers.
 
