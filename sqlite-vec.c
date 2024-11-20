@@ -3418,7 +3418,7 @@ static sqlite3_module vec_npy_eachModule = {
 
 #define VEC0_SHADOW_AUXILIARY_NAME "\"%w\".\"%w_auxiliary\""
 
-#define VEC0_SHADOW_METADATA_N_NAME "\"%w\".\"%w_metadata_chunks%02d\""
+#define VEC0_SHADOW_METADATA_N_NAME "\"%w\".\"%w_metadatachunks%02d\""
 #define VEC0_SHADOW_METADATA_TEXT_DATA_NAME "\"%w\".\"%w_metadata_text_data_%02d\""
 
 #define VEC_INTERAL_ERROR "Internal sqlite-vec error: "
@@ -3501,7 +3501,7 @@ struct vec0_vtab {
   // The first numVectorColumns entries must be freed with sqlite3_free()
   char *shadowVectorChunksNames[VEC0_MAX_VECTOR_COLUMNS];
 
-  // Name of all metadata chunk shadow tables, ie `_metadata_chunks00`
+  // Name of all metadata chunk shadow tables, ie `_metadatachunks00`
   // Only the first numMetadataColumns entries will be available.
   // The first numMetadataColumns entries must be freed with sqlite3_free()
   char *shadowMetadataChunksNames[VEC0_MAX_METADATA_COLUMNS];
@@ -4033,7 +4033,7 @@ int vec0_get_auxiliary_value_for_rowid(vec0_vtab *pVtab, i64 rowid, int auxiliar
 
 /**
  * @brief Result the given metadata value for the given row and metadata column index.
- * Will traverse the metadata_chunksNN table with BLOB I/0 for the given rowid.
+ * Will traverse the metadatachunksNN table with BLOB I/0 for the given rowid.
  *
  * @param p
  * @param rowid
@@ -4951,7 +4951,7 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
   }
   for (int i = 0; i < pNew->numMetadataColumns; i++) {
     pNew->shadowMetadataChunksNames[i] =
-        sqlite3_mprintf("%s_metadata_chunks%02d", tableName, i);
+        sqlite3_mprintf("%s_metadatachunks%02d", tableName, i);
     if (!pNew->shadowMetadataChunksNames[i]) {
       goto error;
     }
@@ -8759,12 +8759,33 @@ static int vec0Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 }
 
 static int vec0ShadowName(const char *zName) {
-  static const char *azName[] = {"rowids", "chunks", "auxiliary"};
+  static const char *azName[] = {"rowids", "chunks", "auxiliary",
+
+  // Up to VEC0_MAX_METADATA_COLUMNS
+  // TODO be smarter about this man
+  "metadatachunks00",
+  "metadatachunks01",
+  "metadatachunks02",
+  "metadatachunks03",
+  "metadatachunks04",
+  "metadatachunks05",
+  "metadatachunks06",
+  "metadatachunks07",
+  "metadatachunks08",
+  "metadatachunks09",
+  "metadatachunks10",
+  "metadatachunks11",
+  "metadatachunks12",
+  "metadatachunks13",
+  "metadatachunks14",
+  "metadatachunks15",
+  };
 
   for (size_t i = 0; i < sizeof(azName) / sizeof(azName[0]); i++) {
     if (sqlite3_stricmp(zName, azName[i]) == 0)
       return 1;
   }
+  //for(size_t i = 0; i < )"vector_chunks", "metadatachunks"
   return 0;
 }
 
