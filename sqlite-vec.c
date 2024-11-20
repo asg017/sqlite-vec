@@ -5508,7 +5508,7 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
             switch(p->metadata_columns[metadata_idx].kind) {
               case VEC0_METADATA_COLUMN_KIND_FLOAT:
               case VEC0_METADATA_COLUMN_KIND_BOOLEAN: {
-                // IMP: TODO
+                // IMP: V15248_32086
                 rc = SQLITE_ERROR;
                 vtab_set_error(pVTab, "'xxx in (...)' is only available on INTEGER or TEXT metadata columns.");
                 goto done;
@@ -6142,7 +6142,8 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
         }
       }
       if(metadataInIdx < 0) {
-        abort(); // TODO
+        rc = SQLITE_ERROR;
+        goto done;
       }
 
       struct Vec0MetadataIn * metadataIn = &((struct Vec0MetadataIn *) aMetadataIn->z)[metadataInIdx];
@@ -6313,7 +6314,8 @@ int vec0_set_metadata_filter_bitmap(
             }
           }
           if(metadataInIdx < 0) {
-            abort(); // TODO
+            rc = SQLITE_ERROR;
+            goto done;
           }
           struct Vec0MetadataIn * metadataIn = &((struct Vec0MetadataIn *) aMetadataIn->z)[metadataInIdx];
           struct Array * aTarget = &(metadataIn->array);
@@ -6916,7 +6918,7 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
         }
 
         if (rc != SQLITE_DONE) {
-          vtab_set_error(&p->base, "fuck"); // TODO
+          vtab_set_error(&p->base, "Error fetching next value in `x in (...)` integer expression");
           goto cleanup;
         }
 
@@ -6933,7 +6935,6 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
           int n = sqlite3_value_bytes(entry);
 
           struct Vec0MetadataInTextEntry entry;
-          // TODO if this exits early, does it get properly cleaned up
           entry.zString = sqlite3_mprintf("%.*s", n, s);
           if(!entry.zString) {
             rc = SQLITE_NOMEM;
@@ -6947,20 +6948,21 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
         }
 
         if (rc != SQLITE_DONE) {
-          vtab_set_error(&p->base, "fuck"); // TODO
+          vtab_set_error(&p->base, "Error fetching next value in `x in (...)` text expression");
           goto cleanup;
         }
 
         break;
       }
       default: {
-        abort();
+        vtab_set_error(&p->base, "Internal sqlite-vec error");
+        goto cleanup;
       }
     }
 
     rc = array_append(aMetadataIn, &item);
     if(rc != SQLITE_OK) {
-      abort(); // TODO
+      goto cleanup;
     }
   }
   #endif
@@ -7291,8 +7293,18 @@ static int vec0Column_fullscan(vec0_vtab *pVtab, vec0_cursor *pCur,
     int metadata_idx = vec0_column_idx_to_metadata_idx(pVtab, i);
     int rc = vec0_result_metadata_value_for_rowid(pVtab, rowid, metadata_idx, context);
     if(rc != SQLITE_OK) {
-      // TODO handle
-      sqlite3_result_error(context, "fuck", -1);
+      // IMP: V15466_32305
+      const char * zErr = sqlite3_mprintf(
+        "Could not extract metadata value for column %.*s at rowid %lld",
+        pVtab->metadata_columns[metadata_idx].name_length,
+        pVtab->metadata_columns[metadata_idx].name, rowid
+      );
+      if(zErr) {
+        sqlite3_result_error(context, zErr, -1);
+        sqlite3_free((void *) zErr);
+      }else {
+        sqlite3_result_error_nomem(context);
+      }
     }
   }
   return SQLITE_OK;
@@ -7364,8 +7376,17 @@ static int vec0Column_point(vec0_vtab *pVtab, vec0_cursor *pCur,
     int metadata_idx = vec0_column_idx_to_metadata_idx(pVtab, i);
     int rc = vec0_result_metadata_value_for_rowid(pVtab, rowid, metadata_idx, context);
     if(rc != SQLITE_OK) {
-      // TODO handle
-      sqlite3_result_error(context, "fuck", -1);
+      const char * zErr = sqlite3_mprintf(
+        "Could not extract metadata value for column %.*s at rowid %lld",
+        pVtab->metadata_columns[metadata_idx].name_length,
+        pVtab->metadata_columns[metadata_idx].name, rowid
+      );
+      if(zErr) {
+        sqlite3_result_error(context, zErr, -1);
+        sqlite3_free((void *) zErr);
+      }else {
+        sqlite3_result_error_nomem(context);
+      }
     }
   }
 
@@ -7432,8 +7453,17 @@ static int vec0Column_knn(vec0_vtab *pVtab, vec0_cursor *pCur,
     i64 rowid = pCur->knn_data->rowids[pCur->knn_data->current_idx];
     int rc = vec0_result_metadata_value_for_rowid(pVtab, rowid, metadata_idx, context);
     if(rc != SQLITE_OK) {
-      // TODO: handle
-      sqlite3_result_error(context, "fuck", -1);
+      const char * zErr = sqlite3_mprintf(
+        "Could not extract metadata value for column %.*s at rowid %lld",
+        pVtab->metadata_columns[metadata_idx].name_length,
+        pVtab->metadata_columns[metadata_idx].name, rowid
+      );
+      if(zErr) {
+        sqlite3_result_error(context, zErr, -1);
+        sqlite3_free((void *) zErr);
+      }else {
+        sqlite3_result_error_nomem(context);
+      }
     }
   }
 
@@ -8199,6 +8229,7 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
         );
         goto cleanup;
       }
+      // first 1 is for 1-based indexing on sqlite3_bind_*, second 1 is to account for initial rowid parameter
       sqlite3_bind_value(stmt, 1 + 1 + auxiliary_key_idx, v);
     }
 

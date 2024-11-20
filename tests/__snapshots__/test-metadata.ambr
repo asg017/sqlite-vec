@@ -363,6 +363,24 @@
     ]),
   })
 # ---
+# name: test_errors
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x00\x00\x80?',
+        't': 'aaaaaaaaaaaax',
+      }),
+    ]),
+  })
+# ---
+# name: test_errors.1
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not extract metadata value for column t at rowid 1',
+  })
+# ---
 # name: test_idxstr
   OrderedDict({
     'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and is_favorited = true",

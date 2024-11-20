@@ -309,6 +309,8 @@ def test_vtab_in(db, snapshot):
             (8, "[8]", 555, "zzzz", 0, 1.1),
         ],
     )
+
+    # EVIDENCE-OF: V15248_32086
     assert exec(
         db, "select *  from v where vector match '[0]' and k = 8 and b in (1, 0)"
     ) == snapshot(name="block-bool")
@@ -568,6 +570,28 @@ def test_stress(db, snapshot):
         db,
         "select movie_id, is_favorited, distance from vec_movies where synopsis_embedding match '[100]' and k = 5 and is_favorited >= 999",
     ) == snapshot(name="bool-other-op")
+
+
+def test_errors(db, snapshot):
+    db.execute("create virtual table v using vec0(vector float[1], t text)")
+    db.execute("insert into v(vector, t) values ('[1]', 'aaaaaaaaaaaax')")
+
+    assert exec(db, "select * from v") == snapshot()
+
+    # EVIDENCE-OF: V15466_32305
+    db.set_authorizer(
+        authorizer_deny_on(sqlite3.SQLITE_READ, "v_metadata_text_data_00", "data")
+    )
+    assert exec(db, "select * from v") == snapshot()
+
+
+def authorizer_deny_on(operation, x1, x2=None):
+    def _auth(op, p1, p2, p3, p4):
+        if op == operation and p1 == x1 and p2 == x2:
+            return sqlite3.SQLITE_DENY
+        return sqlite3.SQLITE_OK
+
+    return _auth
 
 
 def exec(db, sql, parameters=[]):
