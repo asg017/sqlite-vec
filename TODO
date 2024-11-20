@@ -1,25 +1,17 @@
-# partition
-
-- [ ] UPDATE on partition key values
-  - remove previous row from chunk, insert into new one?
-- [ ] properly sqlite3_vtab_nochange / sqlite3_value_nochange handling
-
-
-# auxiliary columns
-
-- later:
-  - NOT NULL?
-  - perf: INSERT stmt should be cached on vec0_vtab
-  - perf: LEFT JOIN aux table to rowids query in vec0_cursor for rowid/point stmts, to avoid N lookup queries
-
-# metadata filtering
-- `v in (...)` handling
-- [ ] test accessing aux values when rowid is different than 1,2,3 etc.
 - [ ] add `xyz_info` shadow table with version etc.
+
 - later
-  - null!
-  - date/datetime
-  - remaining TODO items
-  - skip invalid validity entries in knn filter?
-  - dictionary encoding?
-  - partition `x in (...)` handling
+  - [ ] partition: UPDATE support
+  - [ ] skip invalid validity entries in knn filter?
+  - [ ] nulls in metadata
+  - [ ] partition `x in (...)` handling
+  - [ ] blobs/date/datetime
+  - [ ] uuid/ulid perf
+  - [ ] Aux columns: `NOT NULL` constraint
+  - [ ] Metadata columns: `NOT NULL` constraint
+   - [ ] Partiion key: `NOT NULL` constraint
+  - [ ] dictionary encoding?
+  - [ ] properly sqlite3_vtab_nochange / sqlite3_value_nochange handling
+  - [ ] perf
+    - [ ] aux: cache INSERT
+    - [ ] aux: LEFT JOIN on `_rowids` queries to avoid N lookup queries

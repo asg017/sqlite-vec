@@ -8759,7 +8759,7 @@ static int vec0Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 }
 
 static int vec0ShadowName(const char *zName) {
-  static const char *azName[] = {"rowids", "chunks", "auxiliary", "vector_chunks", "metadata_chunks"};
+  static const char *azName[] = {"rowids", "chunks", "auxiliary"};
 
   for (size_t i = 0; i < sizeof(azName) / sizeof(azName[0]); i++) {
     if (sqlite3_stricmp(zName, azName[i]) == 0)
