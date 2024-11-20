@@ -1,0 +1,5 @@
+# partition
+
+- [ ] UPDATE on partition key values
+  - remove previous row from chunk, insert into new one?
+- [ ] properly sqlite3_vtab_nochange / sqlite3_value_nochange handling

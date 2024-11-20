@@ -105,6 +105,10 @@ typedef size_t usize;
 #define SQLITE_INDEX_CONSTRAINT_LIMIT 73
 #endif
 
+#ifndef SQLITE_INDEX_CONSTRAINT_OFFSET
+#define SQLITE_INDEX_CONSTRAINT_OFFSET 74
+#endif
+
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
 #define min(a, b) (((a) <= (b)) ? (a) : (b))
 
@@ -1932,6 +1936,83 @@ int vec0_parse_table_option(const char *source, int source_length,
 }
 /**
  * @brief Parse an argv[i] entry of a vec0 virtual table definition, and see if
+ * it's a PARTITION KEY definition.
+ *
+ * @param source: argv[i] source string
+ * @param source_length: length of the source string
+ * @param out_column_name: If it is a partition key, the output column name. Same lifetime
+ * as source, points to specific char *
+ * @param out_column_name_length: Length of out_column_name in bytes
+ * @param out_column_type: SQLITE_TEXT or SQLITE_INTEGER.
+ * @return int: SQLITE_EMPTY if not a PK, SQLITE_OK if it is.
+ */
+int vec0_parse_partition_key_definition(const char *source, int source_length,
+                                 char **out_column_name,
+                                 int *out_column_name_length,
+                                 int *out_column_type) {
+  struct Vec0Scanner scanner;
+  struct Vec0Token token;
+  char *column_name;
+  int column_name_length;
+  int column_type;
+  vec0_scanner_init(&scanner, source, source_length);
+
+  // Check first token is identifier, will be the column name
+  int rc = vec0_scanner_next(&scanner, &token);
+  if (rc != VEC0_TOKEN_RESULT_SOME &&
+      token.token_type != TOKEN_TYPE_IDENTIFIER) {
+    return SQLITE_EMPTY;
+  }
+
+  column_name = token.start;
+  column_name_length = token.end - token.start;
+
+  // Check the next token matches "text" or "integer", as column type
+  rc = vec0_scanner_next(&scanner, &token);
+  if (rc != VEC0_TOKEN_RESULT_SOME &&
+      token.token_type != TOKEN_TYPE_IDENTIFIER) {
+    return SQLITE_EMPTY;
+  }
+  if (sqlite3_strnicmp(token.start, "text", token.end - token.start) == 0) {
+    column_type = SQLITE_TEXT;
+  } else if (sqlite3_strnicmp(token.start, "int", token.end - token.start) ==
+                 0 ||
+             sqlite3_strnicmp(token.start, "integer",
+                              token.end - token.start) == 0) {
+    column_type = SQLITE_INTEGER;
+  } else {
+    return SQLITE_EMPTY;
+  }
+
+  // Check the next token is identifier and matches "partition"
+  rc = vec0_scanner_next(&scanner, &token);
+  if (rc != VEC0_TOKEN_RESULT_SOME &&
+      token.token_type != TOKEN_TYPE_IDENTIFIER) {
+    return SQLITE_EMPTY;
+  }
+  if (sqlite3_strnicmp(token.start, "partition", token.end - token.start) != 0) {
+    return SQLITE_EMPTY;
+  }
+
+  // Check the next token is identifier and matches "key"
+  rc = vec0_scanner_next(&scanner, &token);
+  if (rc != VEC0_TOKEN_RESULT_SOME &&
+      token.token_type != TOKEN_TYPE_IDENTIFIER) {
+    return SQLITE_EMPTY;
+  }
+  if (sqlite3_strnicmp(token.start, "key", token.end - token.start) != 0) {
+    return SQLITE_EMPTY;
+  }
+
+  *out_column_name = column_name;
+  *out_column_name_length = column_name_length;
+  *out_column_type = column_type;
+
+  return SQLITE_OK;
+}
+
+/**
+ * @brief Parse an argv[i] entry of a vec0 virtual table definition, and see if
  * it's a PRIMARY KEY definition.
  *
  * @param source: argv[i] source string
@@ -1942,7 +2023,7 @@ int vec0_parse_table_option(const char *source, int source_length,
  * @param out_column_type: SQLITE_TEXT or SQLITE_INTEGER.
  * @return int: SQLITE_EMPTY if not a PK, SQLITE_OK if it is.
  */
-int parse_primary_key_definition(const char *source, int source_length,
+int vec0_parse_primary_key_definition(const char *source, int source_length,
                                  char **out_column_name,
                                  int *out_column_name_length,
                                  int *out_column_type) {
@@ -2021,6 +2102,12 @@ struct VectorColumnDefinition {
   enum Vec0DistanceMetrics distance_metric;
 };
 
+struct Vec0PartitionColumnDefinition {
+  int type;
+  char * name;
+  int name_length;
+};
+
 size_t vector_byte_size(enum VectorElementType element_type,
                         size_t dimensions) {
   switch (element_type) {
@@ -2048,7 +2135,7 @@ size_t vector_column_byte_size(struct VectorColumnDefinition column) {
  * @return int SQLITE_OK on success, SQLITE_EMPTY is it's not a vector column
  * definition, SQLITE_ERROR on error.
  */
-int parse_vector_column(const char *source, int source_length,
+int vec0_parse_vector_column(const char *source, int source_length,
                         struct VectorColumnDefinition *outColumn) {
   // parses a vector column definition like so:
   // "abc float[123]", "abc_123 bit[1234]", eetc.
@@ -3128,7 +3215,7 @@ static sqlite3_module vec_npy_eachModule = {
 #pragma region vec0 virtual table
 
 #define VEC0_COLUMN_ID 0
-#define VEC0_COLUMN_VECTORN_START 1
+#define VEC0_COLUMN_USERN_START 1
 #define VEC0_COLUMN_OFFSET_DISTANCE 1
 #define VEC0_COLUMN_OFFSET_K 2
 
@@ -3178,8 +3265,19 @@ static sqlite3_module vec_npy_eachModule = {
 
 typedef struct vec0_vtab vec0_vtab;
 
-#define VEC0_MAX_VECTOR_COLUMNS 16
+#define VEC0_MAX_VECTOR_COLUMNS   16
+#define VEC0_MAX_PARTITION_COLUMNS 4
 #define SQLITE_VEC_VEC0_MAX_DIMENSIONS 8192
+
+typedef enum {
+  // vector column, ie "contents_embedding float[1024]"
+  SQLITE_VEC0_USER_COLUMN_KIND_VECTOR = 1,
+
+  // partition key column, ie "user_id integer partition key"
+  SQLITE_VEC0_USER_COLUMN_KIND_PARTITION = 2,
+
+  // TODO: metadata + metadata filters
+} vec0_user_column_kind;
 
 struct vec0_vtab {
   sqlite3_vtab base;
@@ -3190,6 +3288,13 @@ struct vec0_vtab {
   // True if the primary key of the vec0 table has a column type TEXT.
   // Will change the schema of the _rowids table, and insert/query logic.
   int pkIsText;
+
+  // number of defined vector columns.
+  int numVectorColumns;
+
+  // number of defined PARTITION KEY columns.
+  int numPartitionColumns;
+
 
   // Name of the schema the table exists on.
   // Must be freed with sqlite3_free()
@@ -3207,6 +3312,13 @@ struct vec0_vtab {
   // Must be freed with sqlite3_free()
   char *shadowChunksName;
 
+  // contains enum vec0_user_column_kind values for up to
+  // numVectorColumns + numPartitionColumns entries
+  uint8_t user_column_kinds[VEC0_MAX_VECTOR_COLUMNS + VEC0_MAX_PARTITION_COLUMNS];
+
+  uint8_t user_column_idxs[VEC0_MAX_VECTOR_COLUMNS + VEC0_MAX_PARTITION_COLUMNS];
+
+
   // Name of all the vector chunk shadow tables.
   // Ex '_vector_chunks00'
   // Only the first numVectorColumns entries will be available.
@@ -3214,9 +3326,7 @@ struct vec0_vtab {
   char *shadowVectorChunksNames[VEC0_MAX_VECTOR_COLUMNS];
 
   struct VectorColumnDefinition vector_columns[VEC0_MAX_VECTOR_COLUMNS];
-
-  // number of defined vector columns.
-  int numVectorColumns;
+  struct Vec0PartitionColumnDefinition paritition_columns[VEC0_MAX_PARTITION_COLUMNS];
 
   int chunk_size;
 
@@ -3321,6 +3431,10 @@ void vec0_free(vec0_vtab *p) {
   }
 }
 
+int vec0_num_defined_user_columns(vec0_vtab *p) {
+  return p->numVectorColumns + p->numPartitionColumns;
+}
+
 /**
  * @brief Returns the index of the distance hidden column for the given vec0
  * table.
@@ -3329,7 +3443,7 @@ void vec0_free(vec0_vtab *p) {
  * @return int
  */
 int vec0_column_distance_idx(vec0_vtab *p) {
-  return VEC0_COLUMN_VECTORN_START + (p->numVectorColumns - 1) +
+  return VEC0_COLUMN_USERN_START + (vec0_num_defined_user_columns(p) - 1) +
          VEC0_COLUMN_OFFSET_DISTANCE;
 }
 
@@ -3340,7 +3454,7 @@ int vec0_column_distance_idx(vec0_vtab *p) {
  * @return int k column index
  */
 int vec0_column_k_idx(vec0_vtab *p) {
-  return VEC0_COLUMN_VECTORN_START + (p->numVectorColumns - 1) +
+  return VEC0_COLUMN_USERN_START + (vec0_num_defined_user_columns(p) - 1) +
          VEC0_COLUMN_OFFSET_K;
 }
 
@@ -3349,18 +3463,36 @@ int vec0_column_k_idx(vec0_vtab *p) {
  * 0 otherwise.
  */
 int vec0_column_idx_is_vector(vec0_vtab *pVtab, int column_idx) {
-  return column_idx >= VEC0_COLUMN_VECTORN_START &&
-         column_idx <=
-             (VEC0_COLUMN_VECTORN_START + pVtab->numVectorColumns - 1);
+  return column_idx >= VEC0_COLUMN_USERN_START &&
+         column_idx <= (VEC0_COLUMN_USERN_START + vec0_num_defined_user_columns(pVtab) - 1) &&
+         pVtab->user_column_kinds[column_idx - VEC0_COLUMN_USERN_START] == SQLITE_VEC0_USER_COLUMN_KIND_VECTOR;
 }
 
 /**
- * Returns the vector index of the given vector column index.
+ * Returns the vector index of the given user column index.
  * ONLY call if validated with vec0_column_idx_is_vector before
  */
 int vec0_column_idx_to_vector_idx(vec0_vtab *pVtab, int column_idx) {
   UNUSED_PARAMETER(pVtab);
-  return column_idx - VEC0_COLUMN_VECTORN_START;
+  return pVtab->user_column_idxs[column_idx - VEC0_COLUMN_USERN_START];
+}
+/**
+ * Returns 1 if the given column-based index is a "partition key" column,
+ * 0 otherwise.
+ */
+int vec0_column_idx_is_partition(vec0_vtab *pVtab, int column_idx) {
+  return column_idx >= VEC0_COLUMN_USERN_START &&
+         column_idx <= (VEC0_COLUMN_USERN_START + vec0_num_defined_user_columns(pVtab) - 1) &&
+         pVtab->user_column_kinds[column_idx - VEC0_COLUMN_USERN_START] == SQLITE_VEC0_USER_COLUMN_KIND_PARTITION;
+}
+
+/**
+ * Returns the partition column index of the given user column index.
+ * ONLY call if validated with vec0_column_idx_is_vector before
+ */
+int vec0_column_idx_to_partition_idx(vec0_vtab *pVtab, int column_idx) {
+  UNUSED_PARAMETER(pVtab);
+  return pVtab->user_column_idxs[column_idx - VEC0_COLUMN_USERN_START];
 }
 
 /**
@@ -3593,13 +3725,74 @@ cleanup:
   return rc;
 }
 
-int vec0_get_latest_chunk_rowid(vec0_vtab *p, i64 *chunk_rowid) {
+/**
+ * @brief Retrieve the sqlite3_value of the i'th partition value for the given row.
+ *
+ * @param pVtab - the vec0_vtab in questions
+ * @param rowid - rowid of target row
+ * @param partition_idx - which partition column to retrieve
+ * @param outValue - output sqlite3_value
+ * @return int - SQLITE_OK on success, otherwise error code
+ */
+int vec0_get_partition_value_for_rowid(vec0_vtab *pVtab, i64 rowid, int partition_idx, sqlite3_value ** outValue) {
+  int rc;
+  i64 chunk_id;
+  i64 chunk_offset;
+  rc = vec0_get_chunk_position(pVtab, rowid, NULL, &chunk_id, &chunk_offset);
+  if(rc != SQLITE_OK) {
+    return rc;
+  }
+  sqlite3_stmt * stmt = NULL;
+  char * zSql = sqlite3_mprintf("SELECT partition%02d FROM " VEC0_SHADOW_CHUNKS_NAME " WHERE chunk_id = ?", partition_idx, pVtab->schemaName, pVtab->tableName);
+  if(!zSql) {
+    return SQLITE_NOMEM;
+  }
+  rc = sqlite3_prepare_v2(pVtab->db, zSql, -1, &stmt, NULL);
+  sqlite3_free(zSql);
+  if(rc != SQLITE_OK) {
+    return rc;
+  }
+  sqlite3_bind_int64(stmt, 1, chunk_id);
+  rc = sqlite3_step(stmt);
+  if(rc != SQLITE_ROW) {
+    rc = SQLITE_ERROR;
+    goto done;
+  }
+  *outValue = sqlite3_value_dup(sqlite3_column_value(stmt, 0));
+  if(!*outValue) {
+    rc = SQLITE_NOMEM;
+    goto done;
+  }
+  rc = SQLITE_OK;
+
+  done:
+    sqlite3_finalize(stmt);
+    return rc;
+
+}
+
+int vec0_get_latest_chunk_rowid(vec0_vtab *p, i64 *chunk_rowid, sqlite3_value ** partitionKeyValues) {
   int rc;
   const char *zSql;
   // lazy initialize stmtLatestChunk when needed. May be cleared during xSync()
   if (!p->stmtLatestChunk) {
-    zSql = sqlite3_mprintf("SELECT max(rowid) FROM " VEC0_SHADOW_CHUNKS_NAME,
+    if(p->numPartitionColumns > 0) {
+      sqlite3_str * s = sqlite3_str_new(NULL);
+      sqlite3_str_appendf(s, "SELECT max(rowid) FROM " VEC0_SHADOW_CHUNKS_NAME " WHERE ",
                            p->schemaName, p->tableName);
+
+      for(int i = 0; i < p->numPartitionColumns; i++) {
+        if(i != 0) {
+          sqlite3_str_appendall(s, " AND ");
+        }
+        sqlite3_str_appendf(s, " partition%02d = ? ", i);
+      }
+      zSql = sqlite3_str_finish(s);
+    }else {
+      zSql = sqlite3_mprintf("SELECT max(rowid) FROM " VEC0_SHADOW_CHUNKS_NAME,
+                           p->schemaName, p->tableName);
+    }
+
     if (!zSql) {
       rc = SQLITE_NOMEM;
       goto cleanup;
@@ -3614,11 +3807,19 @@ int vec0_get_latest_chunk_rowid(vec0_vtab *p, i64 *chunk_rowid) {
     }
   }
 
+  for(int i = 0; i < p->numPartitionColumns; i++) {
+    sqlite3_bind_value(p->stmtLatestChunk, i+1, (partitionKeyValues[i]));
+  }
+
   rc = sqlite3_step(p->stmtLatestChunk);
   if (rc != SQLITE_ROW) {
     // IMP: V31559_15629
     vtab_set_error(&p->base, VEC_INTERAL_ERROR "Could not find latest chunk");
     rc = SQLITE_ERROR;
+    goto cleanup;
+  }
+  if(sqlite3_column_type(p->stmtLatestChunk, 0) == SQLITE_NULL){
+    rc = SQLITE_EMPTY;
     goto cleanup;
   }
   *chunk_rowid = sqlite3_column_int64(p->stmtLatestChunk, 0);
@@ -3636,6 +3837,7 @@ int vec0_get_latest_chunk_rowid(vec0_vtab *p, i64 *chunk_rowid) {
 cleanup:
   if (p->stmtLatestChunk) {
     sqlite3_reset(p->stmtLatestChunk);
+    sqlite3_clear_bindings(p->stmtLatestChunk);
   }
   return rc;
 }
@@ -3825,21 +4027,39 @@ cleanup:
  * rowid to insert new blank rows into _vector_chunksXX tables.
  *
  * @param p: vec0 table to add new chunk
- * @param chunk_rowid: Putput pointer, if not NULL, then will be filled with the
+ * @param paritionKeyValues: Array of partition key valeus for the new chunk, if available
+ * @param chunk_rowid: Output pointer, if not NULL, then will be filled with the
  * new chunk rowid.
  * @return int SQLITE_OK on success, error code otherwise.
  */
-int vec0_new_chunk(vec0_vtab *p, i64 *chunk_rowid) {
+int vec0_new_chunk(vec0_vtab *p, sqlite3_value ** partitionKeyValues, i64 *chunk_rowid) {
   int rc;
   char *zSql;
   sqlite3_stmt *stmt;
   i64 rowid;
 
   // Step 1: Insert a new row in _chunks, capture that new rowid
-  zSql = sqlite3_mprintf("INSERT INTO " VEC0_SHADOW_CHUNKS_NAME
+  if(p->numPartitionColumns > 0) {
+    sqlite3_str * s = sqlite3_str_new(NULL);
+    sqlite3_str_appendf(s, "INSERT INTO " VEC0_SHADOW_CHUNKS_NAME, p->schemaName, p->tableName);
+    sqlite3_str_appendall(s, "(size, validity, rowids");
+    for(int i = 0; i < p->numPartitionColumns; i++) {
+      sqlite3_str_appendf(s, ", partition%02d", i);
+    }
+    sqlite3_str_appendall(s, ") VALUES (?, ?, ?");
+    for(int i = 0; i < p->numPartitionColumns; i++) {
+      sqlite3_str_appendall(s, ", ?");
+    }
+    sqlite3_str_appendall(s, ")");
+
+    zSql = sqlite3_str_finish(s);
+  }else {
+    zSql = sqlite3_mprintf("INSERT INTO " VEC0_SHADOW_CHUNKS_NAME
                          "(size, validity, rowids) "
                          "VALUES (?, ?, ?);",
                          p->schemaName, p->tableName);
+  }
+
   if (!zSql) {
     return SQLITE_NOMEM;
   }
@@ -3860,6 +4080,10 @@ int vec0_new_chunk(vec0_vtab *p, i64 *chunk_rowid) {
   sqlite3_bind_zeroblob(stmt, 2, p->chunk_size / CHAR_BIT); // validity bitmap
   sqlite3_bind_zeroblob(stmt, 3, p->chunk_size * sizeof(i64)); // rowids
 
+  for(int i = 0; i < p->numPartitionColumns; i++) {
+    sqlite3_bind_value(stmt, 4 + i, partitionKeyValues[i]);
+  }
+
   rc = sqlite3_step(stmt);
   int failed = rc != SQLITE_DONE;
   rowid = sqlite3_last_insert_rowid(p->db);
@@ -3876,14 +4100,18 @@ int vec0_new_chunk(vec0_vtab *p, i64 *chunk_rowid) {
   // Step 2: Create new vector chunks for each vector column, with
   //          that new chunk_rowid.
 
-  for (int i = 0; i < p->numVectorColumns; i++) {
+  for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
+    if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_VECTOR) {
+      continue;
+    }
+    int vector_column_idx = p->user_column_idxs[i];
     i64 vectorsSize =
-        p->chunk_size * vector_column_byte_size(p->vector_columns[i]);
+        p->chunk_size * vector_column_byte_size(p->vector_columns[vector_column_idx]);
 
     zSql = sqlite3_mprintf("INSERT INTO " VEC0_SHADOW_VECTOR_N_NAME
                            "(rowid, vectors)"
                            "VALUES (?, ?)",
-                           p->schemaName, p->tableName, i);
+                           p->schemaName, p->tableName, vector_column_idx);
     if (!zSql) {
       return SQLITE_NOMEM;
     }
@@ -3911,21 +4139,6 @@ int vec0_new_chunk(vec0_vtab *p, i64 *chunk_rowid) {
 
   return SQLITE_OK;
 }
-
-// Possible query plans for xBestIndex on vec0 tables.
-typedef enum {
-  // Full scan, every row is queried.
-  SQLITE_VEC0_QUERYPLAN_FULLSCAN,
-
-  // A single row is queried by rowid/id
-  SQLITE_VEC0_QUERYPLAN_POINT,
-
-  // A KNN-style query is made on a specific vector column.
-  // Requires
-  // 1) a MATCH/compatible distance contraint on a single vector column
-  // 2) either a 'LIMIT ?' or 'k=?' contraint
-  SQLITE_VEC0_QUERYPLAN_KNN,
-} vec0_query_plan;
 
 struct vec0_query_fullscan_data {
   sqlite3_stmt *rowids_stmt;
@@ -3979,6 +4192,14 @@ void vec0_query_point_data_clear(struct vec0_query_point_data *point_data) {
   }
 }
 
+typedef enum {
+  // If any values are updated, please update the ARCHITECTURE.md docs accordingly!
+
+ VEC0_QUERY_PLAN_FULLSCAN = '1',
+ VEC0_QUERY_PLAN_POINT = '2',
+ VEC0_QUERY_PLAN_KNN = '3',
+} vec0_query_plan;
+
 typedef struct vec0_cursor vec0_cursor;
 struct vec0_cursor {
   sqlite3_vtab_cursor base;
@@ -4025,6 +4246,8 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
   // option
   int chunk_size = -1;
   int numVectorColumns = 0;
+  int numPartitionColumns = 0;
+  int user_column_idx = 0;
 
   // track if a "primary key" column is defined
   char *pkColumnName = NULL;
@@ -4032,8 +4255,14 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
   int pkColumnType = SQLITE_INTEGER;
 
   for (int i = 3; i < argc; i++) {
-    struct VectorColumnDefinition c;
-    rc = parse_vector_column(argv[i], strlen(argv[i]), &c);
+    struct VectorColumnDefinition vecColumn;
+    struct Vec0PartitionColumnDefinition partitionColumn;
+    char *cName = NULL;
+    int cNameLength;
+    int cType;
+
+    // Scenario #1: Constructor argument is a vector column definition, ie `foo float[1024]`
+    rc = vec0_parse_vector_column(argv[i], strlen(argv[i]), &vecColumn);
     if (rc == SQLITE_ERROR) {
       *pzErr = sqlite3_mprintf(
           VEC_CONSTRUCTOR_ERROR "could not parse vector column '%s'", argv[i]);
@@ -4041,30 +4270,59 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     }
     if (rc == SQLITE_OK) {
       if (numVectorColumns >= VEC0_MAX_VECTOR_COLUMNS) {
-        sqlite3_free(c.name);
+        sqlite3_free(vecColumn.name);
         *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR
                                  "Too many provided vector columns, maximum %d",
                                  VEC0_MAX_VECTOR_COLUMNS);
         goto error;
       }
 
-      if (c.dimensions > SQLITE_VEC_VEC0_MAX_DIMENSIONS) {
-        sqlite3_free(c.name);
+      if (vecColumn.dimensions > SQLITE_VEC_VEC0_MAX_DIMENSIONS) {
+        sqlite3_free(vecColumn.name);
         *pzErr = sqlite3_mprintf(
             VEC_CONSTRUCTOR_ERROR
             "Dimension on vector column too large, provided %lld, maximum %lld",
-            (i64)c.dimensions, SQLITE_VEC_VEC0_MAX_DIMENSIONS);
+            (i64)vecColumn.dimensions, SQLITE_VEC_VEC0_MAX_DIMENSIONS);
         goto error;
       }
-      memcpy(&pNew->vector_columns[numVectorColumns], &c, sizeof(c));
+      pNew->user_column_kinds[user_column_idx] = SQLITE_VEC0_USER_COLUMN_KIND_VECTOR;
+      pNew->user_column_idxs[user_column_idx] = numVectorColumns;
+      memcpy(&pNew->vector_columns[numVectorColumns], &vecColumn, sizeof(vecColumn));
       numVectorColumns++;
+      user_column_idx++;
+
       continue;
     }
 
-    char *cName = NULL;
-    int cNameLength;
-    int cType;
-    rc = parse_primary_key_definition(argv[i], strlen(argv[i]), &cName,
+    // Scenario #2: Constructor argument is a partition key column definition, ie `user_id text partition key`
+    rc = vec0_parse_partition_key_definition(argv[i], strlen(argv[i]), &cName,
+                                      &cNameLength, &cType);
+    if (rc == SQLITE_OK) {
+      if (numPartitionColumns >= VEC0_MAX_PARTITION_COLUMNS) {
+        *pzErr = sqlite3_mprintf(
+            VEC_CONSTRUCTOR_ERROR
+            "More than %d partition key columns were provided",
+            VEC0_MAX_PARTITION_COLUMNS);
+        goto error;
+      }
+      partitionColumn.type = cType;
+      partitionColumn.name_length = cNameLength;
+      partitionColumn.name = sqlite3_mprintf("%.*s", cNameLength, cName);
+      if(!partitionColumn.name) {
+        rc = SQLITE_NOMEM;
+        goto error;
+      }
+
+      pNew->user_column_kinds[user_column_idx] = SQLITE_VEC0_USER_COLUMN_KIND_PARTITION;
+      pNew->user_column_idxs[user_column_idx] = numPartitionColumns;
+      memcpy(&pNew->paritition_columns[numPartitionColumns], &partitionColumn, sizeof(partitionColumn));
+      numPartitionColumns++;
+      user_column_idx++;
+      continue;
+    }
+
+    // Scenario #3: Constructor argument is a primary key column definition, ie `article_id text primary key`
+    rc = vec0_parse_primary_key_definition(argv[i], strlen(argv[i]), &cName,
                                       &cNameLength, &cType);
     if (rc == SQLITE_OK) {
       if (pkColumnName) {
@@ -4080,6 +4338,8 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
       pkColumnType = cType;
       continue;
     }
+
+    // Scenario #4: Constructor argument is a table-level option, ie `chunk_size`
 
     char *key;
     char *value;
@@ -4121,6 +4381,8 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
       }
       continue;
     }
+
+    // Scenario #5: Unknown constructor argument
     *pzErr =
         sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR "Could not parse '%s'", argv[i]);
     goto error;
@@ -4144,10 +4406,24 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
   } else {
     sqlite3_str_appendall(createStr, "rowid, ");
   }
-  for (int i = 0; i < numVectorColumns; i++) {
-    sqlite3_str_appendf(createStr, "\"%.*w\", ",
-                        pNew->vector_columns[i].name_length,
-                        pNew->vector_columns[i].name);
+  for (int i = 0; i < numVectorColumns + numPartitionColumns; i++) {
+    switch(pNew->user_column_kinds[i]) {
+      case SQLITE_VEC0_USER_COLUMN_KIND_VECTOR: {
+        int vector_idx = pNew->user_column_idxs[i];
+        sqlite3_str_appendf(createStr, "\"%.*w\", ",
+                        pNew->vector_columns[vector_idx].name_length,
+                        pNew->vector_columns[vector_idx].name);
+        break;
+      }
+      case SQLITE_VEC0_USER_COLUMN_KIND_PARTITION: {
+        int partition_idx = pNew->user_column_idxs[i];
+        sqlite3_str_appendf(createStr, "\"%.*w\", ",
+                        pNew->paritition_columns[partition_idx].name_length,
+                        pNew->paritition_columns[partition_idx].name);
+        break;
+      }
+    }
+
   }
   sqlite3_str_appendall(createStr, " distance hidden, k hidden) ");
   if (pkColumnName) {
@@ -4188,9 +4464,7 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     goto error;
   }
   pNew->numVectorColumns = numVectorColumns;
-  if (!pNew->numVectorColumns) {
-    goto error;
-  }
+  pNew->numPartitionColumns = numPartitionColumns;
   for (int i = 0; i < pNew->numVectorColumns; i++) {
     pNew->shadowVectorChunksNames[i] =
         sqlite3_mprintf("%s_vector_chunks%02d", tableName, i);
@@ -4206,12 +4480,24 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     int rc;
 
     // create the _chunks shadow table
-    char *zCreateShadowChunks;
-    zCreateShadowChunks = sqlite3_mprintf(VEC0_SHADOW_CHUNKS_CREATE,
+    char *zCreateShadowChunks = NULL;
+    if(pNew->numPartitionColumns) {
+      sqlite3_str * s = sqlite3_str_new(NULL);
+      sqlite3_str_appendf(s, "CREATE TABLE " VEC0_SHADOW_CHUNKS_NAME "(", pNew->schemaName, pNew->tableName);
+      sqlite3_str_appendall(s, "chunk_id INTEGER PRIMARY KEY AUTOINCREMENT," "size INTEGER NOT NULL,");
+      sqlite3_str_appendall(s, "sequence_id integer,");
+      for(int i = 0; i < pNew->numPartitionColumns;i++) {
+        sqlite3_str_appendf(s, "partition%02d,", i);
+      }
+      sqlite3_str_appendall(s, "validity BLOB NOT NULL, rowids BLOB NOT NULL);");
+      zCreateShadowChunks = sqlite3_str_finish(s);
+    }else {
+      zCreateShadowChunks = sqlite3_mprintf(VEC0_SHADOW_CHUNKS_CREATE,
                                           pNew->schemaName, pNew->tableName);
-    if (!zCreateShadowChunks) {
-      goto error;
     }
+    if (!zCreateShadowChunks) {
+        goto error;
+      }
     rc = sqlite3_prepare_v2(db, zCreateShadowChunks, -1, &stmt, 0);
     sqlite3_free((void *)zCreateShadowChunks);
     if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
@@ -4264,12 +4550,6 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
         goto error;
       }
       sqlite3_finalize(stmt);
-    }
-
-    rc = vec0_new_chunk(pNew, NULL);
-    if (rc != SQLITE_OK) {
-      *pzErr = sqlite3_mprintf("Could not create create an initial chunk");
-      goto error;
     }
   }
 
@@ -4372,9 +4652,30 @@ static int vec0Close(sqlite3_vtab_cursor *cur) {
   return SQLITE_OK;
 }
 
-#define VEC0_QUERY_PLAN_FULLSCAN "fullscan"
-#define VEC0_QUERY_PLAN_POINT "point"
-#define VEC0_QUERY_PLAN_KNN "knn"
+// All the different type of "values" provided to argv/argc in vec0Filter.
+// These enums denote the use and purpose of all of them.
+typedef enum  {
+  // If any values are updated, please update the ARCHITECTURE.md docs accordingly!
+
+  VEC0_IDXSTR_KIND_KNN_MATCH = '{',
+  VEC0_IDXSTR_KIND_KNN_K = '}',
+  VEC0_IDXSTR_KIND_KNN_ROWID_IN = '[',
+  VEC0_IDXSTR_KIND_KNN_PARTITON_CONSTRAINT = ']',
+  VEC0_IDXSTR_KIND_POINT_ID = '!',
+} vec0_idxstr_kind;
+
+// The different SQLITE_INDEX_CONSTRAINT values that vec0 partition key columns
+// support, but as characters that fit nicely in idxstr.
+typedef enum  {
+  // If any values are updated, please update the ARCHITECTURE.md docs accordingly!
+
+  VEC0_PARTITION_OPERATOR_EQ = 'a',
+  VEC0_PARTITION_OPERATOR_GT = 'b',
+  VEC0_PARTITION_OPERATOR_LE = 'c',
+  VEC0_PARTITION_OPERATOR_LT = 'd',
+  VEC0_PARTITION_OPERATOR_GE = 'e',
+  VEC0_PARTITION_OPERATOR_NE = 'f',
+} vec0_partition_operator;
 
 static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
   vec0_vtab *p = (vec0_vtab *)pVTab;
@@ -4420,6 +4721,10 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
 
     int iColumn = pIdxInfo->aConstraint[i].iColumn;
     int op = pIdxInfo->aConstraint[i].op;
+
+    if (op == SQLITE_INDEX_CONSTRAINT_LIMIT) {
+      iLimitTerm = i;
+    }
     if (op == SQLITE_INDEX_CONSTRAINT_MATCH &&
         vec0_column_idx_is_vector(p, iColumn)) {
       if (iMatchTerm > -1) {
@@ -4429,9 +4734,6 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
       }
       iMatchTerm = i;
       iMatchVectorTerm = vec0_column_idx_to_vector_idx(p, iColumn);
-    }
-    if (op == SQLITE_INDEX_CONSTRAINT_LIMIT) {
-      iLimitTerm = i;
     }
     if (op == SQLITE_INDEX_CONSTRAINT_EQ && iColumn == VEC0_COLUMN_ID) {
       if (vtabIn) {
@@ -4450,88 +4752,167 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
       iKTerm = i;
     }
   }
+
+  sqlite3_str *idxStr = sqlite3_str_new(NULL);
+  int rc;
+
   if (iMatchTerm >= 0) {
     if (iLimitTerm < 0 && iKTerm < 0) {
       vtab_set_error(
           pVTab,
           "A LIMIT or 'k = ?' constraint is required on vec0 knn queries.");
-      return SQLITE_ERROR;
+      rc = SQLITE_ERROR;
+      goto done;
     }
     if (iLimitTerm >= 0 && iKTerm >= 0) {
       vtab_set_error(pVTab, "Only LIMIT or 'k =?' can be provided, not both");
-      return SQLITE_ERROR;
+      rc = SQLITE_ERROR;
+      goto done;
     }
 
     if (pIdxInfo->nOrderBy) {
       if (pIdxInfo->nOrderBy > 1) {
         vtab_set_error(pVTab, "Only a single 'ORDER BY distance' clause is "
                               "allowed on vec0 KNN queries");
-        return SQLITE_ERROR;
+        rc = SQLITE_ERROR;
+      goto done;
       }
       if (pIdxInfo->aOrderBy[0].iColumn != vec0_column_distance_idx(p)) {
         vtab_set_error(pVTab,
                        "Only a single 'ORDER BY distance' clause is allowed on "
                        "vec0 KNN queries, not on other columns");
-        return SQLITE_ERROR;
+        rc = SQLITE_ERROR;
+      goto done;
       }
       if (pIdxInfo->aOrderBy[0].desc) {
         vtab_set_error(
             pVTab, "Only ascending in ORDER BY distance clause is supported, "
                    "DESC is not supported yet.");
-        return SQLITE_ERROR;
+        rc = SQLITE_ERROR;
+      goto done;
       }
     }
 
-    pIdxInfo->aConstraintUsage[iMatchTerm].argvIndex = 1;
+    sqlite3_str_appendchar(idxStr, 1, VEC0_QUERY_PLAN_KNN);
+
+    int argvIndex = 1;
+    pIdxInfo->aConstraintUsage[iMatchTerm].argvIndex = argvIndex++;
     pIdxInfo->aConstraintUsage[iMatchTerm].omit = 1;
+    sqlite3_str_appendchar(idxStr, 1, VEC0_IDXSTR_KIND_KNN_MATCH);
+    sqlite3_str_appendchar(idxStr, 3, '_');
 
     if (iLimitTerm >= 0) {
-      pIdxInfo->aConstraintUsage[iLimitTerm].argvIndex = 2;
+      pIdxInfo->aConstraintUsage[iLimitTerm].argvIndex = argvIndex++;
       pIdxInfo->aConstraintUsage[iLimitTerm].omit = 1;
     } else {
-      pIdxInfo->aConstraintUsage[iKTerm].argvIndex = 2;
+      pIdxInfo->aConstraintUsage[iKTerm].argvIndex = argvIndex++;
       pIdxInfo->aConstraintUsage[iKTerm].omit = 1;
     }
-
-    sqlite3_str *idxStr = sqlite3_str_new(NULL);
-    sqlite3_str_appendall(idxStr, "knn:");
-#define VEC0_IDX_KNN_ROWID_IN 'I'
+    sqlite3_str_appendchar(idxStr, 1, VEC0_IDXSTR_KIND_KNN_K);
+    sqlite3_str_appendchar(idxStr, 3, '_');
 
 #if COMPILER_SUPPORTS_VTAB_IN
     if (iRowidInTerm >= 0) {
       // already validated as  >= SQLite 3.38 bc iRowidInTerm is only >= 0 when
       // vtabIn == 1
       sqlite3_vtab_in(pIdxInfo, iRowidInTerm, 1);
-      sqlite3_str_appendchar(idxStr, VEC0_IDX_KNN_ROWID_IN, 1);
-      pIdxInfo->aConstraintUsage[iRowidInTerm].argvIndex = 3;
+      pIdxInfo->aConstraintUsage[iRowidInTerm].argvIndex = argvIndex++;
       pIdxInfo->aConstraintUsage[iRowidInTerm].omit = 1;
+      sqlite3_str_appendchar(idxStr, 1, VEC0_IDXSTR_KIND_KNN_ROWID_IN);
+      sqlite3_str_appendchar(idxStr, 3, '_');
     }
 #endif
 
-    pIdxInfo->idxNum = iMatchVectorTerm;
-    pIdxInfo->idxStr = sqlite3_str_finish(idxStr);
-    if (!pIdxInfo->idxStr) {
-      return SQLITE_NOMEM;
+    for (int i = 0; i < pIdxInfo->nConstraint; i++) {
+      if (!pIdxInfo->aConstraint[i].usable)
+        continue;
+
+      int iColumn = pIdxInfo->aConstraint[i].iColumn;
+      int op = pIdxInfo->aConstraint[i].op;
+      if(op == SQLITE_INDEX_CONSTRAINT_LIMIT || op == SQLITE_INDEX_CONSTRAINT_OFFSET) {
+        continue;
+      }
+      if(!vec0_column_idx_is_partition(p, iColumn)) {
+        continue;
+      }
+
+      int partition_idx = vec0_column_idx_to_partition_idx(p, iColumn);
+      char value = 0;
+
+      switch(op) {
+        case SQLITE_INDEX_CONSTRAINT_EQ: {
+          value = VEC0_PARTITION_OPERATOR_EQ;
+          break;
+        }
+        case SQLITE_INDEX_CONSTRAINT_GT: {
+          value = VEC0_PARTITION_OPERATOR_GT;
+          break;
+        }
+        case SQLITE_INDEX_CONSTRAINT_LE: {
+          value = VEC0_PARTITION_OPERATOR_LE;
+          break;
+        }
+        case SQLITE_INDEX_CONSTRAINT_LT: {
+          value = VEC0_PARTITION_OPERATOR_LT;
+          break;
+        }
+        case SQLITE_INDEX_CONSTRAINT_GE: {
+          value = VEC0_PARTITION_OPERATOR_GE;
+          break;
+        }
+        case SQLITE_INDEX_CONSTRAINT_NE: {
+          value = VEC0_PARTITION_OPERATOR_NE;
+          break;
+        }
+      }
+
+      if(value) {
+        pIdxInfo->aConstraintUsage[i].argvIndex = argvIndex++;
+        pIdxInfo->aConstraintUsage[i].omit = 1;
+        sqlite3_str_appendchar(idxStr, 1, VEC0_IDXSTR_KIND_KNN_PARTITON_CONSTRAINT);
+        sqlite3_str_appendchar(idxStr, 1, 'A' + partition_idx);
+        sqlite3_str_appendchar(idxStr, 1, value);
+        sqlite3_str_appendchar(idxStr, 1, '_');
+      }
+
     }
-    pIdxInfo->needToFreeIdxStr = 1;
+
+
+
+    pIdxInfo->idxNum = iMatchVectorTerm;
     pIdxInfo->estimatedCost = 30.0;
     pIdxInfo->estimatedRows = 10;
 
   } else if (iRowidTerm >= 0) {
+    sqlite3_str_appendchar(idxStr, 1, VEC0_QUERY_PLAN_POINT);
     pIdxInfo->aConstraintUsage[iRowidTerm].argvIndex = 1;
     pIdxInfo->aConstraintUsage[iRowidTerm].omit = 1;
+    sqlite3_str_appendchar(idxStr, 1, VEC0_IDXSTR_KIND_POINT_ID);
+    sqlite3_str_appendchar(idxStr, 3, '_');
     pIdxInfo->idxNum = pIdxInfo->colUsed;
-    pIdxInfo->idxStr = VEC0_QUERY_PLAN_POINT;
-    pIdxInfo->needToFreeIdxStr = 0;
     pIdxInfo->estimatedCost = 10.0;
     pIdxInfo->estimatedRows = 1;
   } else {
-    pIdxInfo->idxStr = VEC0_QUERY_PLAN_FULLSCAN;
+    sqlite3_str_appendchar(idxStr, 1, VEC0_QUERY_PLAN_FULLSCAN);
     pIdxInfo->estimatedCost = 3000000.0;
     pIdxInfo->estimatedRows = 100000;
   }
+  pIdxInfo->idxStr = sqlite3_str_finish(idxStr);
+  idxStr = NULL;
+  if (!pIdxInfo->idxStr) {
+    rc = SQLITE_OK;
+    goto done;
+  }
+  pIdxInfo->needToFreeIdxStr = 1;
 
-  return SQLITE_OK;
+
+  rc = SQLITE_OK;
+
+  done:
+    if(idxStr) {
+      sqlite3_str_finish(idxStr);
+    }
+    return rc;
 }
 
 // forward delcaration bc vec0Filter uses it
@@ -4663,6 +5044,103 @@ int min_idx(const f32 *distances, i32 n, u8 *candidates, i32 *out, i32 k,
   }
   *k_used = k;
   return SQLITE_OK;
+}
+
+/**
+ * @brief Crete at "iterator" (sqlite3_stmt) of chunks with the given constraints
+ *
+ * Any VEC0_IDXSTR_KIND_KNN_PARTITON_CONSTRAINT values in idxStr/argv will be applied
+ * as WHERE constraints in the underlying stmt SQL, and any consumer of the stmt
+ * can freely step through the stmt with all constraints satisfied.
+ *
+ * @param p - vec0_vtab
+ * @param idxStr - the xBestIndex/xFilter idxstr containing VEC0_IDXSTR values
+ * @param argc - number of argv values from xFilter
+ * @param argv - array of sqlite3_value from xFilter
+ * @param outStmt - output sqlite3_stmt of chunks with all filters applied
+ * @return int SQLITE_OK on success, error code otherwise
+ */
+int vec0_chunks_iter(vec0_vtab * p, const char * idxStr, int argc, sqlite3_value ** argv, sqlite3_stmt** outStmt) {
+  // always null terminated, enforced by SQLite
+  int idxStrLength = strlen(idxStr);
+  // "1" refers to the initial vec0_query_plan char, 4 is the number of chars per "element"
+  int numValueEntries = (idxStrLength-1) / 4;
+
+  int rc;
+  sqlite3_str * s = sqlite3_str_new(NULL);
+  sqlite3_str_appendf(s, "select chunk_id, validity, rowids "
+                         " from " VEC0_SHADOW_CHUNKS_NAME,
+                         p->schemaName, p->tableName);
+
+  int appendedWhere = 0;
+  for(int i = 0; i < numValueEntries; i++) {
+    int idx = 1 + (i * 4);
+    char kind = idxStr[idx + 0];
+    if(kind != VEC0_IDXSTR_KIND_KNN_PARTITON_CONSTRAINT) {
+      continue;
+    }
+
+    int partition_idx = idxStr[idx + 1] - 'A';
+    int operator = idxStr[idx + 2];
+    // idxStr[idx + 3] is just null, a '_' placeholder
+
+    if(!appendedWhere) {
+      sqlite3_str_appendall(s, " WHERE ");
+      appendedWhere = 1;
+    }else {
+      sqlite3_str_appendall(s, " AND ");
+    }
+    switch(operator) {
+     case VEC0_PARTITION_OPERATOR_EQ:
+      sqlite3_str_appendf(s, " partition%02d = ? ", partition_idx);
+      break;
+     case VEC0_PARTITION_OPERATOR_GT:
+      sqlite3_str_appendf(s, " partition%02d > ? ", partition_idx);
+      break;
+     case VEC0_PARTITION_OPERATOR_LE:
+      sqlite3_str_appendf(s, " partition%02d <= ? ", partition_idx);
+      break;
+     case VEC0_PARTITION_OPERATOR_LT:
+      sqlite3_str_appendf(s, " partition%02d < ? ", partition_idx);
+      break;
+     case VEC0_PARTITION_OPERATOR_GE:
+      sqlite3_str_appendf(s, " partition%02d >= ? ", partition_idx);
+      break;
+     case VEC0_PARTITION_OPERATOR_NE:
+      sqlite3_str_appendf(s, " partition%02d != ? ", partition_idx);
+      break;
+     default: {
+      char * zSql = sqlite3_str_finish(s);
+      sqlite3_free(zSql);
+      return SQLITE_ERROR;
+     }
+
+    }
+
+  }
+
+  char *zSql = sqlite3_str_finish(s);
+  if (!zSql) {
+    return SQLITE_NOMEM;
+  }
+
+  rc = sqlite3_prepare_v2(p->db, zSql, -1, outStmt, NULL);
+  sqlite3_free(zSql);
+  if(rc != SQLITE_OK) {
+    return rc;
+  }
+
+  int n = 1;
+  for(int i = 0; i < numValueEntries; i++) {
+    int idx = 1 + (i * 4);
+    char kind = idxStr[idx + 0];
+    if(kind != VEC0_IDXSTR_KIND_KNN_PARTITON_CONSTRAINT) {
+      continue;
+    }
+    sqlite3_bind_value(*outStmt, n++, argv[i]);
+  }
+
+  return rc;
 }
 
 int vec0Filter_knn_chunks_iter(vec0_vtab *p, sqlite3_stmt *stmtChunks,
@@ -4960,8 +5438,7 @@ cleanup:
 
 int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
                    const char *idxStr, int argc, sqlite3_value **argv) {
-  UNUSED_PARAMETER(idxStr);
-  assert(argc >= 2);
+  assert(argc == (strlen(idxStr)-1) / 4);
   int rc;
   struct vec0_query_knn_data *knn_data;
 
@@ -4982,7 +5459,25 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
   }
   memset(knn_data, 0, sizeof(*knn_data));
 
-  rc = vector_from_value(argv[0], &queryVector, &dimensions, &elementType,
+  int query_idx =-1;
+  int k_idx = -1;
+  int rowid_in_idx = -1;
+  for(int i = 0; i < argc; i++) {
+    if(idxStr[1 + (i*4)] == VEC0_IDXSTR_KIND_KNN_MATCH) {
+      query_idx = i;
+    }
+    if(idxStr[1 + (i*4)] == VEC0_IDXSTR_KIND_KNN_K) {
+      k_idx = i;
+    }
+    if(idxStr[1 + (i*4)] == VEC0_IDXSTR_KIND_KNN_ROWID_IN) {
+      rowid_in_idx = i;
+    }
+  }
+  assert(query_idx >= 0);
+  assert(k_idx >= 0);
+
+  // make sure the query vector matches the vector column (type dimensions etc.)
+  rc = vector_from_value(argv[query_idx], &queryVector, &dimensions, &elementType,
                          &queryVectorCleanup, &pzError);
 
   if (rc != SQLITE_OK) {
@@ -5014,7 +5509,7 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
     goto cleanup;
   }
 
-  i64 k = sqlite3_value_int64(argv[1]);
+  i64 k = sqlite3_value_int64(argv[k_idx]);
   if (k < 0) {
     vtab_set_error(
         &p->base, "k value in knn queries must be greater than or equal to 0.");
@@ -5034,7 +5529,7 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
   if (k == 0) {
     knn_data->k = 0;
     pCur->knn_data = knn_data;
-    pCur->query_plan = SQLITE_VEC0_QUERYPLAN_KNN;
+    pCur->query_plan = VEC0_QUERY_PLAN_KNN;
     rc = SQLITE_OK;
     goto cleanup;
   }
@@ -5043,7 +5538,7 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
 // Array of all the rowids that appear in any `rowid in (...)` constraint.
 // NULL if none were provided, which means a "full" scan.
 #if COMPILER_SUPPORTS_VTAB_IN
-  if (argc > 2) {
+  if (rowid_in_idx >= 0) {
     sqlite3_value *item;
     int rc;
     arrayRowidsIn = sqlite3_malloc(sizeof(*arrayRowidsIn));
@@ -5057,8 +5552,8 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
     if (rc != SQLITE_OK) {
       goto cleanup;
     }
-    for (rc = sqlite3_vtab_in_first(argv[2], &item); rc == SQLITE_OK && item;
-         rc = sqlite3_vtab_in_next(argv[2], &item)) {
+    for (rc = sqlite3_vtab_in_first(argv[rowid_in_idx], &item); rc == SQLITE_OK && item;
+         rc = sqlite3_vtab_in_next(argv[rowid_in_idx], &item)) {
       i64 rowid;
       if (p->pkIsText) {
         rc = vec0_rowid_from_id(p, item, &rowid);
@@ -5082,16 +5577,7 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
   }
 #endif
 
-  char *zSql;
-  zSql = sqlite3_mprintf("select chunk_id, validity, rowids "
-                         " from " VEC0_SHADOW_CHUNKS_NAME,
-                         p->schemaName, p->tableName);
-  if (!zSql) {
-    rc = SQLITE_NOMEM;
-    goto cleanup;
-  }
-  rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmtChunks, NULL);
-  sqlite3_free(zSql);
+  rc = vec0_chunks_iter(p, idxStr, argc, argv, &stmtChunks);
   if (rc != SQLITE_OK) {
     // IMP: V06942_23781
     vtab_set_error(&p->base, "Error preparing stmtChunk: %s",
@@ -5116,7 +5602,7 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
   knn_data->k_used = k_used;
 
   pCur->knn_data = knn_data;
-  pCur->query_plan = SQLITE_VEC0_QUERYPLAN_KNN;
+  pCur->query_plan = VEC0_QUERY_PLAN_KNN;
   rc = SQLITE_OK;
 
 cleanup:
@@ -5164,7 +5650,7 @@ int vec0Filter_fullscan(vec0_vtab *p, vec0_cursor *pCur) {
   }
 
   fullscan_data->done = rc == SQLITE_DONE;
-  pCur->query_plan = SQLITE_VEC0_QUERYPLAN_FULLSCAN;
+  pCur->query_plan = VEC0_QUERY_PLAN_FULLSCAN;
   pCur->fullscan_data = fullscan_data;
   return SQLITE_OK;
 
@@ -5213,14 +5699,14 @@ int vec0Filter_point(vec0_cursor *pCur, vec0_vtab *p, int argc,
   point_data->rowid = rowid;
   point_data->done = 0;
   pCur->point_data = point_data;
-  pCur->query_plan = SQLITE_VEC0_QUERYPLAN_POINT;
+  pCur->query_plan = VEC0_QUERY_PLAN_POINT;
   return SQLITE_OK;
 
 eof:
   point_data->rowid = rowid;
   point_data->done = 1;
   pCur->point_data = point_data;
-  pCur->query_plan = SQLITE_VEC0_QUERYPLAN_POINT;
+  pCur->query_plan = VEC0_QUERY_PLAN_POINT;
   return SQLITE_OK;
 
 error:
@@ -5234,30 +5720,45 @@ static int vec0Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
   vec0_vtab *p = (vec0_vtab *)pVtabCursor->pVtab;
   vec0_cursor *pCur = (vec0_cursor *)pVtabCursor;
   vec0_cursor_clear(pCur);
-  if (strcmp(idxStr, VEC0_QUERY_PLAN_FULLSCAN) == 0) {
-    return vec0Filter_fullscan(p, pCur);
-  } else if (strncmp(idxStr, "knn:", 4) == 0) {
-    return vec0Filter_knn(pCur, p, idxNum, idxStr, argc, argv);
-  } else if (strcmp(idxStr, VEC0_QUERY_PLAN_POINT) == 0) {
-    return vec0Filter_point(pCur, p, argc, argv);
-  } else {
-    vtab_set_error(pVtabCursor->pVtab, "unknown idxStr '%s'", idxStr);
+
+  int idxStrLength = strlen(idxStr);
+  if(idxStrLength <= 0) {
     return SQLITE_ERROR;
+  }
+  if((idxStrLength-1) % 4 != 0) {
+    return SQLITE_ERROR;
+  }
+  int numValueEntries = (idxStrLength-1) / 4;
+  if(numValueEntries != argc) {
+    return SQLITE_ERROR;
+  }
+
+  char query_plan = idxStr[0];
+  switch(query_plan) {
+    case VEC0_QUERY_PLAN_FULLSCAN:
+      return vec0Filter_fullscan(p, pCur);
+    case VEC0_QUERY_PLAN_KNN:
+      return vec0Filter_knn(pCur, p, idxNum, idxStr, argc, argv);
+    case VEC0_QUERY_PLAN_POINT:
+      return vec0Filter_point(pCur, p, argc, argv);
+    default:
+      vtab_set_error(pVtabCursor->pVtab, "unknown idxStr '%s'", idxStr);
+      return SQLITE_ERROR;
   }
 }
 
 static int vec0Rowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid) {
   vec0_cursor *pCur = (vec0_cursor *)cur;
   switch (pCur->query_plan) {
-  case SQLITE_VEC0_QUERYPLAN_FULLSCAN: {
+  case VEC0_QUERY_PLAN_FULLSCAN: {
     *pRowid = sqlite3_column_int64(pCur->fullscan_data->rowids_stmt, 0);
     return SQLITE_OK;
   }
-  case SQLITE_VEC0_QUERYPLAN_POINT: {
+  case VEC0_QUERY_PLAN_POINT: {
     *pRowid = pCur->point_data->rowid;
     return SQLITE_OK;
   }
-  case SQLITE_VEC0_QUERYPLAN_KNN: {
+  case VEC0_QUERY_PLAN_KNN: {
     vtab_set_error(cur->pVtab,
                    "Internal sqlite-vec error: expected point query plan in "
                    "vec0Rowid, found %d",
@@ -5271,7 +5772,7 @@ static int vec0Rowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid) {
 static int vec0Next(sqlite3_vtab_cursor *cur) {
   vec0_cursor *pCur = (vec0_cursor *)cur;
   switch (pCur->query_plan) {
-  case SQLITE_VEC0_QUERYPLAN_FULLSCAN: {
+  case VEC0_QUERY_PLAN_FULLSCAN: {
     if (!pCur->fullscan_data) {
       return SQLITE_ERROR;
     }
@@ -5285,7 +5786,7 @@ static int vec0Next(sqlite3_vtab_cursor *cur) {
     }
     return SQLITE_ERROR;
   }
-  case SQLITE_VEC0_QUERYPLAN_KNN: {
+  case VEC0_QUERY_PLAN_KNN: {
     if (!pCur->knn_data) {
       return SQLITE_ERROR;
     }
@@ -5293,7 +5794,7 @@ static int vec0Next(sqlite3_vtab_cursor *cur) {
     pCur->knn_data->current_idx++;
     return SQLITE_OK;
   }
-  case SQLITE_VEC0_QUERYPLAN_POINT: {
+  case VEC0_QUERY_PLAN_POINT: {
     if (!pCur->point_data) {
       return SQLITE_ERROR;
     }
@@ -5307,13 +5808,13 @@ static int vec0Next(sqlite3_vtab_cursor *cur) {
 static int vec0Eof(sqlite3_vtab_cursor *cur) {
   vec0_cursor *pCur = (vec0_cursor *)cur;
   switch (pCur->query_plan) {
-  case SQLITE_VEC0_QUERYPLAN_FULLSCAN: {
+  case VEC0_QUERY_PLAN_FULLSCAN: {
     if (!pCur->fullscan_data) {
       return 1;
     }
     return pCur->fullscan_data->done;
   }
-  case SQLITE_VEC0_QUERYPLAN_KNN: {
+  case VEC0_QUERY_PLAN_KNN: {
     if (!pCur->knn_data) {
       return 1;
     }
@@ -5321,7 +5822,7 @@ static int vec0Eof(sqlite3_vtab_cursor *cur) {
     // (pCur->knn_data->distances[pCur->knn_data->current_idx] == FLT_MAX);
     return (pCur->knn_data->current_idx >= pCur->knn_data->k_used);
   }
-  case SQLITE_VEC0_QUERYPLAN_POINT: {
+  case VEC0_QUERY_PLAN_POINT: {
     if (!pCur->point_data) {
       return 1;
     }
@@ -5341,7 +5842,8 @@ static int vec0Column_fullscan(vec0_vtab *pVtab, vec0_cursor *pCur,
   i64 rowid = sqlite3_column_int64(pCur->fullscan_data->rowids_stmt, 0);
   if (i == VEC0_COLUMN_ID) {
     return vec0_result_id(pVtab, context, rowid);
-  } else if (vec0_column_idx_is_vector(pVtab, i)) {
+  }
+  else if (vec0_column_idx_is_vector(pVtab, i)) {
     void *v;
     int sz;
     int vector_idx = vec0_column_idx_to_vector_idx(pVtab, i);
@@ -5353,10 +5855,19 @@ static int vec0Column_fullscan(vec0_vtab *pVtab, vec0_cursor *pCur,
     sqlite3_result_subtype(context,
                            pVtab->vector_columns[vector_idx].element_type);
 
-  } else if (i == vec0_column_distance_idx(pVtab)) {
+  }
+  else if (i == vec0_column_distance_idx(pVtab)) {
     sqlite3_result_null(context);
-  } else {
-    sqlite3_result_null(context);
+  }
+  else if(vec0_column_idx_is_partition(pVtab, i)) {
+    int partition_idx = vec0_column_idx_to_partition_idx(pVtab, i);
+    sqlite3_value * v;
+    int rc = vec0_get_partition_value_for_rowid(pVtab, rowid, partition_idx, &v);
+    if(rc == SQLITE_OK) {
+      sqlite3_result_value(context, v);
+    }else {
+      sqlite3_result_error_code(context, rc);
+    }
   }
   return SQLITE_OK;
 }
@@ -5371,11 +5882,11 @@ static int vec0Column_point(vec0_vtab *pVtab, vec0_cursor *pCur,
   if (i == VEC0_COLUMN_ID) {
     return vec0_result_id(pVtab, context, pCur->point_data->rowid);
   }
-  if (i == vec0_column_distance_idx(pVtab)) {
+  else if (i == vec0_column_distance_idx(pVtab)) {
     sqlite3_result_null(context);
     return SQLITE_OK;
   }
-  if (vec0_column_idx_is_vector(pVtab, i)) {
+  else if (vec0_column_idx_is_vector(pVtab, i)) {
     if (sqlite3_vtab_nochange(context)) {
       sqlite3_result_null(context);
       return SQLITE_OK;
@@ -5388,6 +5899,20 @@ static int vec0Column_point(vec0_vtab *pVtab, vec0_cursor *pCur,
     sqlite3_result_subtype(context,
                            pVtab->vector_columns[vector_idx].element_type);
     return SQLITE_OK;
+  }
+  else if(vec0_column_idx_is_partition(pVtab, i)) {
+    if(sqlite3_vtab_nochange(context)) {
+      return SQLITE_OK;
+    }
+    int partition_idx = vec0_column_idx_to_partition_idx(pVtab, i);
+    i64 rowid = pCur->point_data->rowid;
+    sqlite3_value * v;
+    int rc = vec0_get_partition_value_for_rowid(pVtab, rowid, partition_idx, &v);
+    if(rc == SQLITE_OK) {
+      sqlite3_result_value(context, v);
+    }else {
+      sqlite3_result_error_code(context, rc);
+    }
   }
 
   return SQLITE_OK;
@@ -5404,12 +5929,12 @@ static int vec0Column_knn(vec0_vtab *pVtab, vec0_cursor *pCur,
     i64 rowid = pCur->knn_data->rowids[pCur->knn_data->current_idx];
     return vec0_result_id(pVtab, context, rowid);
   }
-  if (i == vec0_column_distance_idx(pVtab)) {
+  else if (i == vec0_column_distance_idx(pVtab)) {
     sqlite3_result_double(
         context, pCur->knn_data->distances[pCur->knn_data->current_idx]);
     return SQLITE_OK;
   }
-  if (vec0_column_idx_is_vector(pVtab, i)) {
+  else if (vec0_column_idx_is_vector(pVtab, i)) {
     void *out;
     int sz;
     int vector_idx = vec0_column_idx_to_vector_idx(pVtab, i);
@@ -5424,6 +5949,17 @@ static int vec0Column_knn(vec0_vtab *pVtab, vec0_cursor *pCur,
                            pVtab->vector_columns[vector_idx].element_type);
     return SQLITE_OK;
   }
+  else if(vec0_column_idx_is_partition(pVtab, i)) {
+    int partition_idx = vec0_column_idx_to_partition_idx(pVtab, i);
+    i64 rowid = pCur->knn_data->rowids[pCur->knn_data->current_idx];
+    sqlite3_value * v;
+    int rc = vec0_get_partition_value_for_rowid(pVtab, rowid, partition_idx, &v);
+    if(rc == SQLITE_OK) {
+      sqlite3_result_value(context, v);
+    }else {
+      sqlite3_result_error_code(context, rc);
+    }
+  }
 
   return SQLITE_OK;
 }
@@ -5433,13 +5969,13 @@ static int vec0Column(sqlite3_vtab_cursor *cur, sqlite3_context *context,
   vec0_cursor *pCur = (vec0_cursor *)cur;
   vec0_vtab *pVtab = (vec0_vtab *)cur->pVtab;
   switch (pCur->query_plan) {
-  case SQLITE_VEC0_QUERYPLAN_FULLSCAN: {
+  case VEC0_QUERY_PLAN_FULLSCAN: {
     return vec0Column_fullscan(pVtab, pCur, context, i);
   }
-  case SQLITE_VEC0_QUERYPLAN_KNN: {
+  case VEC0_QUERY_PLAN_KNN: {
     return vec0Column_knn(pVtab, pCur, context, i);
   }
-  case SQLITE_VEC0_QUERYPLAN_POINT: {
+  case VEC0_QUERY_PLAN_POINT: {
     return vec0Column_point(pVtab, pCur, context, i);
   }
   }
@@ -5516,6 +6052,8 @@ int vec0Update_InsertRowidStep(vec0_vtab *p, sqlite3_value *idValue,
  * no more space in previous chunks.
  *
  * @param p: virtual table
+ * @param partitionKeyValues: array of partition key column values, to constrain
+ * against any partition key columns.
  * @param chunk_rowid: Output rowid of the chunk in the _chunks virtual table
  * that has the avialabiity.
  * @param chunk_offset: Output the index of the available space insert the
@@ -5527,7 +6065,9 @@ int vec0Update_InsertRowidStep(vec0_vtab *p, sqlite3_value *idValue,
  * @return int SQLITE_OK on success, error code on failure
  */
 int vec0Update_InsertNextAvailableStep(
-    vec0_vtab *p, i64 *chunk_rowid, i64 *chunk_offset,
+    vec0_vtab *p,
+    sqlite3_value ** partitionKeyValues,
+    i64 *chunk_rowid, i64 *chunk_offset,
     sqlite3_blob **blobChunksValidity,
     const unsigned char **bufferChunksValidity) {
 
@@ -5535,7 +6075,10 @@ int vec0Update_InsertNextAvailableStep(
   i64 validitySize;
   *chunk_offset = -1;
 
-  rc = vec0_get_latest_chunk_rowid(p, chunk_rowid);
+  rc = vec0_get_latest_chunk_rowid(p, chunk_rowid, partitionKeyValues);
+  if(rc == SQLITE_EMPTY) {
+    goto done;
+  }
   if (rc != SQLITE_OK) {
     goto cleanup;
   }
@@ -5598,7 +6141,7 @@ int vec0Update_InsertNextAvailableStep(
 done:
   // latest chunk was full, so need to create a new one
   if (*chunk_offset == -1) {
-    rc = vec0_new_chunk(p, chunk_rowid);
+    rc = vec0_new_chunk(p, partitionKeyValues, chunk_rowid);
     if (rc != SQLITE_OK) {
       // IMP: V08441_25279
       vtab_set_error(&p->base,
@@ -5852,6 +6395,8 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
   // Array to hold cleanup functions for vectorDatas[]
   vector_cleanup cleanups[VEC0_MAX_VECTOR_COLUMNS];
 
+  sqlite3_value * partitionKeyValues[VEC0_MAX_PARTITION_COLUMNS];
+
   // Rowid of the chunk in the _chunks shadow table that the row will be a part
   // of.
   i64 chunk_rowid;
@@ -5865,26 +6410,54 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
   const unsigned char *bufferChunksValidity = NULL;
   int numReadVectors = 0;
 
+  // Read all provided partition key values into partitionKeyValues
+  for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
+    if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_PARTITION) {
+      continue;
+    }
+    int partition_key_idx = p->user_column_idxs[i];
+    partitionKeyValues[partition_key_idx] = argv[2+VEC0_COLUMN_USERN_START + i];
+
+    int new_value_type = sqlite3_value_type(partitionKeyValues[partition_key_idx]);
+    if((new_value_type != SQLITE_NULL) && (new_value_type != p->paritition_columns[partition_key_idx].type)) {
+      // IMP: V11454_28292
+      vtab_set_error(
+        pVTab,
+        "Parition key type mismatch: The partition key column %.*s has type %s, but %s was provided.",
+        p->paritition_columns[partition_key_idx].name_length,
+        p->paritition_columns[partition_key_idx].name,
+        type_name(p->paritition_columns[partition_key_idx].type),
+        type_name(new_value_type)
+      );
+      rc = SQLITE_ERROR;
+      goto cleanup;
+    }
+  }
+
   // read all the inserted vectors  into vectorDatas, validate their lengths.
-  for (int i = 0; i < p->numVectorColumns; i++) {
-    sqlite3_value *valueVector = argv[2 + VEC0_COLUMN_VECTORN_START + i];
+  for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
+    if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_VECTOR) {
+      continue;
+    }
+    int vector_column_idx = p->user_column_idxs[i];
+    sqlite3_value *valueVector = argv[2 + VEC0_COLUMN_USERN_START + i];
     size_t dimensions;
 
     char *pzError;
     enum VectorElementType elementType;
-    rc = vector_from_value(valueVector, &vectorDatas[i], &dimensions,
-                           &elementType, &cleanups[i], &pzError);
+    rc = vector_from_value(valueVector, &vectorDatas[vector_column_idx], &dimensions,
+                           &elementType, &cleanups[vector_column_idx], &pzError);
     if (rc != SQLITE_OK) {
       // IMP: V06519_23358
       vtab_set_error(
           pVTab, "Inserted vector for the \"%.*s\" column is invalid: %z",
-          p->vector_columns[i].name_length, p->vector_columns[i].name, pzError);
+          p->vector_columns[vector_column_idx].name_length, p->vector_columns[vector_column_idx].name, pzError);
       rc = SQLITE_ERROR;
       goto cleanup;
     }
 
     numReadVectors++;
-    if (elementType != p->vector_columns[i].element_type) {
+    if (elementType != p->vector_columns[vector_column_idx].element_type) {
       // IMP: V08221_25059
       vtab_set_error(
           pVTab,
@@ -5897,14 +6470,14 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
       goto cleanup;
     }
 
-    if (dimensions != p->vector_columns[i].dimensions) {
+    if (dimensions != p->vector_columns[vector_column_idx].dimensions) {
       // IMP: V01145_17984
       vtab_set_error(
           pVTab,
           "Dimension mismatch for inserted vector for the \"%.*s\" column. "
           "Expected %d dimensions but received %d.",
-          p->vector_columns[i].name_length, p->vector_columns[i].name,
-          p->vector_columns[i].dimensions, dimensions);
+          p->vector_columns[vector_column_idx].name_length, p->vector_columns[vector_column_idx].name,
+          p->vector_columns[vector_column_idx].dimensions, dimensions);
       rc = SQLITE_ERROR;
       goto cleanup;
     }
@@ -5935,7 +6508,8 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 
   // Step #2: Find the next "available" position in the _chunks table for this
   // row.
-  rc = vec0Update_InsertNextAvailableStep(p, &chunk_rowid, &chunk_offset,
+  rc = vec0Update_InsertNextAvailableStep(p, partitionKeyValues,
+  &chunk_rowid, &chunk_offset,
                                           &blobChunksValidity,
                                           &bufferChunksValidity);
   if (rc != SQLITE_OK) {
@@ -6212,16 +6786,33 @@ int vec0Update_Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv) {
     rowid = sqlite3_value_int64(argv[0]);
   }
 
-  // 1. get chunk_id and chunk_offset from _rowids
+  // 1) get chunk_id and chunk_offset from _rowids
   rc = vec0_get_chunk_position(p, rowid, NULL, &chunk_id, &chunk_offset);
   if (rc != SQLITE_OK) {
     return rc;
   }
 
-  // 2) iterate over all new vectors, update the vectors
+  // 2) update any partition key values
+  for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
+    if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_PARTITION) {
+      continue;
+    }
+    int partition_key_idx = p->user_column_idxs[i];
+    sqlite3_value * value = argv[2+VEC0_COLUMN_USERN_START + i];
+    if(sqlite3_value_nochange(value)) {
+      continue;
+    }
+    vtab_set_error(pVTab, "UPDATE on partition key columns are not supported yet. ");
+    return SQLITE_ERROR;
+  }
 
-  for (int i = 0; i < p->numVectorColumns; i++) {
-    sqlite3_value *valueVector = argv[2 + VEC0_COLUMN_VECTORN_START + i];
+  // 3) iterate over all new vectors, update the vectors
+  for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
+    if(p->user_column_kinds[i] != SQLITE_VEC0_USER_COLUMN_KIND_VECTOR) {
+      continue;
+    }
+    int vector_idx = p->user_column_idxs[i];
+    sqlite3_value *valueVector = argv[2 + VEC0_COLUMN_USERN_START + i];
     // in vec0Column, we check sqlite3_vtab_nochange() on vector columns.
     // If the vector column isn't being changed, we return NULL;
     // That's not great, that means vector columns can never be NULLABLE
@@ -6236,7 +6827,7 @@ int vec0Update_Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv) {
       continue;
     }
 
-    rc = vec0Update_UpdateVectorColumn(p, chunk_id, chunk_offset, i,
+    rc = vec0Update_UpdateVectorColumn(p, chunk_id, chunk_offset, vector_idx,
                                        valueVector);
     if (rc != SQLITE_OK) {
       return SQLITE_ERROR;

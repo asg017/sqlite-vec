@@ -26,4 +26,3 @@ sqlite-vec.h
 tmp/
 
 poetry.lock
-pyproject.toml
