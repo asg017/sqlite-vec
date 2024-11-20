@@ -36,12 +36,12 @@ Very much a WIP.
 - `rowid INTEGER`
 - `valueNN [type]`
 
-#### `xyz_metadata_chunksNN`
+#### `xyz_metadatachunksNN`
 
 - `rowid INTEGER`
 - `data BLOB`
 
-#### `xyz_metadata_text_data_00`
+#### `xyz_metadatatextNN`
 
 - `rowid INTEGER`
 - `data TEXT`

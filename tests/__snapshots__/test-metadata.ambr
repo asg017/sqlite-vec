@@ -32,11 +32,6 @@
         }),
       ]),
     }),
-    'v_metadata_text_data_03': OrderedDict({
-      'sql': 'select * from v_metadata_text_data_03',
-      'rows': list([
-      ]),
-    }),
     'v_metadatachunks00': OrderedDict({
       'sql': 'select * from v_metadatachunks00',
       'rows': list([
@@ -71,6 +66,11 @@
           'rowid': 1,
           'data': b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
         }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
       ]),
     }),
     'v_rowids': OrderedDict({
@@ -146,15 +146,6 @@
         }),
       ]),
     }),
-    'v_metadata_text_data_03': OrderedDict({
-      'sql': 'select * from v_metadata_text_data_03',
-      'rows': list([
-        OrderedDict({
-          'rowid': 3,
-          'data': '1234567890123',
-        }),
-      ]),
-    }),
     'v_metadatachunks00': OrderedDict({
       'sql': 'select * from v_metadatachunks00',
       'rows': list([
@@ -188,6 +179,15 @@
         OrderedDict({
           'rowid': 1,
           'data': b'\x05\x00\x00\x00test1\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123',
         }),
       ]),
     }),
@@ -268,15 +268,6 @@
         }),
       ]),
     }),
-    'v_metadata_text_data_03': OrderedDict({
-      'sql': 'select * from v_metadata_text_data_03',
-      'rows': list([
-        OrderedDict({
-          'rowid': 3,
-          'data': '1234567890123',
-        }),
-      ]),
-    }),
     'v_metadatachunks00': OrderedDict({
       'sql': 'select * from v_metadatachunks00',
       'rows': list([
@@ -310,6 +301,15 @@
         OrderedDict({
           'rowid': 1,
           'data': b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123',
         }),
       ]),
     }),
@@ -606,17 +606,17 @@
       }),
       OrderedDict({
         'type': 'table',
-        'name': 'v_metadata_text_data_00',
-        'tbl_name': 'v_metadata_text_data_00',
-        'rootpage': 9,
-        'sql': 'CREATE TABLE "v_metadata_text_data_00"(rowid PRIMARY KEY, data TEXT)',
-      }),
-      OrderedDict({
-        'type': 'table',
         'name': 'v_metadatachunks00',
         'tbl_name': 'v_metadatachunks00',
         'rootpage': 7,
         'sql': 'CREATE TABLE "v_metadatachunks00"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_metadatatext00',
+        'tbl_name': 'v_metadatatext00',
+        'rootpage': 9,
+        'sql': 'CREATE TABLE "v_metadatatext00"(rowid PRIMARY KEY, data TEXT)',
       }),
       OrderedDict({
         'type': 'table',
@@ -1531,13 +1531,13 @@
       'rows': list([
       ]),
     }),
-    'v_metadata_text_data_00': OrderedDict({
-      'sql': 'select * from v_metadata_text_data_00',
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
       'rows': list([
       ]),
     }),
-    'v_metadatachunks00': OrderedDict({
-      'sql': 'select * from v_metadatachunks00',
+    'v_metadatatext00': OrderedDict({
+      'sql': 'select * from v_metadatatext00',
       'rows': list([
       ]),
     }),
@@ -1583,21 +1583,21 @@
         }),
       ]),
     }),
-    'v_metadata_text_data_00': OrderedDict({
-      'sql': 'select * from v_metadata_text_data_00',
-      'rows': list([
-        OrderedDict({
-          'rowid': 2,
-          'data': '123456789a123',
-        }),
-      ]),
-    }),
     'v_metadatachunks00': OrderedDict({
       'sql': 'select * from v_metadatachunks00',
       'rows': list([
         OrderedDict({
           'rowid': 1,
           'data': b'\x0c\x00\x00\x00123456789a12\r\x00\x00\x00123456789a12\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext00': OrderedDict({
+      'sql': 'select * from v_metadatatext00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 2,
+          'data': '123456789a123',
         }),
       ]),
     }),
@@ -1636,11 +1636,6 @@
       'rows': list([
       ]),
     }),
-    'v_metadata_text_data_03': OrderedDict({
-      'sql': 'select * from v_metadata_text_data_03',
-      'rows': list([
-      ]),
-    }),
     'v_metadatachunks00': OrderedDict({
       'sql': 'select * from v_metadatachunks00',
       'rows': list([
@@ -1658,6 +1653,11 @@
     }),
     'v_metadatachunks03': OrderedDict({
       'sql': 'select * from v_metadatachunks03',
+      'rows': list([
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
       'rows': list([
       ]),
     }),
@@ -1738,11 +1738,6 @@
         }),
       ]),
     }),
-    'v_metadata_text_data_03': OrderedDict({
-      'sql': 'select * from v_metadata_text_data_03',
-      'rows': list([
-      ]),
-    }),
     'v_metadatachunks00': OrderedDict({
       'sql': 'select * from v_metadatachunks00',
       'rows': list([
@@ -1777,6 +1772,11 @@
           'rowid': 1,
           'data': b'\x03\x00\x00\x00one\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00two\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00three\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
         }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
       ]),
     }),
     'v_rowids': OrderedDict({
@@ -1861,13 +1861,6 @@
       }),
       OrderedDict({
         'type': 'table',
-        'name': 'v_metadata_text_data_03',
-        'tbl_name': 'v_metadata_text_data_03',
-        'rootpage': 15,
-        'sql': 'CREATE TABLE "v_metadata_text_data_03"(rowid PRIMARY KEY, data TEXT)',
-      }),
-      OrderedDict({
-        'type': 'table',
         'name': 'v_metadatachunks00',
         'tbl_name': 'v_metadatachunks00',
         'rootpage': 7,
@@ -1893,6 +1886,13 @@
         'tbl_name': 'v_metadatachunks03',
         'rootpage': 13,
         'sql': 'CREATE TABLE "v_metadatachunks03"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_metadatatext03',
+        'tbl_name': 'v_metadatatext03',
+        'rootpage': 15,
+        'sql': 'CREATE TABLE "v_metadatatext03"(rowid PRIMARY KEY, data TEXT)',
       }),
       OrderedDict({
         'type': 'table',
@@ -2047,11 +2047,6 @@
         }),
       ]),
     }),
-    'vec_movies_metadata_text_data_01': OrderedDict({
-      'sql': 'select * from vec_movies_metadata_text_data_01',
-      'rows': list([
-      ]),
-    }),
     'vec_movies_metadatachunks00': OrderedDict({
       'sql': 'select * from vec_movies_metadatachunks00',
       'rows': list([
@@ -2134,6 +2129,11 @@
           'rowid': 4,
           'data': b'333333\x0f@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
         }),
+      ]),
+    }),
+    'vec_movies_metadatatext01': OrderedDict({
+      'sql': 'select * from vec_movies_metadatatext01',
+      'rows': list([
       ]),
     }),
     'vec_movies_rowids': OrderedDict({
@@ -2686,13 +2686,13 @@
       'rows': list([
       ]),
     }),
-    'v_metadata_text_data_00': OrderedDict({
-      'sql': 'select * from v_metadata_text_data_00',
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
       'rows': list([
       ]),
     }),
-    'v_metadatachunks00': OrderedDict({
-      'sql': 'select * from v_metadatachunks00',
+    'v_metadatatext00': OrderedDict({
+      'sql': 'select * from v_metadatatext00',
       'rows': list([
       ]),
     }),
@@ -2779,11 +2779,6 @@
         }),
       ]),
     }),
-    'v_metadata_text_data_00': OrderedDict({
-      'sql': 'select * from v_metadata_text_data_00',
-      'rows': list([
-      ]),
-    }),
     'v_metadatachunks00': OrderedDict({
       'sql': 'select * from v_metadatachunks00',
       'rows': list([
@@ -2795,6 +2790,11 @@
           'rowid': 2,
           'data': b'\x03\x00\x00\x00iii\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
         }),
+      ]),
+    }),
+    'v_metadatatext00': OrderedDict({
+      'sql': 'select * from v_metadatatext00',
+      'rows': list([
       ]),
     }),
     'v_rowids': OrderedDict({
@@ -3126,15 +3126,6 @@
         }),
       ]),
     }),
-    'v_metadata_text_data_03': OrderedDict({
-      'sql': 'select * from v_metadata_text_data_03',
-      'rows': list([
-        OrderedDict({
-          'rowid': 3,
-          'data': '1234567890123',
-        }),
-      ]),
-    }),
     'v_metadatachunks00': OrderedDict({
       'sql': 'select * from v_metadatachunks00',
       'rows': list([
@@ -3168,6 +3159,15 @@
         OrderedDict({
           'rowid': 1,
           'data': b'\x05\x00\x00\x00test1\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123',
         }),
       ]),
     }),
@@ -3249,15 +3249,6 @@
         }),
       ]),
     }),
-    'v_metadata_text_data_03': OrderedDict({
-      'sql': 'select * from v_metadata_text_data_03',
-      'rows': list([
-        OrderedDict({
-          'rowid': 3,
-          'data': '1234567890123',
-        }),
-      ]),
-    }),
     'v_metadatachunks00': OrderedDict({
       'sql': 'select * from v_metadatachunks00',
       'rows': list([
@@ -3291,6 +3282,15 @@
         OrderedDict({
           'rowid': 1,
           'data': b'\x08\x00\x00\x00newtest1\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123',
         }),
       ]),
     }),
@@ -3372,15 +3372,6 @@
         }),
       ]),
     }),
-    'v_metadata_text_data_03': OrderedDict({
-      'sql': 'select * from v_metadata_text_data_03',
-      'rows': list([
-        OrderedDict({
-          'rowid': 3,
-          'data': '1234567890123-updated',
-        }),
-      ]),
-    }),
     'v_metadatachunks00': OrderedDict({
       'sql': 'select * from v_metadatachunks00',
       'rows': list([
@@ -3414,6 +3405,15 @@
         OrderedDict({
           'rowid': 1,
           'data': b'\x08\x00\x00\x00newtest1\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\x15\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123-updated',
         }),
       ]),
     }),
@@ -3495,15 +3495,6 @@
         }),
       ]),
     }),
-    'v_metadata_text_data_03': OrderedDict({
-      'sql': 'select * from v_metadata_text_data_03',
-      'rows': list([
-        OrderedDict({
-          'rowid': 3,
-          'data': '1234567890123-updated',
-        }),
-      ]),
-    }),
     'v_metadatachunks00': OrderedDict({
       'sql': 'select * from v_metadatachunks00',
       'rows': list([
@@ -3537,6 +3528,15 @@
         OrderedDict({
           'rowid': 1,
           'data': b'\x08\x00\x00\x00newtest1\x00\x00\x00\x00\x0b\x00\x00\x00test2-short\x00\x15\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123-updated',
         }),
       ]),
     }),
@@ -3618,19 +3618,6 @@
         }),
       ]),
     }),
-    'v_metadata_text_data_03': OrderedDict({
-      'sql': 'select * from v_metadata_text_data_03',
-      'rows': list([
-        OrderedDict({
-          'rowid': 3,
-          'data': '1234567890123-updated',
-        }),
-        OrderedDict({
-          'rowid': 2,
-          'data': 'test2-long-long-long',
-        }),
-      ]),
-    }),
     'v_metadatachunks00': OrderedDict({
       'sql': 'select * from v_metadatachunks00',
       'rows': list([
@@ -3664,6 +3651,19 @@
         OrderedDict({
           'rowid': 1,
           'data': b'\x08\x00\x00\x00newtest1\x00\x00\x00\x00\x14\x00\x00\x00test2-long-l\x15\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123-updated',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'data': 'test2-long-long-long',
         }),
       ]),
     }),
@@ -3745,15 +3745,6 @@
         }),
       ]),
     }),
-    'v_metadata_text_data_03': OrderedDict({
-      'sql': 'select * from v_metadata_text_data_03',
-      'rows': list([
-        OrderedDict({
-          'rowid': 3,
-          'data': '1234567890123-updated',
-        }),
-      ]),
-    }),
     'v_metadatachunks00': OrderedDict({
       'sql': 'select * from v_metadatachunks00',
       'rows': list([
@@ -3787,6 +3778,15 @@
         OrderedDict({
           'rowid': 1,
           'data': b'\x08\x00\x00\x00newtest1\x00\x00\x00\x00\x0c\x00\x00\x00test2-shortx\x15\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123-updated',
         }),
       ]),
     }),

@@ -5,16 +5,16 @@
     'rows': list([
       OrderedDict({
         'type': 'index',
-        'name': 'sqlite_autoindex_v_metadata_text_data_00_1',
-        'tbl_name': 'v_metadata_text_data_00',
-        'rootpage': 10,
+        'name': 'sqlite_autoindex_v_metadatachunks00_1',
+        'tbl_name': 'v_metadatachunks00',
+        'rootpage': 8,
         'sql': None,
       }),
       OrderedDict({
         'type': 'index',
-        'name': 'sqlite_autoindex_v_metadatachunks00_1',
-        'tbl_name': 'v_metadatachunks00',
-        'rootpage': 8,
+        'name': 'sqlite_autoindex_v_metadatatext00_1',
+        'tbl_name': 'v_metadatatext00',
+        'rootpage': 10,
         'sql': None,
       }),
       OrderedDict({
@@ -54,17 +54,17 @@
       }),
       OrderedDict({
         'type': 'table',
-        'name': 'v_metadata_text_data_00',
-        'tbl_name': 'v_metadata_text_data_00',
-        'rootpage': 9,
-        'sql': 'CREATE TABLE "v_metadata_text_data_00"(rowid PRIMARY KEY, data TEXT)',
-      }),
-      OrderedDict({
-        'type': 'table',
         'name': 'v_metadatachunks00',
         'tbl_name': 'v_metadatachunks00',
         'rootpage': 7,
         'sql': 'CREATE TABLE "v_metadatachunks00"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_metadatatext00',
+        'tbl_name': 'v_metadatatext00',
+        'rootpage': 9,
+        'sql': 'CREATE TABLE "v_metadatatext00"(rowid PRIMARY KEY, data TEXT)',
       }),
       OrderedDict({
         'type': 'table',
@@ -90,6 +90,14 @@
       OrderedDict({
         'schema': 'main',
         'name': 'v_auxiliary',
+        'type': 'shadow',
+        'ncol': 2,
+        'wr': 0,
+        'strict': 0,
+      }),
+      OrderedDict({
+        'schema': 'main',
+        'name': 'v_metadatatext00',
         'type': 'shadow',
         'ncol': 2,
         'wr': 0,

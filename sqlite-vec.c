@@ -3419,7 +3419,7 @@ static sqlite3_module vec_npy_eachModule = {
 #define VEC0_SHADOW_AUXILIARY_NAME "\"%w\".\"%w_auxiliary\""
 
 #define VEC0_SHADOW_METADATA_N_NAME "\"%w\".\"%w_metadatachunks%02d\""
-#define VEC0_SHADOW_METADATA_TEXT_DATA_NAME "\"%w\".\"%w_metadata_text_data_%02d\""
+#define VEC0_SHADOW_METADATA_TEXT_DATA_NAME "\"%w\".\"%w_metadatatext%02d\""
 
 #define VEC_INTERAL_ERROR "Internal sqlite-vec error: "
 #define REPORT_URL "https://github.com/asg017/sqlite-vec/issues/new"
@@ -5064,7 +5064,7 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
         if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
           sqlite3_finalize(stmt);
           *pzErr = sqlite3_mprintf(
-              "Could not create '_metadata_text_data_%02d' shadow table: %s", i,
+              "Could not create '_metadatatext%02d' shadow table: %s", i,
               sqlite3_errmsg(db));
           goto error;
         }
@@ -8779,6 +8779,24 @@ static int vec0ShadowName(const char *zName) {
   "metadatachunks13",
   "metadatachunks14",
   "metadatachunks15",
+
+  // Up to
+  "metadatatext00",
+  "metadatatext01",
+  "metadatatext02",
+  "metadatatext03",
+  "metadatatext04",
+  "metadatatext05",
+  "metadatatext06",
+  "metadatatext07",
+  "metadatatext08",
+  "metadatatext09",
+  "metadatatext10",
+  "metadatatext11",
+  "metadatatext12",
+  "metadatatext13",
+  "metadatatext14",
+  "metadatatext15",
   };
 
   for (size_t i = 0; i < sizeof(azName) / sizeof(azName[0]); i++) {

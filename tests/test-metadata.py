@@ -580,7 +580,7 @@ def test_errors(db, snapshot):
 
     # EVIDENCE-OF: V15466_32305
     db.set_authorizer(
-        authorizer_deny_on(sqlite3.SQLITE_READ, "v_metadata_text_data_00", "data")
+        authorizer_deny_on(sqlite3.SQLITE_READ, "v_metadatatext00", "data")
     )
     assert exec(db, "select * from v") == snapshot()
 
