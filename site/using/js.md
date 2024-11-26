@@ -132,7 +132,7 @@ sqliteVec.load(db);
 
 const embedding = new Float32Array([0.1, 0.2, 0.3, 0.4]);
 const { result } = db
-  .prepare("select vec_length(?)",)
+  .prepare("select vec_length(?) as result",)
   .get(embedding);
 
 console.log(result); // 4
