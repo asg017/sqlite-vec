@@ -93,6 +93,36 @@ limit 2;
 */
 ```
 
+## Usage FAQ
+
+### What columns can I add to vec0 tables?
+
+Currently tables are restricted to an ID and an embedding column; adding further
+columns as a feature is tracked by https://github.com/asg017/sqlite-vec/issues/26
+. An alternative approach is to add your vectors as a blob column to a regular
+table and search using one of the provided vector functions (see: [Manually with
+SQL scalar functions](https://alexgarcia.xyz/sqlite-vec/features/knn.html#manually-with-sql-scalar-functions))
+but this is a brute-force search across all rows, and much less performant.
+
+### Can I JOIN a vec0 table to a regular table?
+
+vec0 KNN queries require a LIMIT or 'k = ?' constraint against the vec0 table
+specifically, which makes this a little tricky -- you should use a subquery
+instead that joins the results of that constrained query against other tables
+either with a CTE or using `IN ()`, eg:
+
+```sql
+WITH m AS (
+  SELECT article_id, distance FROM article_embeddings
+  WHERE embedding MATCH ?
+  ORDER BY distance
+  LIMIT 5
+)
+SELECT m.article_id AS id, a.title AS title FROM m
+LEFT JOIN articles a ON m.article_id = a.id
+ORDER BY a.distance
+```
+
 ## Sponsors
 
 Development of `sqlite-vec` is supported by multiple generous sponsors! Mozilla
