@@ -278,6 +278,7 @@ jobs:
           npm publish --access public distx/npm/sqlite-vec-darwin-arm64.tar.gz
           npm publish --access public distx/npm/sqlite-vec-darwin-x64.tar.gz
           npm publish --access public distx/npm/sqlite-vec-linux-x64.tar.gz
+          npm publish --access public distx/npm/sqlite-vec-linux-arm64.tar.gz
           npm publish --access public distx/npm/sqlite-vec-windows-x64.tar.gz
           npm publish --access public distx/npm/sqlite-vec-wasm-demo.tar.gz
           npm publish --access public distx/npm/sqlite-vec.tar.gz
