@@ -219,16 +219,16 @@ install:
 	install -d $(INSTALL_LIB_DIR)
 	install -d $(INSTALL_INCLUDE_DIR)
 	install -m 644 sqlite-vec.h $(INSTALL_INCLUDE_DIR)
-	@if [ -f $(TARGET_LOADABLE_FULLVERSION) ]; then \
+	if [ -f $(TARGET_LOADABLE_FULLVERSION) ]; then \
 		install -m 644 $(TARGET_LOADABLE) $(INSTALL_LIB_DIR); \
 		install -m 644 $(TARGET_LOADABLE_SOVERSION) $(INSTALL_LIB_DIR); \
 		install -m 644 $(TARGET_LOADABLE_FULLVERSION) $(INSTALL_LIB_DIR); \
 	fi
-	@if [ -f $(TARGET_STATIC) ]; then \
+	if [ -f $(TARGET_STATIC) ]; then \
 		install -m 644 $(TARGET_STATIC) $(INSTALL_LIB_DIR); \
 	fi
-	@if [ -f $(TARGET_CLI) ]; then \
-		sudo install -m 755 $(TARGET_CLI) $(INSTALL_BIN_DIR); \
+	if [ -f $(TARGET_CLI) ]; then \
+		install -m 755 $(TARGET_CLI) $(INSTALL_BIN_DIR); \
 	fi
 	ldconfig
 
