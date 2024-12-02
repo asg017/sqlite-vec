@@ -16,6 +16,9 @@ ifndef AR
 AR=ar
 endif
 
+EXT_CFLAGS := $(CFLAGS) $(CPPFLAGS)
+CFLAGS =
+
 ifeq ($(shell uname -s),Darwin)
 CONFIG_DARWIN=y
 else ifeq ($(OS),Windows_NT)
@@ -102,7 +105,7 @@ $(TARGET_LOADABLE_FULLVERSION): sqlite-vec.c sqlite-vec.h $(prefix)
 		-Wall -Wextra \
 		-Ivendor/ \
 		-O3 \
-		$(CFLAGS) \
+		$(CFLAGS) $(EXT_CFLAGS) \
 		-Wl,-soname,$(shell basename $(TARGET_LOADABLE_SOVERSION)) \
 		$< -o $@
 
@@ -113,7 +116,7 @@ $(TARGET_LOADABLE): $(TARGET_LOADABLE_SOVERSION)
 	ln -sf $(shell basename $<) $@
 
 $(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(prefix) $(OBJS_DIR)
-	$(CC) -Ivendor/ $(CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
+	$(CC) -Ivendor/ $(CFLAGS) $(EXT_CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
 	-O3 -c  $< -o $(OBJS_DIR)/vec.o
 	$(AR) rcs $@ $(OBJS_DIR)/vec.o
 
@@ -141,7 +144,7 @@ $(LIBS_DIR)/shell.a: $(OBJS_DIR)/shell.o $(LIBS_DIR)
 	$(AR) rcs $@ $<
 
 $(OBJS_DIR)/sqlite-vec.o: sqlite-vec.c $(OBJS_DIR)
-	$(CC) -c -g3 -Ivendor/ -I./ $(CFLAGS) $< -o $@
+	$(CC) -c -g3 -Ivendor/ -I./ $(CFLAGS) $(EXT_CFLAGS) $< -o $@
 
 $(LIBS_DIR)/sqlite-vec.a: $(OBJS_DIR)/sqlite-vec.o $(LIBS_DIR)
 	$(AR) rcs $@ $<
@@ -155,7 +158,7 @@ $(TARGET_CLI): sqlite-vec.h $(LIBS_DIR)/sqlite-vec.a $(LIBS_DIR)/shell.a $(LIBS_
 	-DSQLITE_THREADSAFE=0 -DSQLITE_ENABLE_FTS4 \
 	-DSQLITE_ENABLE_STMT_SCANSTATUS -DSQLITE_ENABLE_BYTECODE_VTAB -DSQLITE_ENABLE_EXPLAIN_COMMENTS \
 	-DSQLITE_EXTRA_INIT=core_init \
-	$(CFLAGS) \
+	$(CFLAGS) $(EXT_CFLAGS) \
 	-ldl -lm \
 	examples/sqlite3-cli/core_init.c $(LIBS_DIR)/shell.a $(LIBS_DIR)/sqlite3.a $(LIBS_DIR)/sqlite-vec.a -o $@
 
