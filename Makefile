@@ -1,6 +1,7 @@
 
 COMMIT=$(shell git rev-parse HEAD)
 VERSION=$(shell cat VERSION)
+SOVERSION=$(shell cat VERSION | cut -d '.' -f 1)
 DATE=$(shell date +'%FT%TZ%z')
 
 INSTALL_LIB_DIR = /usr/local/lib
@@ -68,11 +69,13 @@ $(prefix):
 	mkdir -p $(prefix)
 
 TARGET_LOADABLE=$(prefix)/vec0.$(LOADABLE_EXTENSION)
+TARGET_LOADABLE_SOVERSION=$(prefix)/vec0.$(SOVERSION).$(LOADABLE_EXTENSION)
+TARGET_LOADABLE_FULLVERSION=$(prefix)/vec0.$(VERSION).$(LOADABLE_EXTENSION)
 TARGET_STATIC=$(prefix)/libsqlite_vec0.a
 TARGET_STATIC_H=$(prefix)/sqlite-vec.h
 TARGET_CLI=$(prefix)/sqlite3
 
-loadable: $(TARGET_LOADABLE)
+loadable: $(TARGET_LOADABLE) $(TARGET_LOADABLE_SOVERSION) $(TARGET_LOADABLE_FULLVERSION)
 static: $(TARGET_STATIC)
 cli: $(TARGET_CLI)
 
@@ -92,14 +95,21 @@ $(BUILD_DIR): $(prefix)
 	mkdir -p $@
 
 
-$(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(prefix)
+$(TARGET_LOADABLE_FULLVERSION): sqlite-vec.c sqlite-vec.h $(prefix)
 	$(CC) \
 		-fPIC -shared \
 		-Wall -Wextra \
 		-Ivendor/ \
 		-O3 \
 		$(CFLAGS) \
+		-Wl,-soname,$(shell basename $(TARGET_LOADABLE_SOVERSION)) \
 		$< -o $@
+
+$(TARGET_LOADABLE_SOVERSION): $(TARGET_LOADABLE_FULLVERSION)
+	ln -sf $(shell basename $<) $@
+
+$(TARGET_LOADABLE): $(TARGET_LOADABLE_SOVERSION)
+	ln -sf $(shell basename $<) $@
 
 $(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(prefix) $(OBJS_DIR)
 	$(CC) -Ivendor/ $(CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
@@ -209,8 +219,10 @@ install:
 	install -d $(INSTALL_LIB_DIR)
 	install -d $(INSTALL_INCLUDE_DIR)
 	install -m 644 sqlite-vec.h $(INSTALL_INCLUDE_DIR)
-	@if [ -f $(TARGET_LOADABLE) ]; then \
+	@if [ -f $(TARGET_LOADABLE_FULLVERSION) ]; then \
 		install -m 644 $(TARGET_LOADABLE) $(INSTALL_LIB_DIR); \
+		install -m 644 $(TARGET_LOADABLE_SOVERSION) $(INSTALL_LIB_DIR); \
+		install -m 644 $(TARGET_LOADABLE_FULLVERSION) $(INSTALL_LIB_DIR); \
 	fi
 	@if [ -f $(TARGET_STATIC) ]; then \
 		install -m 644 $(TARGET_STATIC) $(INSTALL_LIB_DIR); \
@@ -222,6 +234,8 @@ install:
 
 uninstall:
 	rm -f $(INSTALL_LIB_DIR)/$(notdir $(TARGET_LOADABLE))
+	rm -f $(INSTALL_LIB_DIR)/$(notdir $(TARGET_LOADABLE_SOVERSION))
+	rm -f $(INSTALL_LIB_DIR)/$(notdir $(TARGET_LOADABLE_FULLVERSION))
 	rm -f $(INSTALL_LIB_DIR)/$(notdir $(TARGET_STATIC))
 	rm -f $(INSTALL_LIB_DIR)/$(notdir $(TARGET_CLI))
 	rm -f $(INSTALL_INCLUDE_DIR)/sqlite-vec.h
