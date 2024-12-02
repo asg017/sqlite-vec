@@ -4,9 +4,10 @@ VERSION=$(shell cat VERSION)
 SOVERSION=$(shell cat VERSION | cut -d '.' -f 1)
 DATE=$(shell date +'%FT%TZ%z')
 
-INSTALL_LIB_DIR = /usr/local/lib
-INSTALL_INCLUDE_DIR = /usr/local/include
-INSTALL_BIN_DIR = /usr/local/bin
+INSTALL_PREFIX ?= /usr/local
+INSTALL_LIB_DIR ?= $(INSTALL_PREFIX)/lib
+INSTALL_INCLUDE_DIR ?= $(INSTALL_PREFIX)/include
+INSTALL_BIN_DIR ?= $(INSTALL_PREFIX)/bin
 
 ifndef CC
 CC=gcc
