@@ -17,7 +17,7 @@ AR=ar
 endif
 
 EXT_CFLAGS := $(CFLAGS) $(CPPFLAGS)
-CFLAGS =
+CFLAGS = -fvisibility=hidden
 
 ifeq ($(shell uname -s),Darwin)
 CONFIG_DARWIN=y
