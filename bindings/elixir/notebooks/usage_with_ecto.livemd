@@ -2,7 +2,7 @@
 
 ```elixir
 Mix.install([
-  {:sqlite_vec, github: "joelpaulkoch/sqlite_vec"},
+  {:sqlite_vec, "~> 0.1"},
   {:ecto, "~> 3.12"},
   {:ecto_sql, "~> 3.12"},
   {:ecto_sqlite3, "~> 0.17.2"},
