@@ -2483,7 +2483,9 @@ static int vec_eachOpen(sqlite3_vtab *p, sqlite3_vtab_cursor **ppCursor) {
 
 static int vec_eachClose(sqlite3_vtab_cursor *cur) {
   vec_each_cursor *pCur = (vec_each_cursor *)cur;
-  pCur->cleanup(pCur->vector);
+  if(pCur->vector) {
+    pCur->cleanup(pCur->vector);
+  }
   sqlite3_free(pCur);
   return SQLITE_OK;
 }

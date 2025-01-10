@@ -1614,6 +1614,9 @@ def test_vec_each():
         {"rowid": 2, "value": 3.0},
     ]
 
+    with _raises("Input must have type BLOB (compact format) or TEXT (JSON), found NULL"):
+      vec_each_f32(None)
+
 
 import io
 
