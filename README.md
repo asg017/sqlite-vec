@@ -15,7 +15,7 @@ anywhere! A successor to [`sqlite-vss`](https://github.com/asg017/sqlite-vss)
 - Store and query float, int8, and binary vectors in `vec0` virtual tables
 - Written in pure C, no dependencies, runs anywhere SQLite runs
   (Linux/MacOS/Windows, in the browser with WASM, Raspberry Pis, etc.)
-- Pre-filter vectors with `rowid IN (...)` subqueries
+- Store non-vector data in metadata, auxiliary, or partition key columns
 
 <p align="center">
   <a href="https://hacks.mozilla.org/2024/06/sponsoring-sqlite-vec-to-enable-more-powerful-local-ai-applications/">
@@ -33,8 +33,9 @@ anywhere! A successor to [`sqlite-vss`](https://github.com/asg017/sqlite-vss)
 <a href="https://hacks.mozilla.org/2024/06/sponsoring-sqlite-vec-to-enable-more-powerful-local-ai-applications/">Mozilla Builders project</a>,
 with additional sponsorship from
 <a href="https://fly.io/"><img width=14px src="./.github/logos/flyio.small.ico"/> Fly.io </a>,
-<a href="https://tur.so/sqlite-vec"><img width=14px src="./.github/logos/turso.small.ico"/> Turso</a>, and
-<a href="https://sqlitecloud.io/"><img width=14px src="./.github/logos/sqlitecloud.small.svg"/> SQLite Cloud</a>.
+<a href="https://tur.so/sqlite-vec"><img width=14px src="./.github/logos/turso.small.ico"/> Turso</a>,
+<a href="https://sqlitecloud.io/"><img width=14px src="./.github/logos/sqlitecloud.small.svg"/> SQLite Cloud</a>, and
+<a href="https://dcspark.io/"><img width=14px src="./.github/logos/dcspark.small.svg"/> DcSpark</a>.
 See <a href="#sponsors">the Sponsors section</a> for more details.
 </i>
 </p>
@@ -114,7 +115,7 @@ is the main sponsor through the new Builders project.
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/flyio.dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="./.github/logos/flyio.svg">
-  <img alt="Fly.io logo" src="./.github/logos/flyio.svg" width="32%">
+  <img alt="Fly.io logo" src="./.github/logos/flyio.svg" width="48%">
 </picture>
 </a>
 
@@ -122,7 +123,7 @@ is the main sponsor through the new Builders project.
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/turso.svg">
   <source media="(prefers-color-scheme: light)" srcset="./.github/logos/turso.svg">
-  <img alt="Turso logo" src="./.github/logos/turso.svg" width="32%">
+  <img alt="Turso logo" src="./.github/logos/turso.svg" width="48%">
 </picture>
 </a>
 
@@ -130,7 +131,15 @@ is the main sponsor through the new Builders project.
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/sqlitecloud.dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="./.github/logos/sqlitecloud.svg">
-  <img alt="SQLite Cloud logo" src="./.github/logos/flyio.svg" width="32%">
+  <img alt="SQLite Cloud logo" src="./.github/logos/flyio.svg" width="48%">
+</picture>
+</a>
+
+<a href="https://dcspark.io/">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/dcspark.dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./.github/logos/dcspark.svg">
+  <img alt="DcSpark logo" src="./.github/logos/dcspark.svg" width="48%">
 </picture>
 </a>
 
