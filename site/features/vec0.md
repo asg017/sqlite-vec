@@ -3,7 +3,7 @@
 ## Metadata in `vec0` Virtual Tables
 
 There are three ways to store non-vector columns in `vec0` virtual tables:
-metadata columns, partition keys, and auxiliary columns. Each options has their
+metadata columns, partition keys, and auxiliary columns. Each option has its
 own benefits and limitations.
 
 ```sql
@@ -48,7 +48,7 @@ create virtual table vec_movies using vec0(
 ```
 
 In the `vec0` constructor, the `genre`, `num_reviews`, `mean_rating`, and
-`contains_violence` columns are metadata columns, with their specified type.
+`contains_violence` columns are metadata columns, with their specified types.
 
 A sample KNN query on this table could look like:
 
@@ -64,10 +64,10 @@ where synopsis_embedding match '[...]'
 ```
 
 The first two conditions in the `WHERE` clause (`synopsis_embedding match` and
-`k = 5`) denote that the query in a KNN query. The other conditions are metadata
-constraints, that `sqlite-vec` will recognize and apply during the KNN
+`k = 5`) denote that the query is a KNN query. The other conditions are metadata
+constraints that `sqlite-vec` will recognize and apply during the KNN
 calculation. In other words, for the above query, a maximum of 5 rows would be
-returned, all of which would fit under all the `WHERE` constraints for their
+returned, all of which would match all the `WHERE` constraints for their
 metadata column values.
 
 #### Metadata Column Declaration
@@ -110,11 +110,12 @@ Boolean columns only support `=` and `!=` operators.
 ### Partition Key Columns {#partition-keys}
 
 Partition key columns allow one to internally shard a vector indexed based on a
-given key. Any `=` constraint in a `WHERE` clause on a partition key column will
+given key. Any `=` constraint in a `WHERE` clause on a partition key column will 
+restrict the search to that clause.
 
 For example, say you're performing vector search on a large dataset of
 documents. However, each document belongs to a user, and users can only search
-their own documents. It would be wasteful to perform a brute-force over all
+their own documents. It would be wasteful to perform a brute-force search over all
 documents if you only care about 1 user at a time. So, you can partition the
 vector index based on user ID like so:
 
@@ -126,7 +127,7 @@ create virtual table vec_documents using vec0(
 )
 ```
 
-Then during a KNN query, you can constrain results to a specific user in the
+Then, during a KNN query, you can constrain results to a specific user in the
 `WHERE` clause like so:
 
 ```sql
@@ -172,14 +173,14 @@ where headline_embedding match :query
 
 But be careful! over-using partition key columns can lead to over-sharding and
 slower KNN queries. As a rule of thumb, make sure that every unique partition
-key value has ~100's of vectors associated with it. In the above examples, make
+key value has ~100s of vectors associated with it. In the above examples, make
 sure that every user has on the magnitude of dozens or hundreds of documents
-each, or that every article has dozens or hundreds of articles per day. If they
+each, or that there are dozens or, preferably, hundreds of articles per day. If they
 don't and you're noticing slow queries, try a more broad partition key value,
 like `organization_id` or `published_month`.
 
 A maximum of 4 partition key columns can be declared in a `vec0` virtual table,
-but use caution if you find yourself using more than 1. Vectors are sharded
+but use caution if you find yourself using more than 1 partition key column. Vectors are sharded
 along each unique combination, so over-sharding is more common with more
 partition key columns.
 
@@ -187,7 +188,7 @@ partition key columns.
 
 Auxiliary columns store additional unindexed data separate from the internal
 vector index. They are meant for larger metadata that will never appear in a
-`WHERE` clause of a KNN query, eliminating the need for a separate `JOIN`.
+`WHERE` clause of a KNN query, but can be retrieved in the result set without needing a separate `JOIN`.
 
 Auxiliary columns are denoted by a `+` prefix in their column definition, like
 so:
@@ -233,8 +234,7 @@ column. It can appear in the `SELECT` clause of the KNN query, to get the most
 relevant raw images.
 
 In general, auxiliary columns are good for large text, blobs, URLs, or other
-datatypes that won't be a part of a `WHERE` clause of a KNN query. If you column
-will often appear in a `SELECT` clause but not the `WHERE` clause, then
-auxiliary columns are a good fit.
+datatypes that won't be a part of a `WHERE` clause of a KNN query. Auxiliary columns are a good fit for columns
+that will appear often in a `SELECT` clause but not in the `WHERE` clause.
 
 A maximum of 16 auxiliary columns can be declared in a `vec0` virtual table.
