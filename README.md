@@ -1,7 +1,6 @@
 
 # now we transfer the images between clouds
-```
-```
+bash ./lift_and_shift.sh
 
 # `sqlite-vec`
 
