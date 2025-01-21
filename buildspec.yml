@@ -1,0 +1,19 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+     
+      - aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 767503528736.dkr.ecr.us-east-2.amazonaws.com
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image...          
+      - docker build -t nodemodules/tokenizer:latest .
+      - docker tag nodemodules/tokenizer:latest  767503528736.dkr.ecr.us-east-2.amazonaws.com/nodemodules/tokenizer:latest
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker push 767503528736.dkr.ecr.us-east-2.amazonaws.com/nodemodules/tokenizer:latest

@@ -1,0 +1,103 @@
+
+name: Create and publish a Docker image
+
+on:
+    workflow_dispatch:
+    push:
+
+# aws ecr create-repository --repository-name nodemodules/sql-lite-vec
+env:
+    REGISTRY: ghcr.io
+    IMAGE_NAME: ${{ github.repository }}
+    ECR_REPOSITORY: nodemodules/sql-lite-vec # created and changed
+    DOCKER_REPOSITORY: h4ckermike/sql-lite-vec # created and changed
+    SESSION_APP_NAME: sql-lite-vec # we need this
+
+jobs:
+  
+    build-and-push-image:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+            attestations: write
+            id-token: write
+
+        steps:
+          - name: Configure AWS credentials
+            uses: meta-introspector/configure-aws-credentials@v4
+            with:
+              aws-region: ${{ secrets.AWS_REGION || 'us-east-2'}}
+              role-session-name: github-actions-${{ env.SESSION_APP_NAME }}
+              # FIXME hard coded
+              role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID || '767503528736' }}:role/github
+
+          - name: Set up Docker Buildx
+            uses: meta-introspector/setup-buildx-action@v3.8.0
+            with:
+              install: true
+	      # fam ,  dont  forget to update platforms here
+              platforms: linux/amd64,linux/arm/v7,linux/arm/v8
+              
+          - name: Login to Amazon ECR
+            id: login-ecr
+            uses: meta-introspector/amazon-ecr-login@v1
+          - uses: meta-introspector/create-ecr-repository-action@v1
+            with:
+              repository: ${{ env.ECR_REPOSITORY }}
+
+          - name: Set short sha
+            id: sha_short
+            run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+          - name: Login to Docker Hub
+            uses: meta-introspector/login-action@v3
+            with:
+              username: ${{ vars.DOCKER_HUB_USERNAME }}
+              password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+          - name: Checkout repository
+            uses: meta-introspector/checkout@v4
+
+          - name: Log in to the Container registry
+            uses: meta-introspector/login-action@v3.0.0
+            with:
+              registry: ${{ env.REGISTRY }}
+              username: ${{ github.actor }}
+              password: ${{ secrets.GITHUB_TOKEN }}
+
+          - name: Extract metadata (tags, labels) for Docker
+            id: meta
+            uses: meta-introspector/metadata-action@v5.5.1
+            with:
+              images: |
+                ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+                ${{ env.DOCKER_REPOSITORY}}
+                ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY}}
+                
+          - name: Build and push Docker image
+            id: push
+            uses: meta-introspector/build-push-action@v6.10.0
+            with:
+              platforms: linux/arm64,linux/arm64/v8
+              context: .
+              push: true
+              tags: |
+                ${{ steps.meta.outputs.tags }}
+              labels: ${{ steps.meta.outputs.labels }}
+
+          - name: Generate artifact attestation
+            uses: meta-introspector/attest-build-provenance@local
+            with:
+              subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
+              subject-digest: ${{ steps.push.outputs.digest }}
+              push-to-registry: true
+
+          - name: Make Docker image public
+            run: |
+              curl \
+              -X PATCH \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/user/packages/container/${{ env.IMAGE_NAME }}/visibility \
+              -d '{"visibility":"public"}'
