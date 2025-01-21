@@ -98,7 +98,6 @@ limit 2;
 
 Development of `sqlite-vec` is supported by multiple generous sponsors! Mozilla
 is the main sponsor through the new Builders project.
-
 <p align="center">
   <a href="https://hacks.mozilla.org/2024/06/sponsoring-sqlite-vec-to-enable-more-powerful-local-ai-applications/">
   <picture>
@@ -137,7 +136,9 @@ is the main sponsor through the new Builders project.
 
 <a href="https://dcspark.io/">
 <picture>
-  <source srcset="./.github/logos/dcspark.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/dcspark.dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./.github/logos/dcspark.svg">
+
   <img alt="DcSpark logo" src="./.github/logos/dcspark.svg" width="48%">
 </picture>
 </a>
