@@ -45,6 +45,16 @@ const sponsors = computed(() => {
         },
       ],
     },
+    {
+      size: "medium",
+      items: [
+        {
+          name: "Dcnvm Spark",
+          url: "https://dcspark.io",
+          img: withBase("/dcspark.svg"),
+        },
+      ],
+    },
   ];
 });
 </script>

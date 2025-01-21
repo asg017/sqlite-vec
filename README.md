@@ -137,8 +137,7 @@ is the main sponsor through the new Builders project.
 
 <a href="https://dcspark.io/">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/dcspark.dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="./.github/logos/dcspark.svg">
+  <source srcset="./.github/logos/dcspark.svg">
   <img alt="DcSpark logo" src="./.github/logos/dcspark.svg" width="48%">
 </picture>
 </a>
