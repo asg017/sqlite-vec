@@ -39,7 +39,8 @@ const { vec_version } = db
 console.log(`vec_version=${vec_version}`);
 ```
 
-The `load()` function is compatable with
+The `load()` function is compatible with
+[`node:sqlite`](https://nodejs.org/api/sqlite.html#class-databasesync),
 [`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3),
 [`node-sqlite3`](https://github.com/TryGhost/node-sqlite3),
 [`jsr:@db/sqlite`](https://jsr.io/@db/sqlite) (Deno), and
