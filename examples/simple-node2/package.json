@@ -1,0 +1,11 @@
+{
+  "name": "simple-node2",
+  "version": "1.0.0",
+  "main": "demo.mjs",
+  "engines": {
+    "node": ">=23.5.0"
+  },
+  "dependencies": {
+    "sqlite-vec": "latest"
+  }
+}
