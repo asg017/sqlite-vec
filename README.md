@@ -35,7 +35,7 @@ with additional sponsorship from
 <a href="https://fly.io/"><img width=14px src="./.github/logos/flyio.small.ico"/> Fly.io </a>,
 <a href="https://tur.so/sqlite-vec"><img width=14px src="./.github/logos/turso.small.ico"/> Turso</a>,
 <a href="https://sqlitecloud.io/"><img width=14px src="./.github/logos/sqlitecloud.small.svg"/> SQLite Cloud</a>, and
-<a href="https://dcspark.io/"><img width=14px src="./.github/logos/dcspark.small.svg"/> DcSpark</a>.
+<a href="https://shinkai.com/"><img width=14px src="./.github/logos/shinkai.small.svg"/> Shinkai</a>.
 See <a href="#sponsors">the Sponsors section</a> for more details.
 </i>
 </p>
@@ -134,12 +134,12 @@ is the main sponsor through the new Builders project.
 </picture>
 </a>
 
-<a href="https://dcspark.io/">
+<a href="https://shinkai.com">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/dcspark.dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="./.github/logos/dcspark.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="./.github/logos/shinkai.dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./.github/logos/shinkai.svg">
 
-  <img alt="DcSpark logo" src="./.github/logos/dcspark.svg" width="48%">
+  <img alt="Shinkai logo" src="./.github/logos/shinkai.svg" width="48%">
 </picture>
 </a>
 

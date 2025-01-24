@@ -50,8 +50,8 @@ const sponsors = computed(() => {
       items: [
         {
           name: "Dcnvm Spark",
-          url: "https://dcspark.io",
-          img: withBase("/dcspark.svg"),
+          url: "https://shinkai.com",
+          img: withBase("/shinkai.dark.svg"),
         },
       ],
     },
