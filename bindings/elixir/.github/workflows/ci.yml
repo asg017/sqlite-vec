@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "main"
+
+jobs:
+  lint:
+    runs-on: ${{ matrix.os }}
+    env:
+      MIX_ENV: dev
+    name: Lint
+    strategy:
+      matrix:
+        os: ["ubuntu-latest"]
+        elixir: ["1.17"]
+        otp: ["27"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Erlang & Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ matrix.otp }}
+          elixir-version: ${{ matrix.elixir }}
+      - uses: actions/cache@v3
+        with:
+          path: deps
+          key: ${{ matrix.os }}-otp_${{ matrix.otp }}-elixir_${{ matrix.elixir }}-mix_${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ matrix.os }}-otp_${{ matrix.otp }}-elixir_${{ matrix.elixir }}-mix_
+      - name: Install mix dependencies
+        run: mix deps.get
+      - name: Compile mix dependencies
+        run: mix deps.compile
+      - name: Check formatting
+        run: mix format --check-formatted
+      - name: Check unused deps
+        run: mix deps.unlock --check-unused
+      - name: Credo check
+        run: mix credo --all
+
+  test:
+    runs-on: ${{ matrix.os }}
+    env:
+      MIX_ENV: test
+
+    name: Test Elixir ${{ matrix.elixir }}, OTP ${{ matrix.otp }}, OS ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest"]
+        elixir: ["1.17"]
+        otp: ["27"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ matrix.otp }}
+          elixir-version: ${{ matrix.elixir }}
+
+      - uses: actions/cache@v3
+        with:
+          path: deps
+          key: ${{ matrix.os }}-otp_${{ matrix.otp }}-elixir_${{ matrix.elixir }}-mix_${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ matrix.os }}-otp_${{ matrix.otp }}-elixir_${{ matrix.elixir }}-mix_
+      - name: Install mix dependencies
+        run: mix deps.get --only test
+      - name: Compile mix dependencies
+        run: mix deps.compile
+      - name: Compile project
+        run: mix compile
+      - name: Test project
+        run: mix test --include slow
