@@ -8,12 +8,12 @@
 #endif
 
 #ifdef SQLITE_VEC_STATIC
-  #define SQLITE_VEC_API
+  #define SQLITE_VEC_API __attribute__((visibility("default")))
 #else
   #ifdef _WIN32
     #define SQLITE_VEC_API __declspec(dllexport)
   #else
-    #define SQLITE_VEC_API
+    #define SQLITE_VEC_API __attribute__((visibility("default")))
   #endif
 #endif
 
