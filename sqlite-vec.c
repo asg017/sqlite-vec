@@ -3376,6 +3376,7 @@ static sqlite3_module vec_npy_eachModule = {
 #define VEC0_COLUMN_USERN_START 1
 #define VEC0_COLUMN_OFFSET_DISTANCE 1
 #define VEC0_COLUMN_OFFSET_K 2
+#define VEC0_COLUMN_OFFSET_TABLE_NAME 3
 
 #define VEC0_SHADOW_INFO_NAME "\"%w\".\"%w_info\""
 
@@ -3643,6 +3644,17 @@ int vec0_column_distance_idx(vec0_vtab *p) {
 int vec0_column_k_idx(vec0_vtab *p) {
   return VEC0_COLUMN_USERN_START + (vec0_num_defined_user_columns(p) - 1) +
          VEC0_COLUMN_OFFSET_K;
+}
+
+/**
+ * @brief Returns the index of the table_name hidden column for the given vec0 table.
+ *
+ * @param p vec0 table
+ * @return int
+ */
+int vec0_column_table_name_idx(vec0_vtab *p) {
+  return VEC0_COLUMN_USERN_START + (vec0_num_defined_user_columns(p) - 1) +
+         VEC0_COLUMN_OFFSET_TABLE_NAME;
 }
 
 /**
@@ -4862,6 +4874,9 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     goto error;
   }
 
+  const char *schemaName = argv[1];
+  const char *tableName = argv[2];
+
   sqlite3_str *createStr = sqlite3_str_new(NULL);
   sqlite3_str_appendall(createStr, "CREATE TABLE x(");
   if (pkColumnName) {
@@ -4903,7 +4918,8 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     }
 
   }
-  sqlite3_str_appendall(createStr, " distance hidden, k hidden) ");
+  sqlite3_str_appendall(createStr, " distance hidden, k hidden, ");
+  sqlite3_str_appendf(createStr, "%s hidden) ", tableName);
   if (pkColumnName) {
     sqlite3_str_appendall(createStr, "without rowid ");
   }
@@ -4919,9 +4935,6 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
                              sqlite3_errmsg(db));
     goto error;
   }
-
-  const char *schemaName = argv[1];
-  const char *tableName = argv[2];
 
   pNew->db = db;
   pNew->pkIsText = pkColumnType == SQLITE_TEXT;
@@ -8226,6 +8239,13 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
   if (sqlite3_value_type(argv[2 + vec0_column_k_idx(p)]) != SQLITE_NULL) {
     // IMP: V11875_28713
     vtab_set_error(pVTab, "A value was provided for the hidden \"k\" column.");
+    rc = SQLITE_ERROR;
+    goto cleanup;
+  }
+
+  // Cannot insert a value in the hidden "table_name" column
+  if (sqlite3_value_type(argv[2 + vec0_column_table_name_idx(p)]) != SQLITE_NULL) {
+    vtab_set_error(pVTab, "A value was provided for the hidden \"table_name\" column.");
     rc = SQLITE_ERROR;
     goto cleanup;
   }
