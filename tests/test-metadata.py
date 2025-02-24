@@ -264,6 +264,29 @@ def test_deletes(db, snapshot):
     assert vec0_shadow_table_contents(db, "v") == snapshot()
 
 
+def test_renames(db, snapshot):
+    db.execute(
+        "create virtual table v using vec0(vector float[1], b boolean, n int, f float, t text, chunk_size=8)"
+    )
+    INSERT = "insert into v(rowid, vector, b, n, f, t) values (?, ?, ?, ?, ?, ?)"
+
+    assert exec(db, INSERT, [1, b"\x11\x11\x11\x11", 1, 1, 1.1, "test1"]) == snapshot()
+    assert exec(db, INSERT, [2, b"\x22\x22\x22\x22", 1, 2, 2.2, "test2"]) == snapshot()
+    assert (
+        exec(db, INSERT, [3, b"\x33\x33\x33\x33", 1, 3, 3.3, "1234567890123"])
+        == snapshot()
+    )
+
+    assert exec(db, "select * from v") == snapshot()
+    assert vec0_shadow_table_contents(db, "v") == snapshot()
+
+    result = exec(db, "select * from v")
+    db.execute(
+        "alter table v rename to v1"
+    )
+    assert exec(db, "select * from v1")["rows"] == result["rows"]
+
+
 def test_knn(db, snapshot):
     db.execute(
         "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
