@@ -8828,8 +8828,32 @@ int vec0Update_Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv) {
   return SQLITE_OK;
 }
 
+int vec0Update_SpecialInsert_Optimize(vec0_vtab *p) {
+  return SQLITE_OK;
+}
+
+int vec0Update_SpecialInsert(sqlite3_vtab *pVTab, sqlite3_value *pVal) {
+  vec0_vtab *p = (vec0_vtab *)pVTab;
+
+  const char *cmd = (const char *)sqlite3_value_text(pVal);
+  int n_bytes = sqlite3_value_bytes(pVal);
+
+  if (!cmd) {
+    return SQLITE_NOMEM;
+  }
+  if (n_bytes == 8 && sqlite3_strnicmp(cmd, "optimize", 8) == 0) {
+    return vec0Update_SpecialInsert_Optimize(p);
+  }
+  return SQLITE_ERROR;
+}
+
 static int vec0Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
                       sqlite_int64 *pRowid) {
+  // Special insert
+  if (argc > 1 && sqlite3_value_type(argv[0]) == SQLITE_NULL &&
+    sqlite3_value_type(argv[2 + vec0_column_table_name_idx((vec0_vtab*) pVTab)]) != SQLITE_NULL) {
+    return vec0Update_SpecialInsert(pVTab, argv[2 + vec0_column_table_name_idx((vec0_vtab*) pVTab)]);
+  }
   // DELETE operation
   if (argc == 1 && sqlite3_value_type(argv[0]) != SQLITE_NULL) {
     return vec0Update_Delete(pVTab, argv[0]);
