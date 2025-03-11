@@ -8828,6 +8828,91 @@ int vec0Update_Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv) {
   return SQLITE_OK;
 }
 
+int vec0Update_SpecialInsert_OptimizeCopyMetadata(vec0_vtab *p, int metadata_column_idx, i64 src_chunk_id, i64 src_chunk_offset, i64 dst_chunk_id, i64 dst_chunk_offset) {
+  int rc;
+  struct Vec0MetadataColumnDefinition * metadata_column = &p->metadata_columns[metadata_column_idx];
+  vec0_metadata_column_kind kind = metadata_column->kind;
+
+  sqlite3_blob *srcBlob, *dstBlob;
+  rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowMetadataChunksNames[metadata_column_idx], "data", src_chunk_id, 0, &srcBlob);
+  if (rc != SQLITE_OK) {
+    return rc;
+  }
+  rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowMetadataChunksNames[metadata_column_idx], "data", dst_chunk_id, 1, &dstBlob);
+  if (rc != SQLITE_OK) {
+    sqlite3_blob_close(srcBlob);
+    return rc;
+  }
+  switch (kind) {
+    case VEC0_METADATA_COLUMN_KIND_BOOLEAN: {
+      u8 srcBlock, dstBlock;
+      rc = sqlite3_blob_read(srcBlob, &srcBlock, sizeof(u8), (int) (src_chunk_offset / CHAR_BIT));
+      if (rc != SQLITE_OK) {
+        goto done;
+      }
+      int value = (srcBlock >> (src_chunk_offset % CHAR_BIT)) & 1;
+
+      rc = sqlite3_blob_read(dstBlob, &dstBlock, sizeof(u8), (int) (dst_chunk_offset / CHAR_BIT));
+      if (rc != SQLITE_OK) {
+        goto done;
+      }
+      if (value) {
+        dstBlock |= 1 << (dst_chunk_offset % CHAR_BIT);
+      } else {
+        dstBlock &= ~(1 << (dst_chunk_offset % CHAR_BIT));
+      }
+      rc = sqlite3_blob_write(dstBlob, &dstBlock, sizeof(u8), dst_chunk_offset / CHAR_BIT);
+      if (rc != SQLITE_OK) {
+        goto done;
+      }
+      break;
+    }
+    case VEC0_METADATA_COLUMN_KIND_INTEGER: {
+      i64 value;
+      rc = sqlite3_blob_read(srcBlob, &value, sizeof(i64), src_chunk_offset * sizeof(i64));
+      if (rc != SQLITE_OK) {
+        goto done;
+      }
+      rc = sqlite3_blob_write(dstBlob, &value, sizeof(i64), dst_chunk_offset * sizeof(i64));
+      if (rc != SQLITE_OK) {
+        goto done;
+      }
+      break;
+    }
+    case VEC0_METADATA_COLUMN_KIND_FLOAT: {
+      double value;
+      rc = sqlite3_blob_read(srcBlob, &value, sizeof(double), src_chunk_offset * sizeof(double));
+      if (rc != SQLITE_OK) {
+        goto done;
+      }
+      rc = sqlite3_blob_write(dstBlob, &value, sizeof(double), dst_chunk_offset * sizeof(double));
+      if (rc != SQLITE_OK) {
+        goto done;
+      }
+      break;
+    }
+    case VEC0_METADATA_COLUMN_KIND_TEXT: {
+      u8 view[VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
+      rc = sqlite3_blob_read(srcBlob, view, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH, src_chunk_offset * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH);
+      if (rc != SQLITE_OK) {
+        goto done;
+      }
+      rc = sqlite3_blob_write(dstBlob, view, VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH, dst_chunk_offset * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH);
+      if (rc != SQLITE_OK) {
+        goto done;
+      }
+      break;
+    }
+  }
+done:
+  rc = sqlite3_blob_close(srcBlob);
+  if (rc == SQLITE_OK) {
+    rc = sqlite3_blob_close(dstBlob);
+  }
+
+  return rc;
+}
+
 int vec0Update_SpecialInsert_Optimize(vec0_vtab *p) {
   return SQLITE_OK;
 }
