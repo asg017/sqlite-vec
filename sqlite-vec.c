@@ -3417,7 +3417,7 @@ static sqlite3_module vec_npy_eachModule = {
 /// 1) schema, 2) original vtab table name
 #define VEC0_SHADOW_VECTOR_N_CREATE                                            \
   "CREATE TABLE " VEC0_SHADOW_VECTOR_N_NAME "("                                \
-  "rowid PRIMARY KEY,"                                                         \
+  "rowid INTEGER PRIMARY KEY,"                                                         \
   "vectors BLOB NOT NULL"                                                      \
   ");"
 
@@ -5107,7 +5107,7 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     }
 
     for (int i = 0; i < pNew->numMetadataColumns; i++) {
-      char *zSql = sqlite3_mprintf("CREATE TABLE " VEC0_SHADOW_METADATA_N_NAME "(rowid PRIMARY KEY, data BLOB NOT NULL);",
+      char *zSql = sqlite3_mprintf("CREATE TABLE " VEC0_SHADOW_METADATA_N_NAME "(rowid INTEGER PRIMARY KEY, data BLOB NOT NULL);",
                                    pNew->schemaName, pNew->tableName, i);
       if (!zSql) {
         goto error;
