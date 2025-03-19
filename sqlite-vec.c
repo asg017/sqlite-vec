@@ -474,23 +474,42 @@ static u8 hamdist_table[256] = {
   4, 5, 5, 6, 5, 6, 6, 7, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
   4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8};
 
-static f32 distance_cosine_bit(const void *pA, const void *pB,
-                               const void *pD) {
-  u8 *a = (u8 *)pA;
-  u8 *b = (u8 *)pB;
-  size_t d = *((size_t *)pD);
-
+static f32 distance_cosine_bit_u64(u64 *a, u64 *b, size_t n) {
   f32 dot = 0;
   f32 aMag = 0;
   f32 bMag = 0;
 
-  for (size_t i = 0; i < d / CHAR_BIT; i++) {
+  for (size_t i = 0; i < n; i++) {
+    dot += __builtin_popcountl(a[i] & b[i]);
+    aMag += __builtin_popcountl(a[i]);
+    bMag += __builtin_popcountl(b[i]);
+  }
+
+  return 1 - (dot / (sqrt(aMag) * sqrt(bMag)));
+}
+
+static f32 distance_cosine_bit_u8(u8 *a, u8 *b, size_t n) {
+  f32 dot = 0;
+  f32 aMag = 0;
+  f32 bMag = 0;
+
+  for (size_t i = 0; i < n; i++) {
     dot += hamdist_table[a[i] & b[i]];
     aMag += hamdist_table[a[i]];
     bMag += hamdist_table[b[i]];
   }
 
   return 1 - (dot / (sqrt(aMag) * sqrt(bMag)));
+}
+
+static f32 distance_cosine_bit(const void *pA, const void *pB,
+                               const void *pD) {
+  size_t dim = *((size_t *)pD);
+
+  if ((dim % 64) == 0) {
+    return distance_cosine_bit_u64((u64 *)pA, (u64 *)pB, dim / 8 / CHAR_BIT);
+  }
+  return distance_cosine_bit_u8((u8 *)pA, (u8 *)pB, dim / CHAR_BIT);
 }
 
 static f32 distance_cosine_float(const void *pVect1v, const void *pVect2v,
