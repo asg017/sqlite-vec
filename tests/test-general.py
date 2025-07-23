@@ -13,12 +13,12 @@ def test_shadow(db, snapshot):
     )
     assert exec(db, "select * from sqlite_master order by name") == snapshot()
     assert (
-        exec(db, "select * from pragma_table_list where type = 'shadow'") == snapshot()
+        exec(db, "select * from pragma_table_list where type = 'shadow' order by name") == snapshot()
     )
 
     db.execute("drop table v;")
     assert (
-        exec(db, "select * from pragma_table_list where type = 'shadow'") == snapshot()
+        exec(db, "select * from pragma_table_list where type = 'shadow' order by name") == snapshot()
     )
 
 

@@ -177,7 +177,7 @@
 # ---
 # name: test_shadow.2
   OrderedDict({
-    'sql': "select * from pragma_table_list where type = 'shadow'",
+    'sql': "select * from pragma_table_list where type = 'shadow' order by name",
     'rows': list([
     ]),
   })
