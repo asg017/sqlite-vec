@@ -72,6 +72,50 @@ jobs:
         with:
           name: sqlite-vec-windows-x86_64-extension
           path: dist/*
+  build-windows-x86-extension:
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        arch: amd64_x86
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: ./scripts/vendor.sh
+        shell: bash
+      - run: make sqlite-vec.h
+      - run: mkdir dist
+      - run: cl.exe /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c -o dist/vec0.dll
+      - run: uv sync --directory tests
+      - run: make test-loadable python=./tests/.venv/Scripts/python.exe
+        shell: bash
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-windows-x86_64-extension
+          path: dist/*
+  build-windows-arm64x-extension:
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        arch: amd64_arm64
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: ./scripts/vendor.sh
+        shell: bash
+      - run: make sqlite-vec.h
+      - run: mkdir dist
+      - run: cl.exe /c /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c -o vec0-arm64.obj
+      - run: cl.exe /c /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c /arm64EC -o vec0-arm64ec.obj
+      - run: link.exe /dll /machine:arm64x /out:dist/vec0.dll vec0-arm64.obj vec0-arm64ec.obj
+      - run: uv sync --directory tests
+      - run: make test-loadable python=./tests/.venv/Scripts/python.exe
+        shell: bash
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-windows-x86_64-extension
+          path: dist/*
   build-linux-aarch64-extension:
     runs-on: ubuntu-latest
     steps:
