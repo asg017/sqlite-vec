@@ -77,7 +77,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
-        arch: amd64_x86
+        with:
+          arch: amd64_x86
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
@@ -98,7 +99,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
-        arch: amd64_arm64
+        with:
+          arch: amd64_arm64
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
