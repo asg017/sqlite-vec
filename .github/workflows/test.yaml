@@ -108,8 +108,8 @@ jobs:
         shell: bash
       - run: make sqlite-vec.h
       - run: mkdir dist
-      - run: cl.exe /c /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c -o vec0-arm64.obj
-      - run: cl.exe /c /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c /arm64EC -o vec0-arm64ec.obj
+      - run: cl.exe /c /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c /Fovec0-arm64.obj
+      - run: cl.exe /c /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c /arm64EC /Fovec0-arm64ec.obj
       - run: link.exe /dll /machine:arm64x /out:dist/vec0.dll vec0-arm64.obj vec0-arm64ec.obj
       - run: uv sync --directory tests
       - run: make test-loadable python=./tests/.venv/Scripts/python.exe
