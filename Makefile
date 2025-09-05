@@ -24,6 +24,9 @@ endif
 
 ifdef CONFIG_DARWIN
 LOADABLE_EXTENSION=dylib
+# Let unresolved SQLite symbols resolve against host at load time
+# This is standard for SQLite loadable extensions on macOS.
+CFLAGS += -undefined dynamic_lookup
 endif
 
 ifdef CONFIG_LINUX
@@ -192,6 +195,10 @@ test-loadable: loadable
 
 test-loadable-snapshot-update: loadable
 	$(PYTHON) -m pytest -vv tests/test-loadable.py --snapshot-update
+
+# Update snapshots for all loadable tests (use after intentional behavior changes)
+test-snapshots-update: loadable
+	$(PYTHON) -m pytest -vv tests/test-*.py --snapshot-update
 
 test-loadable-watch:
 	watchexec --exts c,py,Makefile --clear -- make test-loadable
