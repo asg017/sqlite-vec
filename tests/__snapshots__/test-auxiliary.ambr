@@ -1,0 +1,656 @@
+# serializer version: 1
+# name: test_constructor_limit[max 16 auxiliary columns]
+  dict({
+    'error': 'OperationalError',
+    'message': 'vec0 constructor error: More than 16 auxiliary columns were provided',
+  })
+# ---
+# name: test_deletes
+  OrderedDict({
+    'sql': 'select rowid, * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x00\x00\x80?',
+        'name': 'alex',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x00\x00\x00@',
+        'name': 'brian',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'\x00\x00@@',
+        'name': 'craig',
+      }),
+    ]),
+  })
+# ---
+# name: test_deletes.1
+  dict({
+    'v_auxiliary': OrderedDict({
+      'sql': 'select * from v_auxiliary',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'value00': 'alex',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'value00': 'brian',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'value00': 'craig',
+        }),
+      ]),
+    }),
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x00\x00\x80?\x00\x00\x00@\x00\x00@@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_deletes.2
+  OrderedDict({
+    'sql': 'delete from v where rowid = 1',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_deletes.3
+  OrderedDict({
+    'sql': 'select rowid, * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x00\x00\x00@',
+        'name': 'brian',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'\x00\x00@@',
+        'name': 'craig',
+      }),
+    ]),
+  })
+# ---
+# name: test_deletes.4
+  dict({
+    'v_auxiliary': OrderedDict({
+      'sql': 'select * from v_auxiliary',
+      'rows': list([
+        OrderedDict({
+          'rowid': 2,
+          'value00': 'brian',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'value00': 'craig',
+        }),
+      ]),
+    }),
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x06',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x00\x00\x80?\x00\x00\x00@\x00\x00@@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_knn
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x00\x00\x80?',
+        'name': 'alex',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x00\x00\x00@',
+        'name': 'brian',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'\x00\x00@@',
+        'name': 'craig',
+      }),
+    ]),
+  })
+# ---
+# name: test_knn[illegal KNN w/ aux]
+  dict({
+    'error': 'OperationalError',
+    'message': 'An illegal WHERE constraint was provided on a vec0 auxiliary column in a KNN query.',
+  })
+# ---
+# name: test_knn[legal KNN w/ aux]
+  OrderedDict({
+    'sql': "select *, distance from v where vector match '[5]' and k = 10",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'\x00\x00@@',
+        'name': 'craig',
+        'distance': 2.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x00\x00\x00@',
+        'name': 'brian',
+        'distance': 3.0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x00\x00\x80?',
+        'name': 'alex',
+        'distance': 4.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_normal.1
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'a': b'\x11\x11\x11\x11',
+        'name': 'alex',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'a': b'""""',
+        'name': 'brian',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'a': b'3333',
+        'name': 'craig',
+      }),
+    ]),
+  })
+# ---
+# name: test_normal.2
+  dict({
+    'v_auxiliary': OrderedDict({
+      'sql': 'select * from v_auxiliary',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'value00': 'alex',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'value00': 'brian',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'value00': 'craig',
+        }),
+      ]),
+    }),
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_normal[sqlite_master post drop]
+  OrderedDict({
+    'sql': 'select * from sqlite_master order by name',
+    'rows': list([
+      OrderedDict({
+        'type': 'table',
+        'name': 'sqlite_sequence',
+        'tbl_name': 'sqlite_sequence',
+        'rootpage': 5,
+        'sql': 'CREATE TABLE sqlite_sequence(name,seq)',
+      }),
+    ]),
+  })
+# ---
+# name: test_normal[sqlite_master]
+  OrderedDict({
+    'sql': 'select * from sqlite_master order by name',
+    'rows': list([
+      OrderedDict({
+        'type': 'index',
+        'name': 'sqlite_autoindex_v_info_1',
+        'tbl_name': 'v_info',
+        'rootpage': 3,
+        'sql': None,
+      }),
+      OrderedDict({
+        'type': 'index',
+        'name': 'sqlite_autoindex_v_vector_chunks00_1',
+        'tbl_name': 'v_vector_chunks00',
+        'rootpage': 8,
+        'sql': None,
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'sqlite_sequence',
+        'tbl_name': 'sqlite_sequence',
+        'rootpage': 5,
+        'sql': 'CREATE TABLE sqlite_sequence(name,seq)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v',
+        'tbl_name': 'v',
+        'rootpage': 0,
+        'sql': 'CREATE VIRTUAL TABLE v using vec0(a float[1], +name text, chunk_size=8)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_auxiliary',
+        'tbl_name': 'v_auxiliary',
+        'rootpage': 9,
+        'sql': 'CREATE TABLE "v_auxiliary"( rowid integer PRIMARY KEY , value00)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_chunks',
+        'tbl_name': 'v_chunks',
+        'rootpage': 4,
+        'sql': 'CREATE TABLE "v_chunks"(chunk_id INTEGER PRIMARY KEY AUTOINCREMENT,size INTEGER NOT NULL,validity BLOB NOT NULL,rowids BLOB NOT NULL)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_info',
+        'tbl_name': 'v_info',
+        'rootpage': 2,
+        'sql': 'CREATE TABLE "v_info" (key text primary key, value any)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_rowids',
+        'tbl_name': 'v_rowids',
+        'rootpage': 6,
+        'sql': 'CREATE TABLE "v_rowids"(rowid INTEGER PRIMARY KEY AUTOINCREMENT,id,chunk_id INTEGER,chunk_offset INTEGER)',
+      }),
+      OrderedDict({
+        'type': 'table',
+        'name': 'v_vector_chunks00',
+        'tbl_name': 'v_vector_chunks00',
+        'rootpage': 7,
+        'sql': 'CREATE TABLE "v_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)',
+      }),
+    ]),
+  })
+# ---
+# name: test_types
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_types.1
+  OrderedDict({
+    'sql': 'insert into v(vector, aux_int, aux_float, aux_text, aux_blob) values (?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_types.2
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'aux_int': 1,
+        'aux_float': 1.22,
+        'aux_text': 'text',
+        'aux_blob': b'blob',
+      }),
+    ]),
+  })
+# ---
+# name: test_types.3
+  dict({
+    'error': 'IntegrityError',
+    'message': 'Auxiliary column type mismatch: The auxiliary column aux_int has type INTEGER, but TEXT was provided.',
+  })
+# ---
+# name: test_types.4
+  dict({
+    'error': 'IntegrityError',
+    'message': 'Auxiliary column type mismatch: The auxiliary column aux_float has type FLOAT, but TEXT was provided.',
+  })
+# ---
+# name: test_types.5
+  dict({
+    'error': 'IntegrityError',
+    'message': 'Auxiliary column type mismatch: The auxiliary column aux_text has type TEXT, but INTEGER was provided.',
+  })
+# ---
+# name: test_types.6
+  dict({
+    'error': 'IntegrityError',
+    'message': 'Auxiliary column type mismatch: The auxiliary column aux_blob has type BLOB, but INTEGER was provided.',
+  })
+# ---
+# name: test_types.7
+  OrderedDict({
+    'sql': 'insert into v(vector, aux_int, aux_float, aux_text, aux_blob) values (?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_types.8
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'aux_int': 1,
+        'aux_float': 1.22,
+        'aux_text': 'text',
+        'aux_blob': b'blob',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x11\x11\x11\x11',
+        'aux_int': None,
+        'aux_float': None,
+        'aux_text': None,
+        'aux_blob': None,
+      }),
+    ]),
+  })
+# ---
+# name: test_updates
+  OrderedDict({
+    'sql': 'select rowid, * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x00\x00\x80?',
+        'name': 'alex',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x00\x00\x00@',
+        'name': 'brian',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'\x00\x00@@',
+        'name': 'craig',
+      }),
+    ]),
+  })
+# ---
+# name: test_updates.1
+  dict({
+    'v_auxiliary': OrderedDict({
+      'sql': 'select * from v_auxiliary',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'value00': 'alex',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'value00': 'brian',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'value00': 'craig',
+        }),
+      ]),
+    }),
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x00\x00\x80?\x00\x00\x00@\x00\x00@@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
+# name: test_updates.2
+  OrderedDict({
+    'sql': "update v set name = 'ALEX' where rowid = 1",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_updates.3
+  OrderedDict({
+    'sql': 'select rowid, * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x00\x00\x80?',
+        'name': 'ALEX',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x00\x00\x00@',
+        'name': 'brian',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'\x00\x00@@',
+        'name': 'craig',
+      }),
+    ]),
+  })
+# ---
+# name: test_updates.4
+  dict({
+    'v_auxiliary': OrderedDict({
+      'sql': 'select * from v_auxiliary',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'value00': 'ALEX',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'value00': 'brian',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'value00': 'craig',
+        }),
+      ]),
+    }),
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x00\x00\x80?\x00\x00\x00@\x00\x00@@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---

@@ -14,22 +14,38 @@ The crate embeds the `sqlite-vec` C source code, and uses the
 
 The `sqlite-vec` crate exposes a single function `sqlite3_vec_init`, which is
 the C entrypoint for the SQLite extension. You can "register" with your Rust
-SQLite library's `sqlite3_auto_extension()` function. Here's an example with
-`rusqlite`:
+SQLite library's `sqlite3_auto_extension()` function.
+
+This example registers sqlite-vec using [rusqlite](https://docs.rs/rusqlite/0.32.1/rusqlite/). First, enable the `"bundled"` feature in your Cargo file entry for rusqlite:
+
+```diff
+# Cargo.toml
+[dependencies]
++ rusqlite = { version = "VERSION", features = ["bundled"] }
+```
+
+Then, you can verify your installation was successful by embedding your first vector. This example uses [zerocopy](https://docs.rs/zerocopy/latest/zerocopy/) to efficiently pass the vector as bytes, and prints the resulting vector and library version as Strings:
 
 ```rs
 use sqlite_vec::sqlite3_vec_init;
 use rusqlite::{ffi::sqlite3_auto_extension, Result};
+use zerocopy::AsBytes;
 
 fn main()-> Result<()> {
     unsafe {
         sqlite3_auto_extension(Some(std::mem::transmute(sqlite3_vec_init as *const ())));
     }
-    // future database connection will now automatically include sqlite-vec functions!
-    let db = Connection::open_in_memory()?;
-    let vec_version: String = db.query_row("select vec_version()", &[v.as_bytes()], |x| x.get(0)?)?;
 
-    println!("vec_version={vec_version}");
+    let db = Connection::open_in_memory()?;
+    let v: Vec<f32> = vec![0.1, 0.2, 0.3];
+
+    let (vec_version, embedding): (String, String) = db.query_row(
+        "select  vec_version(), vec_to_json(?)",
+        &[v.as_bytes()],
+        |x| Ok((x.get(0)?, x.get(1)?)),
+    )?;
+
+    println!("vec_version={vec_version}, embedding={embedding}");
     Ok(())
 }
 ```

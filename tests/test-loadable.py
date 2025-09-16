@@ -81,7 +81,7 @@ def connect(ext, path=":memory:", extra_entrypoint=None):
 db = connect(EXT_PATH)
 
 
-def explain_query_plan(sql):
+def explain_query_plan(sql, db=db):
     return db.execute("explain query plan " + sql).fetchone()["detail"]
 
 
@@ -1022,6 +1022,7 @@ def test_vec0_drops():
     ] == [
         "t1",
         "t1_chunks",
+        "t1_info",
         "t1_rowids",
         "t1_vector_chunks00",
         "t1_vector_chunks01",
@@ -1497,6 +1498,13 @@ def test_vec0_text_pk():
     ]
 
     if SUPPORTS_VTAB_IN:
+        assert re.match(
+            ("SCAN (TABLE )?t VIRTUAL TABLE INDEX 0:3{___}___\[___"),
+            explain_query_plan(
+                "select t_id, distance from t where aaa match '' and k = 3 and t_id in ('t_2', 't_3')",
+                db=db,
+            ),
+        )
         assert execute_all(
             db,
             "select t_id, distance from t where aaa match ? and k = 3 and t_id in ('t_2', 't_3')",
@@ -1605,6 +1613,9 @@ def test_vec_each():
         {"rowid": 1, "value": 2.0},
         {"rowid": 2, "value": 3.0},
     ]
+
+    with _raises("Input must have type BLOB (compact format) or TEXT (JSON), found NULL"):
+      vec_each_f32(None)
 
 
 import io
@@ -1939,20 +1950,6 @@ def test_vec0_create_errors():
         db.execute("create virtual table t1 using vec0(a float[1])")
     db.set_authorizer(None)
 
-    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_INSERT, "t1_chunks"))
-    with _raises(
-        "Could not create create an initial chunk",
-    ):
-        db.execute("create virtual table t1 using vec0(a float[1])")
-    db.set_authorizer(None)
-
-    db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_INSERT, "t1_vector_chunks00"))
-    with _raises(
-        "Could not create create an initial chunk",
-    ):
-        db.execute("create virtual table t1 using vec0(a float[1])")
-    db.set_authorizer(None)
-
     # EVIDENCE-OF: V21406_05476 vec0 init raises error on 'latest chunk' init error
     db.execute("BEGIN")
     db.set_authorizer(authorizer_deny_on(sqlite3.SQLITE_READ, "t1_chunks", ""))
@@ -2224,6 +2221,9 @@ def test_smoke():
             "name": "vec_xyz_chunks",
         },
         {
+            "name": "vec_xyz_info",
+        },
+        {
             "name": "vec_xyz_rowids",
         },
         {
@@ -2231,32 +2231,34 @@ def test_smoke():
         },
     ]
     chunk = db.execute("select * from vec_xyz_chunks").fetchone()
-    assert chunk["chunk_id"] == 1
-    assert chunk["validity"] == bytearray(int(1024 / 8))
-    assert chunk["rowids"] == bytearray(int(1024 * 8))
-    vchunk = db.execute("select * from vec_xyz_vector_chunks00").fetchone()
-    assert vchunk["rowid"] == 1
-    assert vchunk["vectors"] == bytearray(int(1024 * 4 * 2))
+    # as of TODO, no initial row is inside the chunks table
+    assert chunk is None
+    # assert chunk["chunk_id"] == 1
+    # assert chunk["validity"] == bytearray(int(1024 / 8))
+    # assert chunk["rowids"] == bytearray(int(1024 * 8))
+    # vchunk = db.execute("select * from vec_xyz_vector_chunks00").fetchone()
+    # assert vchunk["rowid"] == 1
+    # assert vchunk["vectors"] == bytearray(int(1024 * 4 * 2))
 
     assert re.match(
-        "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 0:knn:",
+        "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 0:3{___}___",
         explain_query_plan(
             "select * from vec_xyz where a match X'' and k = 10 order by distance"
         ),
     )
     if SUPPORTS_VTAB_LIMIT:
         assert re.match(
-            "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 0:knn:",
+            "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 0:3{___}___",
             explain_query_plan(
                 "select * from vec_xyz where a match X'' order by distance limit 10"
             ),
         )
     assert re.match(
-        "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 0:fullscan",
+        "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 0:1",
         explain_query_plan("select * from vec_xyz"),
     )
     assert re.match(
-        "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 3:point",
+        "SCAN (TABLE )?vec_xyz VIRTUAL TABLE INDEX 3:2",
         explain_query_plan("select * from vec_xyz where rowid = 4"),
     )
 

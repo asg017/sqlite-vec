@@ -16,7 +16,7 @@ jobs:
           name: sqlite-vec-linux-x86_64-extension
           path: dist/*
   build-macos-x86_64-extension:
-    runs-on: macos-12
+    runs-on: macos-13
     steps:
       - uses: actions/checkout@v4
       - run: ./scripts/vendor.sh
@@ -50,10 +50,21 @@ jobs:
       - run: make sqlite-vec.h
       - run: mkdir dist
       - run: cl.exe /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c -o dist/vec0.dll
-      - run: pip install pytest numpy; make test-loadable
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-windows-x86_64-extension
+          path: dist/*
+  build-linux-aarch64-extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get install gcc-aarch64-linux-gnu
+      - run: ./scripts/vendor.sh
+      - run: make sqlite-vec.h
+      - run: make CC=aarch64-linux-gnu-gcc loadable static
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-linux-aarch64-extension
           path: dist/*
   build-cosmopolitan:
     runs-on: macos-latest
@@ -192,6 +203,10 @@ jobs:
           path: dist/linux-x86_64
       - uses: actions/download-artifact@v4
         with:
+          name: sqlite-vec-linux-aarch64-extension
+          path: dist/linux-aarch64
+      - uses: actions/download-artifact@v4
+        with:
           name: sqlite-vec-macos-x86_64-extension
           path: dist/macos-x86_64
       - uses: actions/download-artifact@v4
@@ -224,10 +239,6 @@ jobs:
           path: dist/android-armv7a
       - uses: actions/download-artifact@v4
         with:
-          name: sqlite-vec-android-armv7a-extension
-          path: dist/android-armv7a
-      - uses: actions/download-artifact@v4
-        with:
           name: sqlite-vec-ios-aarch64-extension
           path: dist/ios-aarch64
       - uses: actions/download-artifact@v4
@@ -239,7 +250,7 @@ jobs:
           name: sqlite-vec-iossimulator-x86_64-extension
           path: dist/iossimulator-x86_64
       - run: |
-          curl -L https://github.com/asg017/sqlite-dist/releases/download/v0.0.1-alpha.16/sqlite-dist-x86_64-unknown-linux-gnu.tar.xz \
+          curl -L https://github.com/asg017/sqlite-dist/releases/download/v0.0.1-alpha.17/sqlite-dist-x86_64-unknown-linux-gnu.tar.xz \
             | tar xfJ - --strip-components 1
       - run: make sqlite-vec.h
       - run: ./sqlite-dist ./sqlite-dist.toml --input dist/ --output distx/ --version $(cat VERSION)
@@ -263,6 +274,7 @@ jobs:
           npm publish --access public distx/npm/sqlite-vec-darwin-arm64.tar.gz
           npm publish --access public distx/npm/sqlite-vec-darwin-x64.tar.gz
           npm publish --access public distx/npm/sqlite-vec-linux-x64.tar.gz
+          npm publish --access public distx/npm/sqlite-vec-linux-arm64.tar.gz
           npm publish --access public distx/npm/sqlite-vec-windows-x64.tar.gz
           npm publish --access public distx/npm/sqlite-vec-wasm-demo.tar.gz
           npm publish --access public distx/npm/sqlite-vec.tar.gz

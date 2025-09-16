@@ -45,6 +45,16 @@ const sponsors = computed(() => {
         },
       ],
     },
+    {
+      size: "medium",
+      items: [
+        {
+          name: "Dcnvm Spark",
+          url: "https://shinkai.com",
+          img: withBase("/shinkai.dark.svg"),
+        },
+      ],
+    },
   ];
 });
 </script>

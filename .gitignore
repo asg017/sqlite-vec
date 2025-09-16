@@ -26,4 +26,8 @@ sqlite-vec.h
 tmp/
 
 poetry.lock
-pyproject.toml
+
+*.jsonl
+
+memstat.c
+memstat.*

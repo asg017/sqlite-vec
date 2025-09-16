@@ -153,6 +153,9 @@ sqlite-vec.h: sqlite-vec.h.tmpl VERSION
 	VERSION=$(shell cat VERSION) \
 	DATE=$(shell date -r VERSION +'%FT%TZ%z') \
 	SOURCE=$(shell git log -n 1 --pretty=format:%H -- VERSION) \
+	VERSION_MAJOR=$$(echo $$VERSION | cut -d. -f1) \
+	VERSION_MINOR=$$(echo $$VERSION | cut -d. -f2) \
+	VERSION_PATCH=$$(echo $$VERSION | cut -d. -f3 | cut -d- -f1) \
 	envsubst < $< > $@
 
 clean:
@@ -185,13 +188,16 @@ publish-release:
 
 # -k test_vec0_update
 test-loadable: loadable
-	$(PYTHON) -m pytest -vv -s -x tests/test-loadable.py
+	$(PYTHON) -m pytest -vv -s -x tests/test-*.py
 
 test-loadable-snapshot-update: loadable
 	$(PYTHON) -m pytest -vv tests/test-loadable.py --snapshot-update
 
 test-loadable-watch:
-	watchexec -w sqlite-vec.c -w tests/test-loadable.py -w Makefile --clear -- make test-loadable
+	watchexec --exts c,py,Makefile --clear -- make test-loadable
+
+test-unit:
+	$(CC) tests/test-unit.c sqlite-vec.c -I./ -Ivendor -o $(prefix)/test-unit && $(prefix)/test-unit
 
 site-dev:
 	npm --prefix site run dev

@@ -40,7 +40,7 @@ for a more complete Python demo.
 
 If your vectors in Python are provided as a list of floats, you can
 convert them into the compact BLOB format that `sqlite-vec` uses with
-`serialize_float32()`. This will internally call [`struct.pack()`](https://docs.python.org/3/library/struct.html#struct.pack).
+`serialize_float32()`. This internally calls [`struct.pack()`](https://docs.python.org/3/library/struct.html#struct.pack).
 
 ```python
 from sqlite_vec import serialize_float32

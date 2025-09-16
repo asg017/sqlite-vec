@@ -58,12 +58,12 @@ There's also an `install.sh` script that will automatically download the appropr
 
 ```sh
 # yolo
-curl -L https://github.com/asg017/sqlite-vec/releases/download/latest/install.sh | sh
+curl -L 'https://github.com/asg017/sqlite-vec/releases/latest/download/install.sh' | sh
 ```
 
 ```sh
 # ok lets play it safe
-curl -o install.sh -L https://github.com/asg017/sqlite-vec/releases/download/latest/install.sh
+curl -o install.sh -L https://github.com/asg017/sqlite-vec/releases/latest/download/install.sh
 # inspect your scripts
 cat install.sh
 # TODO Test if execute permissions?
