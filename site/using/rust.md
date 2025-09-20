@@ -29,9 +29,9 @@ Then, you can verify your installation was successful by embedding your first ve
 ```rs
 use sqlite_vec::sqlite3_vec_init;
 use rusqlite::{ffi::sqlite3_auto_extension, Result};
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
-fn main()-> Result<()> {
+fn main() -> Result<()> {
     unsafe {
         sqlite3_auto_extension(Some(std::mem::transmute(sqlite3_vec_init as *const ())));
     }
@@ -40,7 +40,7 @@ fn main()-> Result<()> {
     let v: Vec<f32> = vec![0.1, 0.2, 0.3];
 
     let (vec_version, embedding): (String, String) = db.query_row(
-        "select  vec_version(), vec_to_json(?)",
+        "SELECT vec_version(), vec_to_json(?)",
         &[v.as_bytes()],
         |x| Ok((x.get(0)?, x.get(1)?)),
     )?;
@@ -56,10 +56,11 @@ for a more complete Rust demo.
 
 ## Working with vectors in Rust
 
-If your vectors are provided as a `Vec<f32>` type, the [`zerocopy` crate](https://crates.io/crates/zerocopy) is recommended, specifically `zerocopy::AsBytes`.  This will allow you to pass in vectors into `sqlite-vec` without any copying.
+If your vectors are provided as a `Vec<f32>` type, the [`zerocopy` crate](https://crates.io/crates/zerocopy) is recommended, specifically `zerocopy::IntoBytes::as_bytes()`.  This will allow you to pass in vectors into `sqlite-vec` without any copying.
 
 ```rs
 let query: Vec<f32> = vec![0.1, 0.2, 0.3, 0.4];
 let mut stmt = db.prepare("SELECT vec_length(?)")?;
-stmt.execute(&[item.1.as_bytes()])?;
+let len: usize = stmt.query_one(&[query.as_bytes()], |row| row.get(0))?;
+println!("length={}", len);
 ```
