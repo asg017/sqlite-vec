@@ -2,7 +2,7 @@ defmodule SqliteVec.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/joelpaulkoch/sqlite_vec"
-  @version "0.1.0"
+  @version File.read!("VERSION")
 
   def project do
     [
@@ -11,6 +11,19 @@ defmodule SqliteVec.MixProject do
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      compilers: [:elixir_make] ++ Mix.compilers(),
+      make_targets: ["loadable"],
+      make_makefile: "Makefile",
+      make_env: fn ->
+        prefix =
+          Path.join([
+            System.get_env("MIX_APP_PATH", ""),
+            "priv",
+            System.get_env("MIX_TARGET", "")
+          ])
+
+        %{"PREFIX" => prefix}
+      end,
       name: "SqliteVec",
       package: package(),
       docs: docs(),
@@ -22,6 +35,7 @@ defmodule SqliteVec.MixProject do
 
   defp deps do
     [
+      {:elixir_make, "~> 0.9.0", runtime: false},
       {:ecto, "~> 3.0", optional: true},
       {:nx, "~> 0.9", optional: true},
       {:ecto_sql, "~> 3.0", only: :test},
