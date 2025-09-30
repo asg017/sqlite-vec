@@ -11,9 +11,6 @@ defmodule SqliteVec.MixProject do
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      preferred_cli_env: [
-        "test.watch": :test
-      ],
       name: "SqliteVec",
       package: package(),
       docs: docs(),
@@ -31,9 +28,7 @@ defmodule SqliteVec.MixProject do
       {:ecto_sqlite3, "~> 0.17", only: :test},
       {:stream_data, "~> 1.0", only: :test},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
-      {:mix_test_watch, "~> 1.0", only: [:dev, :test], runtime: false},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:doctest_formatter, "~> 0.3.1", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 
