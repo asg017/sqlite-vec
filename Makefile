@@ -63,14 +63,17 @@ else
 RENAME_WHEELS_ARGS=
 endif
 
-prefix=dist
-$(prefix):
-	mkdir -p $(prefix)
+ifndef PREFIX
+PREFIX=dist
+endif
 
-TARGET_LOADABLE=$(prefix)/vec0.$(LOADABLE_EXTENSION)
-TARGET_STATIC=$(prefix)/libsqlite_vec0.a
-TARGET_STATIC_H=$(prefix)/sqlite-vec.h
-TARGET_CLI=$(prefix)/sqlite3
+$(PREFIX):
+	mkdir -p $(PREFIX)
+
+TARGET_LOADABLE=$(PREFIX)/vec0.$(LOADABLE_EXTENSION)
+TARGET_STATIC=$(PREFIX)/libsqlite_vec0.a
+TARGET_STATIC_H=$(PREFIX)/sqlite-vec.h
+TARGET_CLI=$(PREFIX)/sqlite3
 
 loadable: $(TARGET_LOADABLE)
 static: $(TARGET_STATIC)
@@ -78,21 +81,21 @@ cli: $(TARGET_CLI)
 
 all: loadable static cli
 
-OBJS_DIR=$(prefix)/.objs
-LIBS_DIR=$(prefix)/.libs
-BUILD_DIR=$(prefix)/.build
+OBJS_DIR=$(PREFIX)/.objs
+LIBS_DIR=$(PREFIX)/.libs
+BUILD_DIR=$(PREFIX)/.build
 
-$(OBJS_DIR): $(prefix)
+$(OBJS_DIR): $(PREFIX)
 	mkdir -p $@
 
-$(LIBS_DIR): $(prefix)
+$(LIBS_DIR): $(PREFIX)
 	mkdir -p $@
 
-$(BUILD_DIR): $(prefix)
+$(BUILD_DIR): $(PREFIX)
 	mkdir -p $@
 
 
-$(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(prefix)
+$(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(PREFIX)
 	$(CC) \
 		-fPIC -shared \
 		-Wall -Wextra \
@@ -101,12 +104,12 @@ $(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(prefix)
 		$(CFLAGS) \
 		$< -o $@
 
-$(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(prefix) $(OBJS_DIR)
+$(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(PREFIX) $(OBJS_DIR)
 	$(CC) -Ivendor/ $(CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
 	-O3 -c  $< -o $(OBJS_DIR)/vec.o
 	$(AR) rcs $@ $(OBJS_DIR)/vec.o
 
-$(TARGET_STATIC_H): sqlite-vec.h $(prefix)
+$(TARGET_STATIC_H): sqlite-vec.h $(PREFIX)
 	cp $< $@
 
 
@@ -136,7 +139,7 @@ $(LIBS_DIR)/sqlite-vec.a: $(OBJS_DIR)/sqlite-vec.o $(LIBS_DIR)
 	$(AR) rcs $@ $<
 
 
-$(TARGET_CLI): sqlite-vec.h $(LIBS_DIR)/sqlite-vec.a $(LIBS_DIR)/shell.a $(LIBS_DIR)/sqlite3.a examples/sqlite3-cli/core_init.c $(prefix)
+$(TARGET_CLI): sqlite-vec.h $(LIBS_DIR)/sqlite-vec.a $(LIBS_DIR)/shell.a $(LIBS_DIR)/sqlite3.a examples/sqlite3-cli/core_init.c $(PREFIX)
 	$(CC) -g3  \
 	-Ivendor/ -I./ \
 	-DSQLITE_CORE \
@@ -197,13 +200,13 @@ test-loadable-watch:
 	watchexec --exts c,py,Makefile --clear -- make test-loadable
 
 test-unit:
-	$(CC) tests/test-unit.c sqlite-vec.c -I./ -Ivendor -o $(prefix)/test-unit && $(prefix)/test-unit
+	$(CC) tests/test-unit.c sqlite-vec.c -I./ -Ivendor -o $(PREFIX)/test-unit && $(PREFIX)/test-unit
 
 site-dev:
-	npm --prefix site run dev
+	npm --PREFIX site run dev
 
 site-build:
-	npm --prefix site run build
+	npm --PREFIX site run build
 
 install:
 	install -d $(INSTALL_LIB_DIR)
@@ -229,9 +232,9 @@ uninstall:
 
 # ███████████████████████████████ WASM SECTION ███████████████████████████████
 
-WASM_DIR=$(prefix)/.wasm
+WASM_DIR=$(PREFIX)/.wasm
 
-$(WASM_DIR): $(prefix)
+$(WASM_DIR): $(PREFIX)
 	mkdir -p $@
 
 SQLITE_WASM_VERSION=3450300
