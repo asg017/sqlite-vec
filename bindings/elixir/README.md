@@ -5,7 +5,7 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/joelpaulkoch/sqlite_vec/ci.yml?label=Build%20Status&style=for-the-badge&branch=main)](https://github.com/joelpaulkoch/sqlite_vec/actions)
 
 A wrapper to use [sqlite-vec](https://github.com/asg017/sqlite-vec), a SQLite extension for working with vectors, in Elixir.
-The configured version of the precompiled loadable library will be downloaded from the GitHub releases.
+Builds the loadable library using `elixir_make`.
 Moreover, this package provides structs and custom Ecto types for working with Float32, Int8, and Bit vectors.
 
 ## Limitations
@@ -26,7 +26,7 @@ end
 
 ## Getting Started
 
-`SqliteVec.path/0` returns the path of the downloaded library.
+`SqliteVec.path/0` returns the path of the loadable library.
 Therefore, you can load the extension using this path.
 
 For instance with `Exqlite`:
@@ -55,6 +55,5 @@ You can check out the [Getting Started](notebooks/getting_started.livemd) and [U
 
 Special thanks to these projects that helped to make this package:
 
-- [OctoFetch](https://hexdocs.pm/octo_fetch/readme.html) which does all the work for downloading the GitHub releases, and served as a blueprint for this package (yes, including this Attribution section :) )
 - [sqlite-vec](https://github.com/asg017/sqlite-vec), of course, which provides all of the functionality
 - [pgvector](https://hexdocs.pm/pgvector/readme.html) provides something similar for postgres and quite some code could be reused
