@@ -53,7 +53,8 @@ defmodule SqliteVec.MixProject do
       links: %{
         GitHub: "https://github.com/joelpaulkoch/sqlite_vec"
       },
-      files: ~w(lib priv/.gitkeep .formatter.exs mix.exs README.md LICENSE)
+      files:
+        ~w(lib .formatter.exs mix.exs README.md LICENSE VERSION Makefile sqlite-vec.c sqlite-vec.h.tmpl)
     ]
   end
 
