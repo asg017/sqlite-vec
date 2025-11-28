@@ -144,6 +144,26 @@ def test_knn(db, snapshot):
     ) == snapshot(name="illegal KNN w/ aux")
 
 
+def test_vacuum(db, snapshot):
+    db.execute(
+        "create virtual table v using vec0(vector float[1], +name text)"
+    )
+    db.executemany(
+        "insert into v(vector, name) values (?, ?)",
+        [("[1]", "alex"), ("[2]", "brian"), ("[3]", "craig")],
+    )
+
+    exec(db, "delete from v where 1 = 1")
+    prev_page_count = exec(db, "pragma page_count")["rows"][0]["page_count"]
+
+    db.execute("insert into v(v) values ('optimize')")
+    db.commit()
+    db.execute("vacuum")
+
+    cur_page_count = exec(db, "pragma page_count")["rows"][0]["page_count"]
+    assert cur_page_count < prev_page_count
+
+
 def exec(db, sql, parameters=[]):
     try:
         rows = db.execute(sql, parameters).fetchall()
