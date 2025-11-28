@@ -7,6 +7,7 @@ sift/
 *.bin
 *.out
 venv/
+.venv
 
 vendor/
 dist/

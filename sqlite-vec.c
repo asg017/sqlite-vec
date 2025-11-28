@@ -8471,6 +8471,101 @@ cleanup:
   return rc;
 }
 
+// Clear the rowid slot in v_chunks.rowids for the given chunk/offset
+int vec0Update_Delete_ClearRowid(vec0_vtab *p, i64 chunk_id, i64 chunk_offset) {
+  int rc;
+  sqlite3_blob *blobChunksRowids = NULL;
+
+  rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowChunksName, "rowids",
+                         chunk_id, 1, &blobChunksRowids);
+  if (rc != SQLITE_OK) {
+    vtab_set_error(&p->base, "could not open rowids blob for %s.%s.%lld",
+                   p->schemaName, p->shadowChunksName, chunk_id);
+    return SQLITE_ERROR;
+  }
+
+  i64 expected = p->chunk_size * sizeof(i64);
+  i64 actual = sqlite3_blob_bytes(blobChunksRowids);
+  if (expected != actual) {
+    vtab_set_error(&p->base,
+                   VEC_INTERAL_ERROR
+                   "rowids blob size mismatch on %s.%s.%lld. Expected %lld, actual %lld",
+                   p->schemaName, p->shadowChunksName, chunk_id, expected, actual);
+    sqlite3_blob_close(blobChunksRowids);
+    return SQLITE_ERROR;
+  }
+
+  i64 zero = 0;
+  rc = sqlite3_blob_write(blobChunksRowids, &zero, sizeof(i64),
+                          chunk_offset * sizeof(i64));
+  int brc = sqlite3_blob_close(blobChunksRowids);
+  if (rc != SQLITE_OK) {
+    vtab_set_error(&p->base, "could not write rowids blob on %s.%s.%lld",
+                   p->schemaName, p->shadowChunksName, chunk_id);
+    return rc;
+  }
+  if (brc != SQLITE_OK) {
+    vtab_set_error(&p->base,
+                   "could not close rowids blob on %s.%s.%lld",
+                   p->schemaName, p->shadowChunksName, chunk_id);
+    return brc;
+  }
+  return SQLITE_OK;
+}
+
+// Clear the vector bytes for each vector column at the given chunk/offset
+int vec0Update_Delete_ClearVectors(vec0_vtab *p, i64 chunk_id, i64 chunk_offset) {
+  for (int i = 0; i < p->numVectorColumns; i++) {
+    int rc;
+    sqlite3_blob *blobVectors = NULL;
+
+    rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowVectorChunksNames[i],
+                           "vectors", chunk_id, 1, &blobVectors);
+    if (rc != SQLITE_OK) {
+      vtab_set_error(&p->base, "Could not open vectors blob for %s.%s.%lld",
+                     p->schemaName, p->shadowVectorChunksNames[i], chunk_id);
+      return rc;
+    }
+
+    i64 expected = p->chunk_size * vector_column_byte_size(p->vector_columns[i]);
+    i64 actual = sqlite3_blob_bytes(blobVectors);
+    if (expected != actual) {
+      vtab_set_error(&p->base,
+                     VEC_INTERAL_ERROR
+                     "vector blob size mismatch on %s.%s.%lld. Expected %lld, actual %lld",
+                     p->schemaName, p->shadowVectorChunksNames[i], chunk_id, expected, actual);
+      sqlite3_blob_close(blobVectors);
+      return SQLITE_ERROR;
+    }
+
+    size_t nbytes = vector_column_byte_size(p->vector_columns[i]);
+    void *zeros = sqlite3_malloc(nbytes);
+    if (!zeros) {
+      sqlite3_blob_close(blobVectors);
+      return SQLITE_NOMEM;
+    }
+    memset(zeros, 0, nbytes);
+    rc = vec0_write_vector_to_vector_blob(blobVectors, chunk_offset, zeros,
+                                          p->vector_columns[i].dimensions,
+                                          p->vector_columns[i].element_type);
+    sqlite3_free(zeros);
+
+    int brc = sqlite3_blob_close(blobVectors);
+    if (rc != SQLITE_OK) {
+      vtab_set_error(&p->base, "Could not write to vectors blob for %s.%s.%lld",
+                     p->schemaName, p->shadowVectorChunksNames[i], chunk_id);
+      return rc;
+    }
+    if (brc != SQLITE_OK) {
+      vtab_set_error(&p->base,
+                     "Could not commit blob transaction for vectors blob for %s.%s.%lld",
+                     p->schemaName, p->shadowVectorChunksNames[i], chunk_id);
+      return brc;
+    }
+  }
+  return SQLITE_OK;
+}
+
 int vec0Update_Delete_DeleteAux(vec0_vtab *p, i64 rowid) {
   int rc;
   sqlite3_stmt *stmt = NULL;
@@ -8611,9 +8706,17 @@ int vec0Update_Delete(sqlite3_vtab *pVTab, sqlite3_value *idValue) {
 
   // 3. zero out rowid in chunks.rowids
   // https://github.com/asg017/sqlite-vec/issues/54
+  rc = vec0Update_Delete_ClearRowid(p, chunk_id, chunk_offset);
+  if (rc != SQLITE_OK) {
+    return rc;
+  }
 
   // 4. zero out any data in vector chunks tables
   // https://github.com/asg017/sqlite-vec/issues/54
+  rc = vec0Update_Delete_ClearVectors(p, chunk_id, chunk_offset);
+  if (rc != SQLITE_OK) {
+    return rc;
+  }
 
   // 5. delete from _rowids table
   rc = vec0Update_Delete_DeleteRowids(p, rowid);
