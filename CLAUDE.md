@@ -4,13 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-`sqlite-vec` is a lightweight, fast vector search SQLite extension written in pure C with no dependencies. It's a pre-v1 project (current: v0.1.7-alpha.2) that provides vector similarity search capabilities for SQLite databases across all platforms where SQLite runs.
+> [!NOTE]
+> This is a community fork of [`asg017/sqlite-vec`](https://github.com/asg017/sqlite-vec) created to merge pending upstream PRs and provide continued support while the original author is unavailable.
+
+`sqlite-vec` is a lightweight, fast vector search SQLite extension written in pure C with no dependencies. It's a pre-v1 project (current: v0.2.0-alpha) that provides vector similarity search capabilities for SQLite databases across all platforms where SQLite runs.
 
 Key features:
 - Supports float, int8, and binary vector types via `vec0` virtual tables
 - Pure C implementation with optional SIMD optimizations (AVX on x86_64, NEON on ARM)
 - Multi-language bindings (Python, Node.js, Ruby, Go, Rust)
 - Runs anywhere: Linux/MacOS/Windows, WASM, embedded devices
+- Distance constraints for KNN queries (enables pagination and range queries)
+- Optimize command for space reclamation after deletes
+- ALTER TABLE RENAME support for vec0 tables
 
 ## Building and Testing
 
@@ -103,9 +109,30 @@ See ARCHITECTURE.md for detailed idxStr encoding and shadow table schemas.
 
 All bindings wrap the core C extension:
 
-- **Python** (`bindings/python/`): Minimal wrapper with helper functions in `extra_init.py` for vector serialization
-- **Go** (`bindings/go/`): Uses ncruces/go-sqlite3 pure Go implementation
-- **Rust** (`bindings/rust/`): Static linking via build.rs, exports `sqlite3_vec_init()`
+- **Go CGO** (`bindings/go/cgo/`): CGO-based bindings for mattn/go-sqlite3
+  - `Auto()` function to register extension via `sqlite3_auto_extension()`
+  - `SerializeFloat32()` and `SerializeInt8()` helper functions
+  - Requires CGO enabled and links libm (`-lm`)
+
+- **Python**: Installable via pip from GitHub
+  - Package configuration in `pyproject.toml` and `setup.py`
+  - Helper functions in `bindings/python/extra_init.py` for vector serialization
+  - Requires Python built with `--enable-loadable-sqlite-extensions`
+  - Recommend using `uv` for virtual environments (uses system Python with extension support)
+
+- **Node.js**: Installable via npm from GitHub
+  - Package configuration in `package.json`
+  - CJS (`index.cjs`) and ESM (`index.mjs`) entry points
+  - TypeScript definitions in `index.d.ts`
+
+- **Ruby**: Installable via gem from GitHub
+  - Gem specification in `sqlite-vec.gemspec`
+  - Extension configuration in `extconf.rb`
+  - Ruby library in `lib/sqlite_vec.rb`
+
+- **Rust** (`bindings/rust/`): Static linking via build.rs
+  - Crate configuration in `Cargo.toml`
+  - Exports `sqlite3_vec_init()` in `src/lib.rs`
 
 ### Documentation Site
 
@@ -127,16 +154,22 @@ Built with VitePress (Vue-based static site generator):
 
 ### Release Process
 
-1. Update `VERSION` file (format: `X.Y.Z` or `X.Y.Z-alpha.N`)
-2. Run `./scripts/publish-release.sh` - This:
-   - Commits version changes
-   - Creates git tag
-   - Pushes to origin
-   - Creates GitHub release (pre-release if alpha/beta)
+**For this fork:**
 
-CI/CD (`.github/workflows/release.yaml`) then builds and publishes:
-- Platform-specific extensions (Linux, macOS, Windows, Android, WASM)
-- Language-specific packages (PyPI, npm, crates.io, RubyGems)
+1. Update `VERSION` file (format: `X.Y.Z` or `X.Y.Z-alpha.N`)
+2. Update `CHANGELOG.md` with changes
+3. Commit changes with descriptive message
+4. Create and push git tag:
+   ```bash
+   git tag v0.X.Y-alpha
+   git push origin v0.X.Y-alpha
+   ```
+
+**Note:** This fork does not have CI/CD publishing to package registries (PyPI, npm, crates.io, RubyGems).
+Users install directly from GitHub using version tags.
+
+**Original release process (for reference only):**
+The original repository uses `./scripts/publish-release.sh` and CI/CD (`.github/workflows/release.yaml`) to build and publish platform-specific extensions and language packages.
 
 ### Working with Tests
 
@@ -168,3 +201,9 @@ Code uses preprocessor directives to select implementations. Distance calculatio
 - Tests must run from repository root (assumes `dist/vec0` exists)
 - All bindings depend on the core C extension being built first
 - Vector format: JSON arrays `'[1,2,3]'` or raw bytes via helper functions
+
+**Fork-specific notes:**
+- Version v0.2.0-alpha includes merged upstream PRs: #166 (distance constraints), #210 (optimize), #203 (ALTER TABLE RENAME), #212 (cosine distance for binary), #243 (delete memory leak fix), #228 (CI/CD updates)
+- See CHANGELOG.md for complete list of changes from original v0.1.7-alpha.2
+- Installation is via GitHub (git tags), not package registries
+- Python users should use `uv` for virtual environments to ensure loadable extension support

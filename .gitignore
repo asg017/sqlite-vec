@@ -1,4 +1,5 @@
 /target
+/Cargo.lock
 .vscode
 sift/
 *.tar.gz
@@ -14,6 +15,13 @@ dist/
 
 *.pyc
 *.db-journal
+build/
+*.egg-info/
+sqlite_vec.py
+sqlite_vec/
+vec0.so
+vec0.dylib
+vec0.dll
 
 alexandria/
 openai/
@@ -23,7 +31,6 @@ examples/dbpedia-openai
 examples/imdb
 examples/sotu
 
-sqlite-vec.h
 tmp/
 
 poetry.lock
