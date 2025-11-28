@@ -5355,11 +5355,21 @@ static int vec0Close(sqlite3_vtab_cursor *cur) {
 typedef enum  {
   // If any values are updated, please update the ARCHITECTURE.md docs accordingly!
 
+  // ~~~ KNN QUERIES ~~~ //
   VEC0_IDXSTR_KIND_KNN_MATCH = '{',
   VEC0_IDXSTR_KIND_KNN_K = '}',
   VEC0_IDXSTR_KIND_KNN_ROWID_IN = '[',
+  // argv[i] is a constraint on a PARTITON KEY column in a KNN query
+  // 
   VEC0_IDXSTR_KIND_KNN_PARTITON_CONSTRAINT = ']',
+
+  // argv[i] is a constraint on the distance column in a KNN query
+  VEC0_IDXSTR_KIND_KNN_DISTANCE_CONSTRAINT = '*',
+
+  // ~~~ POINT QUERIES ~~~ //
   VEC0_IDXSTR_KIND_POINT_ID = '!',
+
+  // ~~~ ??? ~~~ //
   VEC0_IDXSTR_KIND_METADATA_CONSTRAINT = '&',
 } vec0_idxstr_kind;
 
@@ -5368,11 +5378,22 @@ typedef enum  {
 typedef enum  {
   // If any values are updated, please update the ARCHITECTURE.md docs accordingly!
 
+  // Equality constraint on a PARTITON KEY column, ex `user_id = 123`
   VEC0_PARTITION_OPERATOR_EQ = 'a',
+  
+  // "Greater than" constraint on a PARTITON KEY column, ex `year > 2024`
   VEC0_PARTITION_OPERATOR_GT = 'b',
+  
+  // "Less than or equal to" constraint on a PARTITON KEY column, ex `year <= 2024`
   VEC0_PARTITION_OPERATOR_LE = 'c',
+
+  // "Less than" constraint on a PARTITON KEY column, ex `year < 2024`
   VEC0_PARTITION_OPERATOR_LT = 'd',
+  
+  // "Greater than or equal to" constraint on a PARTITON KEY column, ex `year >= 2024`
   VEC0_PARTITION_OPERATOR_GE = 'e',
+  
+  // "Not equal to" constraint on a PARTITON KEY column, ex `year != 2024`
   VEC0_PARTITION_OPERATOR_NE = 'f',
 } vec0_partition_operator;
 typedef enum  {
@@ -5384,6 +5405,15 @@ typedef enum  {
   VEC0_METADATA_OPERATOR_NE = 'f',
   VEC0_METADATA_OPERATOR_IN = 'g',
 } vec0_metadata_operator;
+
+
+typedef enum {
+
+  VEC0_DISTANCE_CONSTRAINT_GT = 'a',
+  VEC0_DISTANCE_CONSTRAINT_GE = 'b',
+  VEC0_DISTANCE_CONSTRAINT_LT = 'c',
+  VEC0_DISTANCE_CONSTRAINT_LE = 'd',
+} vec0_distance_constraint_operator;
 
 static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
   vec0_vtab *p = (vec0_vtab *)pVTab;
@@ -5544,6 +5574,7 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
     }
 #endif
 
+    // find any PARTITION KEY column constraints
     for (int i = 0; i < pIdxInfo->nConstraint; i++) {
       if (!pIdxInfo->aConstraint[i].usable)
         continue;
@@ -5598,6 +5629,7 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
 
     }
 
+    // find any metadata column constraints
     for (int i = 0; i < pIdxInfo->nConstraint; i++) {
       if (!pIdxInfo->aConstraint[i].usable)
         continue;
@@ -5694,6 +5726,58 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
 
     }
 
+    // find any distance column constraints
+    for (int i = 0; i < pIdxInfo->nConstraint; i++) {
+      if (!pIdxInfo->aConstraint[i].usable)
+        continue;
+
+      int iColumn = pIdxInfo->aConstraint[i].iColumn;
+      int op = pIdxInfo->aConstraint[i].op;
+      if(op == SQLITE_INDEX_CONSTRAINT_LIMIT || op == SQLITE_INDEX_CONSTRAINT_OFFSET) {
+        continue;
+      }
+      if(vec0_column_distance_idx(p) != iColumn) {
+        continue;
+      }
+
+      char value = 0;
+      switch(op) {
+        case SQLITE_INDEX_CONSTRAINT_GT: {
+          value = VEC0_DISTANCE_CONSTRAINT_GT;
+          break;
+        }
+        case SQLITE_INDEX_CONSTRAINT_GE: {
+          value = VEC0_DISTANCE_CONSTRAINT_GE;
+          break;
+        }
+        case SQLITE_INDEX_CONSTRAINT_LT: {
+          value = VEC0_DISTANCE_CONSTRAINT_LT;
+          break;
+        }
+        case SQLITE_INDEX_CONSTRAINT_LE: {
+          value = VEC0_DISTANCE_CONSTRAINT_LE;
+          break;
+        }
+        default: {
+          // IMP TODO
+          rc = SQLITE_ERROR;
+          vtab_set_error(
+            pVTab, 
+            "Illegal WHERE constraint on distance column in a KNN query. "
+            "Only one of GT, GE, LT, LE constraints are allowed."
+          );
+          goto done;
+        }
+      }
+
+      pIdxInfo->aConstraintUsage[i].argvIndex = argvIndex++;
+      pIdxInfo->aConstraintUsage[i].omit = 1;
+      sqlite3_str_appendchar(idxStr, 1, VEC0_IDXSTR_KIND_KNN_DISTANCE_CONSTRAINT);
+      sqlite3_str_appendchar(idxStr, 1, value);
+      sqlite3_str_appendchar(idxStr, 1, '_');
+      sqlite3_str_appendchar(idxStr, 1, '_');
+    }
+
 
 
     pIdxInfo->idxNum = iMatchVectorTerm;
@@ -5721,7 +5805,6 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
     goto done;
   }
   pIdxInfo->needToFreeIdxStr = 1;
-
 
   rc = SQLITE_OK;
 
@@ -6610,12 +6693,15 @@ int vec0Filter_knn_chunks_iter(vec0_vtab *p, sqlite3_stmt *stmtChunks,
   int numValueEntries = (idxStrLength-1) / 4;
   assert(numValueEntries == argc);
   int hasMetadataFilters = 0;
+  int hasDistanceConstraints = 0;
   for(int i = 0; i < argc; i++) {
     int idx = 1 + (i * 4);
     char kind = idxStr[idx + 0];
     if(kind == VEC0_IDXSTR_KIND_METADATA_CONSTRAINT) {
       hasMetadataFilters = 1;
-      break;
+    }
+    else if(kind == VEC0_IDXSTR_KIND_KNN_DISTANCE_CONSTRAINT) {
+      hasDistanceConstraints = 1;
     }
   }
 
@@ -6800,6 +6886,58 @@ int vec0Filter_knn_chunks_iter(vec0_vtab *p, sqlite3_stmt *stmtChunks,
       }
 
       chunk_distances[i] = result;
+    }
+
+    if(hasDistanceConstraints) {
+      for(int i = 0; i < argc; i++) {
+        int idx = 1 + (i * 4);
+        char kind = idxStr[idx + 0];
+        // Note: SQLite provides distance constraint values as f64 (double), but we
+        // cast to f32 (float) for comparison. This matches the precision of our
+        // internal distance calculations (which use f32) and avoids precision
+        // mismatches. May result in minor precision loss for very small differences.
+        f32 target = (f32) sqlite3_value_double(argv[i]);
+
+        if(kind != VEC0_IDXSTR_KIND_KNN_DISTANCE_CONSTRAINT)  {
+          continue;
+        }
+        vec0_distance_constraint_operator op = idxStr[idx + 1];
+
+        switch(op) {
+          case VEC0_DISTANCE_CONSTRAINT_GE: {
+            for(int j = 0; j < p->chunk_size; j++) {
+              if(bitmap_get(b, j) && !(chunk_distances[j] >= target)) {
+                bitmap_set(b, j, 0);
+              }
+            }
+            break;
+          }
+          case VEC0_DISTANCE_CONSTRAINT_GT: {
+            for(int j = 0; j < p->chunk_size; j++) {
+              if(bitmap_get(b, j) && !(chunk_distances[j] > target)) {
+                bitmap_set(b, j, 0);
+              }
+            }
+            break;
+          }
+          case VEC0_DISTANCE_CONSTRAINT_LE: {
+            for(int j = 0; j < p->chunk_size; j++) {
+              if(bitmap_get(b, j) && !(chunk_distances[j] <= target)) {
+                bitmap_set(b, j, 0);
+              }
+            }
+            break;
+          }
+          case VEC0_DISTANCE_CONSTRAINT_LT: {
+            for(int j = 0; j < p->chunk_size; j++) {
+              if(bitmap_get(b, j) && !(chunk_distances[j] < target)) {
+                bitmap_set(b, j, 0);
+              }
+            }
+            break;
+          }
+        }
+      }
     }
 
     int used1;
