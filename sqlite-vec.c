@@ -5410,6 +5410,7 @@ typedef enum  {
   VEC0_METADATA_OPERATOR_GE = 'e',
   VEC0_METADATA_OPERATOR_NE = 'f',
   VEC0_METADATA_OPERATOR_IN = 'g',
+  VEC0_METADATA_OPERATOR_LIKE = 'h',
 } vec0_metadata_operator;
 
 
@@ -5703,12 +5704,16 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
           value = VEC0_METADATA_OPERATOR_NE;
           break;
         }
+        case SQLITE_INDEX_CONSTRAINT_LIKE: {
+          value = VEC0_METADATA_OPERATOR_LIKE;
+          break;
+        }
         default: {
           // IMP: V16511_00582
           rc = SQLITE_ERROR;
           vtab_set_error(pVTab,
           "An illegal WHERE constraint was provided on a vec0 metadata column in a KNN query. "
-          "Only one of EQUALS, GREATER_THAN, LESS_THAN_OR_EQUAL, LESS_THAN, GREATER_THAN_OR_EQUAL, NOT_EQUALS is allowed."
+          "Only one of EQUALS, GREATER_THAN, LESS_THAN_OR_EQUAL, LESS_THAN, GREATER_THAN_OR_EQUAL, NOT_EQUALS, LIKE is allowed."
           );
           goto done;
         }
@@ -5719,6 +5724,14 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
           // IMP: V10145_26984
           rc = SQLITE_ERROR;
           vtab_set_error(pVTab, "ONLY EQUALS (=) or NOT_EQUALS (!=) operators are allowed on boolean metadata columns.");
+          goto done;
+        }
+      }
+
+      if(value == VEC0_METADATA_OPERATOR_LIKE) {
+        if(p->metadata_columns[metadata_idx].kind != VEC0_METADATA_COLUMN_KIND_TEXT) {
+          rc = SQLITE_ERROR;
+          vtab_set_error(pVTab, "LIKE operator is only allowed on TEXT metadata columns.");
           goto done;
         }
       }
@@ -6101,6 +6114,25 @@ struct Vec0MetadataInTextEntry {
   char * zString;
 };
 
+// Helper function to detect if a LIKE pattern is prefix-only (e.g., 'abc%')
+// Returns 1 if the pattern ends with '%' and has no wildcards in the middle
+// Returns 0 otherwise
+static int vec0_is_prefix_only_like_pattern(const char *pattern, int n) {
+  if (n == 0) return 0;
+
+  // Must end with '%'
+  if (pattern[n - 1] != '%') return 0;
+
+  // Check for wildcards in the prefix (before the trailing '%')
+  for (int i = 0; i < n - 1; i++) {
+    if (pattern[i] == '%' || pattern[i] == '_') {
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
 
 int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void * buffer, int size, vec0_metadata_operator op, u8* b, int metadata_idx, int chunk_rowid, struct Array * aMetadataIn, int argv_idx) {
   int rc;
@@ -6399,6 +6431,92 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
       break;
     }
 
+    case VEC0_METADATA_OPERATOR_LIKE: {
+      int is_prefix_only = vec0_is_prefix_only_like_pattern(sTarget, nTarget);
+
+      if (is_prefix_only) {
+        // Fast path: prefix-only pattern (e.g., 'abc%')
+        // Can use the 12-byte cache for optimization
+        int nPattern = nTarget - 1;  // Exclude trailing '%'
+
+        for(int i = 0; i < size; i++) {
+          view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
+          nPrefix = ((int*) view)[0];
+          sPrefix = (char *) &view[4];
+
+          // String must be at least as long as the pattern prefix
+          if(nPrefix < nPattern) {
+            bitmap_set(b, i, 0);
+            continue;
+          }
+
+          // Compare pattern prefix against cached prefix (case-insensitive)
+          int cmpLen = min(nPattern, VEC0_METADATA_TEXT_VIEW_DATA_LENGTH);
+          int cmpPrefix = sqlite3_strnicmp(sPrefix, sTarget, cmpLen);
+
+          // For short strings (fits in cache), prefix comparison is enough
+          if(nPrefix <= VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {
+            bitmap_set(b, i, cmpPrefix == 0);
+            continue;
+          }
+
+          // For long strings, if cached prefix doesn't match, reject early
+          if(cmpPrefix != 0) {
+            bitmap_set(b, i, 0);
+            continue;
+          }
+
+          // If pattern fits in cache, it matches
+          if(nPattern <= VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {
+            bitmap_set(b, i, 1);
+            continue;
+          }
+
+          // Pattern is longer than cache, need to check full string
+          rc = vec0_get_metadata_text_long_value(p, &stmt, metadata_idx, rowids[i], &nFull, &sFull);
+          if(rc != SQLITE_OK) {
+            goto done;
+          }
+          if(nPrefix != nFull) {
+            rc = SQLITE_ERROR;
+            goto done;
+          }
+
+          // Check if full string starts with pattern prefix (case-insensitive)
+          bitmap_set(b, i, sqlite3_strnicmp(sFull, sTarget, nPattern) == 0);
+        }
+      } else {
+        // Slow path: complex pattern (e.g., '%abc', 'a%b', etc.)
+        // Must fetch and check full string for each row
+        for(int i = 0; i < size; i++) {
+          view = &((u8*) buffer)[i * VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH];
+          nPrefix = ((int*) view)[0];
+          sPrefix = (char *) &view[4];
+
+          // For short strings, use cached value directly
+          if(nPrefix <= VEC0_METADATA_TEXT_VIEW_DATA_LENGTH) {
+            // sqlite3_strlike returns 0 on match, non-zero otherwise
+            bitmap_set(b, i, sqlite3_strlike(sTarget, sPrefix, 0) == 0);
+            continue;
+          }
+
+          // For long strings, fetch full value
+          rc = vec0_get_metadata_text_long_value(p, &stmt, metadata_idx, rowids[i], &nFull, &sFull);
+          if(rc != SQLITE_OK) {
+            goto done;
+          }
+          if(nPrefix != nFull) {
+            rc = SQLITE_ERROR;
+            goto done;
+          }
+
+          // Use SQLite's LIKE implementation
+          bitmap_set(b, i, sqlite3_strlike(sTarget, sFull, 0) == 0);
+        }
+      }
+      break;
+    }
+
   }
   rc = SQLITE_OK;
 
@@ -6536,6 +6654,10 @@ int vec0_set_metadata_filter_bitmap(
           }
           break;
         }
+        case VEC0_METADATA_OPERATOR_LIKE: {
+          // should never be reached (LIKE only applies to TEXT columns)
+          break;
+        }
       }
       break;
     }
@@ -6569,6 +6691,10 @@ int vec0_set_metadata_filter_bitmap(
         }
         case VEC0_METADATA_OPERATOR_IN: {
           // should never be reached
+          break;
+        }
+        case VEC0_METADATA_OPERATOR_LIKE: {
+          // should never be reached (LIKE only applies to TEXT columns)
           break;
         }
       }

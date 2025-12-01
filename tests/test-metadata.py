@@ -299,13 +299,249 @@ def test_knn(db, snapshot):
         [("[1]", "alex"), ("[2]", "brian"), ("[3]", "craig")],
     )
 
-    # EVIDENCE-OF: V16511_00582 catches "illegal" constraints on metadata columns
+    # LIKE is now supported on text metadata columns
     assert (
         exec(
             db,
-            "select *, distance from v where vector match '[5]' and k = 3 and name like 'illegal'",
+            "select *, distance from v where vector match '[5]' and k = 3 and name like 'a%'",
         )
         == snapshot()
+    )
+
+
+def test_like(db, snapshot):
+    """Test LIKE operator on text metadata columns with various patterns"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
+    )
+
+    # Insert test data with both short (≤12 bytes) and long (>12 bytes) strings
+    db.execute(
+        """
+      INSERT INTO v(vector, name) VALUES
+        ('[.11]', 'alice'),
+        ('[.22]', 'alex'),
+        ('[.33]', 'bob'),
+        ('[.44]', 'bobby'),
+        ('[.55]', 'carol'),
+        ('[.66]', 'this_is_a_very_long_string_name'),
+        ('[.77]', 'this_is_another_long_one'),
+        ('[.88]', 'yet_another_string'),
+        ('[.99]', 'zebra');
+    """
+    )
+
+    # Test prefix-only patterns (fast path)
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 5 and name like 'a%'",
+        )
+        == snapshot(name="prefix a%")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 5 and name like 'bob%'",
+        )
+        == snapshot(name="prefix bob%")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 5 and name like 'this_%'",
+        )
+        == snapshot(name="prefix this_% with long strings")
+    )
+
+    # Test complex patterns (slow path)
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 9 and name like '%ice'",
+        )
+        == snapshot(name="suffix %ice")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 9 and name like '%o%'",
+        )
+        == snapshot(name="contains %o%")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 9 and name like 'a_e_'",
+        )
+        == snapshot(name="wildcard pattern a_e_")
+    )
+
+    # Test edge cases
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 9 and name like '%'",
+        )
+        == snapshot(name="match all %")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 9 and name like 'nomatch%'",
+        )
+        == snapshot(name="no matches nomatch%")
+    )
+
+    # Test LIKE on non-TEXT metadata should error
+    db.execute(
+        "create virtual table v2 using vec0(vector float[1], age int)"
+    )
+    db.execute("insert into v2(vector, age) values ('[1]', 25)")
+
+    assert (
+        exec(
+            db,
+            "select * from v2 where vector match '[1]' and k = 1 and age like '2%'",
+        )
+        == snapshot(name="error: LIKE on integer column")
+    )
+
+
+def test_like_case_insensitive(db, snapshot):
+    """Test LIKE operator is case-insensitive (SQLite default)"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
+    )
+
+    # Insert test data with mixed case
+    db.execute(
+        """
+      INSERT INTO v(vector, name) VALUES
+        ('[.11]', 'Apple'),
+        ('[.22]', 'BANANA'),
+        ('[.33]', 'Cherry'),
+        ('[.44]', 'DURIAN_IS_LONG'),
+        ('[.55]', 'elderberry_is_very_long_string');
+    """
+    )
+
+    # Test case insensitivity with prefix patterns (fast path)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'apple%'",
+        )
+        == snapshot(name="lowercase pattern matches uppercase data")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'CHERRY%'",
+        )
+        == snapshot(name="uppercase pattern matches mixed case data")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'DuRiAn%'",
+        )
+        == snapshot(name="mixed case pattern matches uppercase data")
+    )
+
+    # Test case insensitivity with long strings
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'ELDERBERRY%'",
+        )
+        == snapshot(name="uppercase pattern matches long lowercase data")
+    )
+
+    # Test case insensitivity with complex patterns (slow path)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like '%APPLE%'",
+        )
+        == snapshot(name="complex pattern case insensitive")
+    )
+
+
+def test_like_boundary_conditions(db, snapshot):
+    """Test LIKE operator at 12-byte cache boundary"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
+    )
+
+    # Insert test data with specific lengths
+    # Exactly 12 bytes: fits in cache
+    # Exactly 13 bytes: first 12 bytes in cache, last byte requires full fetch
+    db.execute(
+        """
+      INSERT INTO v(vector, name) VALUES
+        ('[.11]', 'exactly_12ch'),
+        ('[.22]', 'exactly_13chr'),
+        ('[.33]', 'short'),
+        ('[.44]', 'this_is_14byte'),
+        ('[.55]', 'this_is_much_longer_than_12_bytes');
+    """
+    )
+
+    # Verify lengths
+    lengths = db.execute("select name, length(name) from v order by rowid").fetchall()
+    assert lengths[0][1] == 12, f"Expected 12 bytes, got {lengths[0][1]} for '{lengths[0][0]}'"
+    assert lengths[1][1] == 13, f"Expected 13 bytes, got {lengths[1][1]} for '{lengths[1][0]}'"
+
+    # Test prefix matching at exactly 12 bytes
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'exactly_12%'",
+        )
+        == snapshot(name="12-byte boundary: exact match")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'exactly%'",
+        )
+        == snapshot(name="12-byte boundary: prefix matches both 12 and 13 byte strings")
+    )
+
+    # Test pattern that is exactly 12 bytes (excluding %)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'exactly_13ch%'",
+        )
+        == snapshot(name="13-byte boundary: 12-byte pattern")
+    )
+
+    # Test short pattern on long strings
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'this%'",
+        )
+        == snapshot(name="boundary: short pattern on mixed length strings")
+    )
+
+    # Test case insensitivity at boundary
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'EXACTLY_12%'",
+        )
+        == snapshot(name="boundary: case insensitive at 12 bytes")
     )
 
 
