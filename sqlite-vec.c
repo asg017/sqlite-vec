@@ -112,6 +112,95 @@ typedef size_t usize;
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
 #define min(a, b) (((a) <= (b)) ? (a) : (b))
 
+// Locale-independent strtod implementation for parsing JSON floats
+// Fixes issue #241: strtod is locale-dependent and breaks with non-C locales
+//
+// This custom parser always uses '.' as decimal separator regardless of locale.
+// Simpler and more portable than strtod_l, with no thread-safety issues.
+static double strtod_c(const char *str, char **endptr) {
+  const char *p = str;
+  double result = 0.0;
+  int sign = 1;
+  int has_digits = 0;
+
+  // Skip leading whitespace
+  while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') {
+    p++;
+  }
+
+  // Handle optional sign
+  if (*p == '-') {
+    sign = -1;
+    p++;
+  } else if (*p == '+') {
+    p++;
+  }
+
+  // Parse integer part
+  while (*p >= '0' && *p <= '9') {
+    result = result * 10.0 + (*p - '0');
+    p++;
+    has_digits = 1;
+  }
+
+  // Parse fractional part
+  if (*p == '.') {
+    double fraction = 0.0;
+    double divisor = 1.0;
+    p++;
+
+    while (*p >= '0' && *p <= '9') {
+      fraction = fraction * 10.0 + (*p - '0');
+      divisor *= 10.0;
+      p++;
+      has_digits = 1;
+    }
+
+    result += fraction / divisor;
+  }
+
+  // Parse exponent
+  if ((*p == 'e' || *p == 'E') && has_digits) {
+    int exp_sign = 1;
+    int exponent = 0;
+    p++;
+
+    if (*p == '-') {
+      exp_sign = -1;
+      p++;
+    } else if (*p == '+') {
+      p++;
+    }
+
+    while (*p >= '0' && *p <= '9') {
+      exponent = exponent * 10 + (*p - '0');
+      p++;
+    }
+
+    // Apply exponent using pow() for accuracy
+    if (exponent > 0) {
+      double exp_mult = pow(10.0, (double)exponent);
+      if (exp_sign == 1) {
+        result *= exp_mult;
+      } else {
+        result /= exp_mult;
+      }
+    }
+  }
+
+  // Set end pointer
+  if (endptr) {
+    *endptr = (char *)(has_digits ? p : str);
+  }
+
+  // Check for overflow/underflow
+  if (result == HUGE_VAL || result == -HUGE_VAL) {
+    errno = ERANGE;
+  }
+
+  return sign * result;
+}
+
 enum VectorElementType {
   // clang-format off
   SQLITE_VEC_ELEMENT_TYPE_FLOAT32 = 223 + 0,
@@ -751,7 +840,7 @@ static int fvec_from_value(sqlite3_value *value, f32 **vector,
       char *endptr;
 
       errno = 0;
-      double result = strtod(ptr, &endptr);
+      double result = strtod_c(ptr, &endptr);
       if ((errno != 0 && result == 0) // some interval error?
           || (errno == ERANGE &&
               (result == HUGE_VAL || result == -HUGE_VAL)) // too big / smalls
