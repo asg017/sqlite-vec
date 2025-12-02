@@ -5489,6 +5489,10 @@ typedef enum  {
   VEC0_METADATA_OPERATOR_IN = 'g',
   VEC0_METADATA_OPERATOR_LIKE = 'h',
   VEC0_METADATA_OPERATOR_GLOB = 'i',
+  VEC0_METADATA_OPERATOR_IS = 'j',
+  VEC0_METADATA_OPERATOR_ISNOT = 'k',
+  VEC0_METADATA_OPERATOR_ISNULL = 'l',
+  VEC0_METADATA_OPERATOR_ISNOTNULL = 'm',
 } vec0_metadata_operator;
 
 
@@ -5790,22 +5794,40 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
           value = VEC0_METADATA_OPERATOR_GLOB;
           break;
         }
+        case SQLITE_INDEX_CONSTRAINT_IS: {
+          value = VEC0_METADATA_OPERATOR_IS;
+          break;
+        }
+        case SQLITE_INDEX_CONSTRAINT_ISNOT: {
+          value = VEC0_METADATA_OPERATOR_ISNOT;
+          break;
+        }
+        case SQLITE_INDEX_CONSTRAINT_ISNULL: {
+          value = VEC0_METADATA_OPERATOR_ISNULL;
+          break;
+        }
+        case SQLITE_INDEX_CONSTRAINT_ISNOTNULL: {
+          value = VEC0_METADATA_OPERATOR_ISNOTNULL;
+          break;
+        }
         default: {
           // IMP: V16511_00582
           rc = SQLITE_ERROR;
           vtab_set_error(pVTab,
           "An illegal WHERE constraint was provided on a vec0 metadata column in a KNN query. "
-          "Only one of EQUALS, GREATER_THAN, LESS_THAN_OR_EQUAL, LESS_THAN, GREATER_THAN_OR_EQUAL, NOT_EQUALS, LIKE is allowed."
+          "Only one of EQUALS, GREATER_THAN, LESS_THAN_OR_EQUAL, LESS_THAN, GREATER_THAN_OR_EQUAL, NOT_EQUALS, LIKE, GLOB, IS, IS NOT, IS NULL, IS NOT NULL is allowed."
           );
           goto done;
         }
       }
 
       if(p->metadata_columns[metadata_idx].kind == VEC0_METADATA_COLUMN_KIND_BOOLEAN) {
-        if(!(value == VEC0_METADATA_OPERATOR_EQ || value == VEC0_METADATA_OPERATOR_NE)) {
+        if(!(value == VEC0_METADATA_OPERATOR_EQ || value == VEC0_METADATA_OPERATOR_NE ||
+             value == VEC0_METADATA_OPERATOR_IS || value == VEC0_METADATA_OPERATOR_ISNOT ||
+             value == VEC0_METADATA_OPERATOR_ISNULL || value == VEC0_METADATA_OPERATOR_ISNOTNULL)) {
           // IMP: V10145_26984
           rc = SQLITE_ERROR;
-          vtab_set_error(pVTab, "ONLY EQUALS (=) or NOT_EQUALS (!=) operators are allowed on boolean metadata columns.");
+          vtab_set_error(pVTab, "ONLY EQUALS (=), NOT_EQUALS (!=), IS, IS NOT, IS NULL, or IS NOT NULL operators are allowed on boolean metadata columns.");
           goto done;
         }
       }
@@ -6272,6 +6294,13 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
   }
   sqlite3_blob_close(rowidsBlob);
 
+  // Map IS/ISNOT to EQ/NE (they behave identically for text)
+  if(op == VEC0_METADATA_OPERATOR_IS) {
+    op = VEC0_METADATA_OPERATOR_EQ;
+  } else if(op == VEC0_METADATA_OPERATOR_ISNOT) {
+    op = VEC0_METADATA_OPERATOR_NE;
+  }
+
   switch(op) {
     int nPrefix;
     char * sPrefix;
@@ -6709,6 +6738,26 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
       break;
     }
 
+    case VEC0_METADATA_OPERATOR_IS:
+    case VEC0_METADATA_OPERATOR_ISNOT: {
+      // Should never be reached - IS/ISNOT are mapped to EQ/NE before the switch
+      break;
+    }
+
+    case VEC0_METADATA_OPERATOR_ISNULL: {
+      // IS NULL always returns false (metadata columns don't support NULL)
+      // All bits stay 0 (already initialized)
+      break;
+    }
+
+    case VEC0_METADATA_OPERATOR_ISNOTNULL: {
+      // IS NOT NULL always returns true (metadata columns don't support NULL)
+      for(int i = 0; i < size; i++) {
+        bitmap_set(b, i, 1);
+      }
+      break;
+    }
+
   }
   rc = SQLITE_OK;
 
@@ -6784,11 +6833,41 @@ int vec0_set_metadata_filter_bitmap(
   switch(kind) {
     case VEC0_METADATA_COLUMN_KIND_BOOLEAN: {
       int target = sqlite3_value_int(value);
-      if( (target && op == VEC0_METADATA_OPERATOR_EQ) || (!target && op == VEC0_METADATA_OPERATOR_NE)) {
-        for(int i = 0; i < size; i++) { bitmap_set(b, i, bitmap_get((u8*) buffer, i)); }
-      }
-      else {
-        for(int i = 0; i < size; i++) { bitmap_set(b, i, !bitmap_get((u8*) buffer, i)); }
+      switch(op) {
+        case VEC0_METADATA_OPERATOR_EQ:
+        case VEC0_METADATA_OPERATOR_IS: {
+          // EQ and IS behave identically for booleans
+          if(target) {
+            for(int i = 0; i < size; i++) { bitmap_set(b, i, bitmap_get((u8*) buffer, i)); }
+          } else {
+            for(int i = 0; i < size; i++) { bitmap_set(b, i, !bitmap_get((u8*) buffer, i)); }
+          }
+          break;
+        }
+        case VEC0_METADATA_OPERATOR_NE:
+        case VEC0_METADATA_OPERATOR_ISNOT: {
+          // NE and IS NOT behave identically for booleans
+          if(target) {
+            for(int i = 0; i < size; i++) { bitmap_set(b, i, !bitmap_get((u8*) buffer, i)); }
+          } else {
+            for(int i = 0; i < size; i++) { bitmap_set(b, i, bitmap_get((u8*) buffer, i)); }
+          }
+          break;
+        }
+        case VEC0_METADATA_OPERATOR_ISNULL: {
+          // IS NULL always returns false (metadata columns don't support NULL)
+          for(int i = 0; i < size; i++) { bitmap_set(b, i, 0); }
+          break;
+        }
+        case VEC0_METADATA_OPERATOR_ISNOTNULL: {
+          // IS NOT NULL always returns true (metadata columns don't support NULL)
+          for(int i = 0; i < size; i++) { bitmap_set(b, i, 1); }
+          break;
+        }
+        default: {
+          // Should not reach here if xBestIndex validation works correctly
+          break;
+        }
       }
       break;
     }
@@ -6854,6 +6933,26 @@ int vec0_set_metadata_filter_bitmap(
           // should never be reached (GLOB only applies to TEXT columns)
           break;
         }
+        case VEC0_METADATA_OPERATOR_IS: {
+          // IS behaves like = for non-NULL values
+          for(int i = 0; i < size; i++) { bitmap_set(b, i, array[i] == target); }
+          break;
+        }
+        case VEC0_METADATA_OPERATOR_ISNOT: {
+          // IS NOT behaves like != for non-NULL values
+          for(int i = 0; i < size; i++) { bitmap_set(b, i, array[i] != target); }
+          break;
+        }
+        case VEC0_METADATA_OPERATOR_ISNULL: {
+          // IS NULL always returns false (metadata columns don't support NULL)
+          for(int i = 0; i < size; i++) { bitmap_set(b, i, 0); }
+          break;
+        }
+        case VEC0_METADATA_OPERATOR_ISNOTNULL: {
+          // IS NOT NULL always returns true (metadata columns don't support NULL)
+          for(int i = 0; i < size; i++) { bitmap_set(b, i, 1); }
+          break;
+        }
       }
       break;
     }
@@ -6895,6 +6994,26 @@ int vec0_set_metadata_filter_bitmap(
         }
         case VEC0_METADATA_OPERATOR_GLOB: {
           // should never be reached (GLOB only applies to TEXT columns)
+          break;
+        }
+        case VEC0_METADATA_OPERATOR_IS: {
+          // IS behaves like = for non-NULL values
+          for(int i = 0; i < size; i++) { bitmap_set(b, i, array[i] == target); }
+          break;
+        }
+        case VEC0_METADATA_OPERATOR_ISNOT: {
+          // IS NOT behaves like != for non-NULL values
+          for(int i = 0; i < size; i++) { bitmap_set(b, i, array[i] != target); }
+          break;
+        }
+        case VEC0_METADATA_OPERATOR_ISNULL: {
+          // IS NULL always returns false (metadata columns don't support NULL)
+          for(int i = 0; i < size; i++) { bitmap_set(b, i, 0); }
+          break;
+        }
+        case VEC0_METADATA_OPERATOR_ISNOTNULL: {
+          // IS NOT NULL always returns true (metadata columns don't support NULL)
+          for(int i = 0; i < size; i++) { bitmap_set(b, i, 1); }
           break;
         }
       }

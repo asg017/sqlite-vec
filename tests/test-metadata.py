@@ -764,6 +764,310 @@ def test_glob_boundary_conditions(db, snapshot):
     )
 
 
+def test_is_integer_metadata(db, snapshot):
+    """Test IS operator on integer metadata columns"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], age int, chunk_size=8)"
+    )
+
+    # Insert test data
+    db.execute(
+        """
+      INSERT INTO v(vector, age) VALUES
+        ('[.11]', 10),
+        ('[.22]', 20),
+        ('[.33]', 30),
+        ('[.44]', 20),
+        ('[.55]', 40);
+    """
+    )
+
+    # Test IS (should work like =)
+    assert (
+        exec(
+            db,
+            "select rowid, age from v where vector match '[1]' and k = 5 and age is 20",
+        )
+        == snapshot(name="IS 20")
+    )
+
+    # Test IS NOT (should work like !=)
+    assert (
+        exec(
+            db,
+            "select rowid, age from v where vector match '[1]' and k = 5 and age is not 20",
+        )
+        == snapshot(name="IS NOT 20")
+    )
+
+    # Test IS NULL (should return no rows - metadata doesn't support NULL)
+    assert (
+        exec(
+            db,
+            "select rowid, age from v where vector match '[1]' and k = 5 and age is null",
+        )
+        == snapshot(name="IS NULL")
+    )
+
+    # Test IS NOT NULL (should return all rows - metadata doesn't support NULL)
+    assert (
+        exec(
+            db,
+            "select rowid, age from v where vector match '[1]' and k = 5 and age is not null",
+        )
+        == snapshot(name="IS NOT NULL")
+    )
+
+
+def test_is_float_metadata(db, snapshot):
+    """Test IS operator on float metadata columns"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], score float, chunk_size=8)"
+    )
+
+    # Insert test data
+    db.execute(
+        """
+      INSERT INTO v(vector, score) VALUES
+        ('[.11]', 1.5),
+        ('[.22]', 2.5),
+        ('[.33]', 3.5),
+        ('[.44]', 2.5),
+        ('[.55]', 4.5);
+    """
+    )
+
+    # Test IS (should work like =)
+    assert (
+        exec(
+            db,
+            "select rowid, score from v where vector match '[1]' and k = 5 and score is 2.5",
+        )
+        == snapshot(name="IS 2.5")
+    )
+
+    # Test IS NOT (should work like !=)
+    assert (
+        exec(
+            db,
+            "select rowid, score from v where vector match '[1]' and k = 5 and score is not 2.5",
+        )
+        == snapshot(name="IS NOT 2.5")
+    )
+
+    # Test IS NULL (should return no rows)
+    assert (
+        exec(
+            db,
+            "select rowid, score from v where vector match '[1]' and k = 5 and score is null",
+        )
+        == snapshot(name="IS NULL float")
+    )
+
+    # Test IS NOT NULL (should return all rows)
+    assert (
+        exec(
+            db,
+            "select rowid, score from v where vector match '[1]' and k = 5 and score is not null",
+        )
+        == snapshot(name="IS NOT NULL float")
+    )
+
+
+def test_is_text_metadata(db, snapshot):
+    """Test IS operator on text metadata columns"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
+    )
+
+    # Insert test data
+    db.execute(
+        """
+      INSERT INTO v(vector, name) VALUES
+        ('[.11]', 'alice'),
+        ('[.22]', 'bob'),
+        ('[.33]', 'carol'),
+        ('[.44]', 'bob'),
+        ('[.55]', 'david');
+    """
+    )
+
+    # Test IS (should work like =)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name is 'bob'",
+        )
+        == snapshot(name="IS bob")
+    )
+
+    # Test IS NOT (should work like !=)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name is not 'bob'",
+        )
+        == snapshot(name="IS NOT bob")
+    )
+
+    # Test IS NULL (should return no rows)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name is null",
+        )
+        == snapshot(name="IS NULL text")
+    )
+
+    # Test IS NOT NULL (should return all rows)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name is not null",
+        )
+        == snapshot(name="IS NOT NULL text")
+    )
+
+
+def test_is_boolean_metadata(db, snapshot):
+    """Test IS operator on boolean metadata columns (issue #190 use case)"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], is_hidden boolean, chunk_size=8)"
+    )
+
+    # Insert test data
+    db.execute(
+        """
+      INSERT INTO v(vector, is_hidden) VALUES
+        ('[.11]', 0),
+        ('[.22]', 1),
+        ('[.33]', 0),
+        ('[.44]', 1),
+        ('[.55]', 0);
+    """
+    )
+
+    # Test IS FALSE (the original use case from issue #190)
+    assert (
+        exec(
+            db,
+            "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is 0",
+        )
+        == snapshot(name="is_hidden IS false")
+    )
+
+    # Test IS TRUE
+    assert (
+        exec(
+            db,
+            "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is 1",
+        )
+        == snapshot(name="is_hidden IS true")
+    )
+
+    # Test IS NOT FALSE
+    assert (
+        exec(
+            db,
+            "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is not 0",
+        )
+        == snapshot(name="is_hidden IS NOT false")
+    )
+
+    # Test IS NULL (should return no rows)
+    assert (
+        exec(
+            db,
+            "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is null",
+        )
+        == snapshot(name="IS NULL boolean")
+    )
+
+    # Test IS NOT NULL (should return all rows)
+    assert (
+        exec(
+            db,
+            "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is not null",
+        )
+        == snapshot(name="IS NOT NULL boolean")
+    )
+
+
+def test_is_with_long_text(db, snapshot):
+    """Test IS operator with long text strings (>12 bytes)"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
+    )
+
+    # Insert test data with long strings
+    db.execute(
+        """
+      INSERT INTO v(vector, name) VALUES
+        ('[.11]', 'this_is_a_very_long_string_name'),
+        ('[.22]', 'another_long_string'),
+        ('[.33]', 'short'),
+        ('[.44]', 'this_is_a_very_long_string_name'),
+        ('[.55]', 'yet_another_long_one');
+    """
+    )
+
+    # Test IS with long string
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name is 'this_is_a_very_long_string_name'",
+        )
+        == snapshot(name="IS long string")
+    )
+
+    # Test IS NOT with long string
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name is not 'this_is_a_very_long_string_name'",
+        )
+        == snapshot(name="IS NOT long string")
+    )
+
+
+def test_is_equivalence_to_eq(db, snapshot):
+    """Verify IS behaves identically to = for non-NULL values"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], age int, name text, chunk_size=8)"
+    )
+
+    db.execute(
+        """
+      INSERT INTO v(vector, age, name) VALUES
+        ('[.11]', 10, 'alice'),
+        ('[.22]', 20, 'bob'),
+        ('[.33]', 30, 'carol');
+    """
+    )
+
+    # IS should give same results as =
+    result_is = exec(
+        db,
+        "select rowid from v where vector match '[1]' and k = 5 and age is 20",
+    )
+    result_eq = exec(
+        db,
+        "select rowid from v where vector match '[1]' and k = 5 and age = 20",
+    )
+    assert result_is["rows"] == result_eq["rows"], "IS should behave like ="
+
+    # IS NOT should give same results as !=
+    result_isnot = exec(
+        db,
+        "select rowid from v where vector match '[1]' and k = 5 and name is not 'bob'",
+    )
+    result_ne = exec(
+        db,
+        "select rowid from v where vector match '[1]' and k = 5 and name != 'bob'",
+    )
+    assert result_isnot["rows"] == result_ne["rows"], "IS NOT should behave like !="
+
+
 def test_vacuum(db, snapshot):
     db.execute(
         "create virtual table v using vec0(vector float[1], name text)"

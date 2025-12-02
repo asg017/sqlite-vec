@@ -823,6 +823,327 @@
     ]),
   })
 # ---
+# name: test_is_boolean_metadata[IS NOT NULL boolean]
+  OrderedDict({
+    'sql': "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is not null",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'is_hidden': 0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'is_hidden': 1,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'is_hidden': 0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'is_hidden': 1,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'is_hidden': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_boolean_metadata[IS NULL boolean]
+  OrderedDict({
+    'sql': "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is null",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_is_boolean_metadata[is_hidden IS NOT false]
+  OrderedDict({
+    'sql': "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is not 0",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'is_hidden': 1,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'is_hidden': 1,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_boolean_metadata[is_hidden IS false]
+  OrderedDict({
+    'sql': "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is 0",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'is_hidden': 0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'is_hidden': 0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'is_hidden': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_boolean_metadata[is_hidden IS true]
+  OrderedDict({
+    'sql': "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is 1",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'is_hidden': 1,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'is_hidden': 1,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_float_metadata[IS 2.5]
+  OrderedDict({
+    'sql': "select rowid, score from v where vector match '[1]' and k = 5 and score is 2.5",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'score': 2.5,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'score': 2.5,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_float_metadata[IS NOT 2.5]
+  OrderedDict({
+    'sql': "select rowid, score from v where vector match '[1]' and k = 5 and score is not 2.5",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'score': 4.5,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'score': 3.5,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'score': 1.5,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_float_metadata[IS NOT NULL float]
+  OrderedDict({
+    'sql': "select rowid, score from v where vector match '[1]' and k = 5 and score is not null",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'score': 4.5,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'score': 2.5,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'score': 3.5,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'score': 2.5,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'score': 1.5,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_float_metadata[IS NULL float]
+  OrderedDict({
+    'sql': "select rowid, score from v where vector match '[1]' and k = 5 and score is null",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_is_integer_metadata[IS 20]
+  OrderedDict({
+    'sql': "select rowid, age from v where vector match '[1]' and k = 5 and age is 20",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'age': 20,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'age': 20,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_integer_metadata[IS NOT 20]
+  OrderedDict({
+    'sql': "select rowid, age from v where vector match '[1]' and k = 5 and age is not 20",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'age': 40,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'age': 30,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'age': 10,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_integer_metadata[IS NOT NULL]
+  OrderedDict({
+    'sql': "select rowid, age from v where vector match '[1]' and k = 5 and age is not null",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'age': 40,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'age': 20,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'age': 30,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'age': 20,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'age': 10,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_integer_metadata[IS NULL]
+  OrderedDict({
+    'sql': "select rowid, age from v where vector match '[1]' and k = 5 and age is null",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_is_text_metadata[IS NOT NULL text]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name is not null",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'name': 'david',
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bob',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'carol',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'bob',
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'alice',
+      }),
+    ]),
+  })
+# ---
+# name: test_is_text_metadata[IS NOT bob]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name is not 'bob'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'name': 'david',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'carol',
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'alice',
+      }),
+    ]),
+  })
+# ---
+# name: test_is_text_metadata[IS NULL text]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name is null",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_is_text_metadata[IS bob]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name is 'bob'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bob',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'bob',
+      }),
+    ]),
+  })
+# ---
+# name: test_is_with_long_text[IS NOT long string]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name is not 'this_is_a_very_long_string_name'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'name': 'yet_another_long_one',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'short',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'another_long_string',
+      }),
+    ]),
+  })
+# ---
+# name: test_is_with_long_text[IS long string]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name is 'this_is_a_very_long_string_name'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'name': 'this_is_a_very_long_string_name',
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'this_is_a_very_long_string_name',
+      }),
+    ]),
+  })
+# ---
 # name: test_knn.1
   OrderedDict({
     'sql': "select *, distance from v where vector match '[5]' and k = 3 and name like 'a%'",
@@ -3353,7 +3674,7 @@
 # name: test_stress[bool-other-op]
   dict({
     'error': 'OperationalError',
-    'message': 'ONLY EQUALS (=) or NOT_EQUALS (!=) operators are allowed on boolean metadata columns.',
+    'message': 'ONLY EQUALS (=), NOT_EQUALS (!=), IS, IS NOT, IS NULL, or IS NOT NULL operators are allowed on boolean metadata columns.',
   })
 # ---
 # name: test_text_knn
