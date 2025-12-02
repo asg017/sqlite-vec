@@ -2,6 +2,32 @@
 
 All notable changes to this community fork will be documented in this file.
 
+## [0.2.2-alpha] - 2025-12-02
+
+### Added
+
+- **GLOB operator for text metadata columns** ([#191](https://github.com/asg017/sqlite-vec/issues/191))
+  - Standard SQL pattern matching with `*` (any characters) and `?` (single character) wildcards
+  - Case-sensitive matching (unlike LIKE)
+  - Fast path optimization for prefix-only patterns (e.g., `'prefix*'`)
+  - Full pattern matching with `sqlite3_strglob()` for complex patterns
+
+- **IS/IS NOT/IS NULL/IS NOT NULL operators for metadata columns** ([#190](https://github.com/asg017/sqlite-vec/issues/190))
+  - **Note**: sqlite-vec metadata columns do not currently support NULL values. These operators provide syntactic compatibility within this limitation.
+  - `IS` behaves like `=` (all metadata values are non-NULL)
+  - `IS NOT` behaves like `!=` (all metadata values are non-NULL)
+  - `IS NULL` always returns false (no NULL values exist in metadata)
+  - `IS NOT NULL` always returns true (all metadata values are non-NULL)
+  - Works on all metadata types: INTEGER, FLOAT, TEXT, and BOOLEAN
+
+### Fixed
+
+- **All compilation warnings eliminated**
+  - Fixed critical logic bug: `metadataInIdx` type corrected from `size_t` to `int` (prevented -1 wrapping to SIZE_MAX)
+  - Fixed 5 sign comparison warnings with proper type casts
+  - Fixed 7 uninitialized variable warnings by adding initializers and default cases
+  - Clean compilation with `-Wall -Wextra` (zero warnings)
+
 ## [0.2.1-alpha] - 2025-12-02
 
 ### Added

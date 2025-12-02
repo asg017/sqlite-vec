@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > [!NOTE]
 > This is a community fork of [`asg017/sqlite-vec`](https://github.com/asg017/sqlite-vec) created to merge pending upstream PRs and provide continued support while the original author is unavailable.
 
-`sqlite-vec` is a lightweight, fast vector search SQLite extension written in pure C with no dependencies. It's a pre-v1 project (current: v0.2.1-alpha) that provides vector similarity search capabilities for SQLite databases across all platforms where SQLite runs.
+`sqlite-vec` is a lightweight, fast vector search SQLite extension written in pure C with no dependencies. It's a pre-v1 project (current: v0.2.2-alpha) that provides vector similarity search capabilities for SQLite databases across all platforms where SQLite runs.
 
 Key features:
 - Supports float, int8, and binary vector types via `vec0` virtual tables
@@ -203,6 +203,7 @@ Code uses preprocessor directives to select implementations. Distance calculatio
 - Vector format: JSON arrays `'[1,2,3]'` or raw bytes via helper functions
 
 **Fork-specific notes:**
+- Version v0.2.2-alpha includes: GLOB operator for text metadata (#191), IS/IS NOT/IS NULL/IS NOT NULL operators (#190), all compilation warnings fixed (including critical logic bug)
 - Version v0.2.1-alpha includes: LIKE operator for text metadata (#197), locale-independent JSON parsing (#241), musl libc compilation fix
 - Version v0.2.0-alpha merged upstream PRs: #166 (distance constraints), #210 (optimize), #203 (ALTER TABLE RENAME), #212 (cosine distance for binary), #243 (delete memory leak fix), #228 (CI/CD updates)
 - See CHANGELOG.md for complete list of changes from original v0.1.7-alpha.2
