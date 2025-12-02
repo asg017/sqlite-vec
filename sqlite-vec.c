@@ -6279,7 +6279,7 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
     return rc;
   }
   assert(sqlite3_blob_bytes(rowidsBlob) % sizeof(i64) == 0);
-  assert((sqlite3_blob_bytes(rowidsBlob) / sizeof(i64)) == size);
+  assert((size_t)(sqlite3_blob_bytes(rowidsBlob) / sizeof(i64)) == (size_t)size);
 
   rowids = sqlite3_malloc(sqlite3_blob_bytes(rowidsBlob));
   if(!rowids) {
@@ -6506,7 +6506,7 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
     }
 
     case VEC0_METADATA_OPERATOR_IN: {
-      size_t metadataInIdx = -1;
+      int metadataInIdx = -1;
       for(size_t i = 0; i < aMetadataIn->length; i++) {
         struct Vec0MetadataIn * metadataIn = &(((struct Vec0MetadataIn *) aMetadataIn->z)[i]);
         if(metadataIn->argv_idx == argv_idx) {
@@ -6807,11 +6807,11 @@ int vec0_set_metadata_filter_bitmap(
       break;
     }
     case VEC0_METADATA_COLUMN_KIND_INTEGER: {
-      szMatch = blobSize == size * sizeof(i64);
+      szMatch = blobSize == (int)(size * sizeof(i64));
       break;
     }
     case VEC0_METADATA_COLUMN_KIND_FLOAT: {
-      szMatch = blobSize == size * sizeof(double);
+      szMatch = blobSize == (int)(size * sizeof(double));
       break;
     }
     case VEC0_METADATA_COLUMN_KIND_TEXT: {
@@ -7186,7 +7186,7 @@ int vec0Filter_knn_chunks_iter(vec0_vtab *p, sqlite3_stmt *stmtChunks,
 
     i64 *chunkRowids = (i64 *)sqlite3_column_blob(stmtChunks, 2);
     i64 rowidsSize = sqlite3_column_bytes(stmtChunks, 2);
-    if (rowidsSize != p->chunk_size * sizeof(i64)) {
+    if (rowidsSize != (i64)(p->chunk_size * sizeof(i64))) {
       // IMP: V02796_19635
       vtab_set_error(&p->base, "rowids size doesn't match");
       vtab_set_error(
@@ -7280,7 +7280,7 @@ int vec0Filter_knn_chunks_iter(vec0_vtab *p, sqlite3_stmt *stmtChunks,
         continue;
       };
 
-      f32 result;
+      f32 result = 0.0f;
       switch (vector_column->element_type) {
       case SQLITE_VEC_ELEMENT_TYPE_FLOAT32: {
         const f32 *base_i =
@@ -7442,7 +7442,7 @@ cleanup:
 
 int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
                    const char *idxStr, int argc, sqlite3_value **argv) {
-  assert(argc == (strlen(idxStr)-1) / 4);
+  assert(argc == (int)((strlen(idxStr)-1) / 4));
   int rc;
   struct vec0_query_knn_data *knn_data;
 
@@ -8436,8 +8436,8 @@ static int
 vec0_write_vector_to_vector_blob(sqlite3_blob *blobVectors, i64 chunk_offset,
                                  const void *bVector, size_t dimensions,
                                  enum VectorElementType element_type) {
-  int n;
-  int offset;
+  int n = 0;
+  int offset = 0;
 
   switch (element_type) {
   case SQLITE_VEC_ELEMENT_TYPE_FLOAT32:
@@ -8452,6 +8452,8 @@ vec0_write_vector_to_vector_blob(sqlite3_blob *blobVectors, i64 chunk_offset,
     n = dimensions / CHAR_BIT;
     offset = chunk_offset * dimensions / CHAR_BIT;
     break;
+  default:
+    return SQLITE_ERROR;
   }
 
   return sqlite3_blob_write(blobVectors, bVector, n, offset);
