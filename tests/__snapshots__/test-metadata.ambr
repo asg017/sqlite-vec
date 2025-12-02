@@ -381,6 +381,256 @@
     'message': 'Could not extract metadata value for column t at rowid 1',
   })
 # ---
+# name: test_glob[contains *o*]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 9 and name glob '*o*'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 8,
+        'name': 'yet_another_string',
+        'distance': 0.12000000476837158,
+      }),
+      OrderedDict({
+        'rowid': 7,
+        'name': 'this_is_another_long_one',
+        'distance': 0.23000001907348633,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'name': 'this_is_a_very_long_string_name',
+        'distance': 0.3399999737739563,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'carol',
+        'distance': 0.44999998807907104,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bobby',
+        'distance': 0.5600000023841858,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bob',
+        'distance': 0.6699999570846558,
+      }),
+    ]),
+  })
+# ---
+# name: test_glob[error: GLOB on integer column]
+  dict({
+    'error': 'OperationalError',
+    'message': 'GLOB operator is only allowed on TEXT metadata columns.',
+  })
+# ---
+# name: test_glob[match all *]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 9 and name glob '*'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 9,
+        'name': 'zebra',
+        'distance': 0.009999990463256836,
+      }),
+      OrderedDict({
+        'rowid': 8,
+        'name': 'yet_another_string',
+        'distance': 0.12000000476837158,
+      }),
+      OrderedDict({
+        'rowid': 7,
+        'name': 'this_is_another_long_one',
+        'distance': 0.23000001907348633,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'name': 'this_is_a_very_long_string_name',
+        'distance': 0.3399999737739563,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'carol',
+        'distance': 0.44999998807907104,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bobby',
+        'distance': 0.5600000023841858,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bob',
+        'distance': 0.6699999570846558,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'alex',
+        'distance': 0.7799999713897705,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'alice',
+        'distance': 0.8899999856948853,
+      }),
+    ]),
+  })
+# ---
+# name: test_glob[no matches nomatch*]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 9 and name glob 'nomatch*'",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_glob[prefix a*]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 5 and name glob 'a*'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'name': 'alex',
+        'distance': 0.7799999713897705,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'alice',
+        'distance': 0.8899999856948853,
+      }),
+    ]),
+  })
+# ---
+# name: test_glob[prefix bob*]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 5 and name glob 'bob*'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bobby',
+        'distance': 0.5600000023841858,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bob',
+        'distance': 0.6699999570846558,
+      }),
+    ]),
+  })
+# ---
+# name: test_glob[prefix this_* with long strings]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 5 and name glob 'this_*'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 7,
+        'name': 'this_is_another_long_one',
+        'distance': 0.23000001907348633,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'name': 'this_is_a_very_long_string_name',
+        'distance': 0.3399999737739563,
+      }),
+    ]),
+  })
+# ---
+# name: test_glob[suffix *ice]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 9 and name glob '*ice'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'name': 'alice',
+        'distance': 0.8899999856948853,
+      }),
+    ]),
+  })
+# ---
+# name: test_glob[wildcard pattern a?e?]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 9 and name glob 'a?e?'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'name': 'alex',
+        'distance': 0.7799999713897705,
+      }),
+    ]),
+  })
+# ---
+# name: test_glob_boundary_conditions[boundary: case sensitive at 12 bytes]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_glob_boundary_conditions[boundary: prefix pattern at boundary]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_glob_case_sensitive[complex pattern case sensitive]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name glob '*APPLE*'",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_glob_case_sensitive[exact case match Apple*]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'Apple*'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'name': 'Apple',
+      }),
+    ]),
+  })
+# ---
+# name: test_glob_case_sensitive[exact case match Cherry*]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'Cherry*'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'Cherry',
+      }),
+    ]),
+  })
+# ---
+# name: test_glob_case_sensitive[lowercase pattern matches long lowercase data]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'elderberry*'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'name': 'elderberry_is_very_long_string',
+      }),
+    ]),
+  })
+# ---
+# name: test_glob_case_sensitive[lowercase pattern should not match uppercase data]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'apple*'",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_glob_case_sensitive[uppercase pattern should not match long lowercase data]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'ELDERBERRY*'",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_glob_case_sensitive[uppercase pattern should not match mixed case]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'CHERRY*'",
+    'rows': list([
+    ]),
+  })
+# ---
 # name: test_idxstr
   OrderedDict({
     'sql': "select * from vec_movies where synopsis_embedding match '' and k = 0 and is_favorited = true",
