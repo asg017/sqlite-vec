@@ -1,6 +1,6 @@
 {
   "name": "sqlite-vec",
-  "version": "0.2.0-alpha",
+  "version": "0.2.1-alpha",
   "description": "A vector search SQLite extension that runs anywhere",
   "main": "./index.cjs",
   "module": "./index.mjs",

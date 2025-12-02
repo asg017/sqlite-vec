@@ -2,6 +2,23 @@
 
 All notable changes to this community fork will be documented in this file.
 
+## [0.2.1-alpha] - 2025-12-02
+
+### Added
+
+- **LIKE operator for text metadata columns** ([#197](https://github.com/asg017/sqlite-vec/issues/197))
+  - Standard SQL pattern matching with `%` and `_` wildcards
+  - Case-insensitive matching (SQLite default)
+
+### Fixed
+
+- **Locale-dependent JSON parsing** ([#241](https://github.com/asg017/sqlite-vec/issues/241))
+  - Custom locale-independent float parser fixes JSON parsing in non-C locales
+  - No platform dependencies, thread-safe
+
+- **musl libc compilation** (Alpine Linux)
+  - Removed non-portable preprocessor macros from vendored sqlite3.c
+
 ## [0.2.0-alpha] - 2025-11-28
 
 ### Added
