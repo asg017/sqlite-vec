@@ -267,18 +267,36 @@ order by distance;
 
 ### Space Reclamation with Optimize
 
-Reclaim disk space after deleting vectors:
+`optimize` compacts vec shadow tables. To shrink the database file:
 
 ```sql
--- Delete vectors
-delete from vec_examples where rowid in (2, 4, 6, 8, 10);
+-- Before creating vec tables: enable autovacuum and apply it (recommended)
+PRAGMA auto_vacuum = FULL;  -- or INCREMENTAL
+VACUUM;                     -- activates the setting
 
--- Reclaim space by compacting shadow tables
-insert into vec_examples(vec_examples) values('optimize');
-
--- Verify deletion
-select count(*) from vec_examples;  -- Returns 15
+-- Use WAL for better concurrency
+PRAGMA journal_mode = WAL;
 ```
+
+After deletes, reclaim space:
+
+```sql
+-- Compact shadow tables
+INSERT INTO vec_examples(vec_examples) VALUES('optimize');
+
+- Flush WAL
+PRAGMA wal_checkpoint(TRUNCATE);
+
+-- Reclaim freed pages (if using auto_vacuum=INCREMENTAL)
+PRAGMA incremental_vacuum;
+
+-- If you did NOT enable autovacuum, run VACUUM (after checkpoint) to shrink the file.
+-- With autovacuum on, VACUUM is optional.
+VACUUM;
+```
+
+`VACUUM` should not corrupt vec tables; a checkpoint first is recommended when
+using WAL so the rewrite starts from a clean state.
 
 ## Sponsors
 
