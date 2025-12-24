@@ -133,7 +133,9 @@ jobs:
           make CC=${{ matrix.platforms.cc }} \
              AR=llvm-ar \
              RANLIB=llvm-ranlib \
-             STRIP=llvm-strip loadable
+             STRIP=llvm-strip \
+             CFLAGS="-Wl,-z,max-page-size=16384" \
+             loadable
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-${{ matrix.platforms.name }}-extension
