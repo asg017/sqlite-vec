@@ -134,7 +134,7 @@ jobs:
              AR=llvm-ar \
              RANLIB=llvm-ranlib \
              STRIP=llvm-strip \
-             CFLAGS="-Wl,-z,max-page-size=16384" \
+             LDFLAGS="-Wl,-z,max-page-size=16384" \
              loadable
       - uses: actions/upload-artifact@v4
         with:
