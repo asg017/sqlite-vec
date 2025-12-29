@@ -8,24 +8,24 @@
 #endif
 
 #ifdef SQLITE_VEC_STATIC
-  #define SQLITE_VEC_API
+  #define SQLITE_VEC_API __attribute__((visibility("default")))
 #else
   #ifdef _WIN32
     #define SQLITE_VEC_API __declspec(dllexport)
   #else
-    #define SQLITE_VEC_API
+    #define SQLITE_VEC_API __attribute__((visibility("default")))
   #endif
 #endif
 
-#define SQLITE_VEC_VERSION "v0.2.2-alpha"
+#define SQLITE_VEC_VERSION "v0.2.3-alpha"
 // TODO rm
-#define SQLITE_VEC_DATE "2025-12-02T19:22:08Z+1100"
-#define SQLITE_VEC_SOURCE "2dfe8859ca55d5561a4c6e36521f24272fc5d4aa"
+#define SQLITE_VEC_DATE "2025-12-29T11:22:41Z+1100"
+#define SQLITE_VEC_SOURCE "d12d763eb2170ccdfd7418b9af3febd46fb33a85"
 
 
 #define SQLITE_VEC_VERSION_MAJOR 0
 #define SQLITE_VEC_VERSION_MINOR 2
-#define SQLITE_VEC_VERSION_PATCH 2
+#define SQLITE_VEC_VERSION_PATCH 3
 
 #ifdef __cplusplus
 extern "C" {

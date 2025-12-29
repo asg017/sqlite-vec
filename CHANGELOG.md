@@ -2,6 +2,36 @@
 
 All notable changes to this community fork will be documented in this file.
 
+## [0.2.3-alpha] - 2025-12-29
+
+### Added
+
+- **Android 16KB page support** ([#254](https://github.com/asg017/sqlite-vec/pull/254))
+  - Added `LDFLAGS` support to Makefile for passing linker-specific flags
+  - Enables Android 15+ compatibility via `-Wl,-z,max-page-size=16384`
+  - Required for Play Store app submissions on devices with 16KB memory pages
+
+- **Improved shared library build and installation** ([#149](https://github.com/asg017/sqlite-vec/issues/149))
+  - Configurable install paths via `INSTALL_PREFIX`, `INSTALL_LIB_DIR`, `INSTALL_INCLUDE_DIR`, `INSTALL_BIN_DIR`
+  - Hidden internal symbols with `-fvisibility=hidden`, exposing only public API
+  - `EXT_CFLAGS` captures user-provided `CFLAGS` and `CPPFLAGS`
+
+- **Optimize/VACUUM integration test and documentation**
+  - Added test demonstrating optimize command with VACUUM for full space reclamation
+
+### Fixed
+
+- **Linux linking error with libm** ([#252](https://github.com/asg017/sqlite-vec/pull/252))
+  - Moved `-lm` flag from `CFLAGS` to `LDLIBS` at end of linker command
+  - Fixes "undefined symbol: sqrtf" errors on some Linux distributions
+  - Linker now correctly resolves math library symbols
+
+### Documentation
+
+- **Fixed incomplete KNN and Matryoshka guides** ([#208](https://github.com/asg017/sqlite-vec/pull/208), [#209](https://github.com/asg017/sqlite-vec/pull/209))
+  - Completed unfinished sentence describing manual KNN method trade-offs
+  - Added paper citation and Matryoshka naming explanation
+
 ## [0.2.2-alpha] - 2025-12-02
 
 ### Added
