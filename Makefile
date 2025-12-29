@@ -17,6 +17,7 @@ endif
 
 # Capture user-provided flags
 EXT_CFLAGS := $(CFLAGS) $(CPPFLAGS)
+EXT_LDFLAGS := $(LDFLAGS)
 
 ifeq ($(shell uname -s),Darwin)
 CONFIG_DARWIN=y
@@ -108,7 +109,7 @@ $(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(prefix)
 		-O3 \
 		$(CFLAGS) $(EXT_CFLAGS) \
 		$< -o $@ \
-		$(LDLIBS)
+		$(EXT_LDFLAGS) $(LDLIBS)
 
 $(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(prefix) $(OBJS_DIR)
 	$(CC) -Ivendor/ -fvisibility=hidden $(CFLAGS) $(EXT_CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
@@ -155,7 +156,7 @@ $(TARGET_CLI): sqlite-vec.h $(LIBS_DIR)/sqlite-vec.a $(LIBS_DIR)/shell.a $(LIBS_
 	-DSQLITE_ENABLE_STMT_SCANSTATUS -DSQLITE_ENABLE_BYTECODE_VTAB -DSQLITE_ENABLE_EXPLAIN_COMMENTS \
 	-DSQLITE_EXTRA_INIT=core_init \
 	$(CFLAGS) $(EXT_CFLAGS) \
-	-ldl -lm \
+	$(EXT_LDFLAGS) -ldl -lm \
 	examples/sqlite3-cli/core_init.c $(LIBS_DIR)/shell.a $(LIBS_DIR)/sqlite3.a $(LIBS_DIR)/sqlite-vec.a -o $@
 
 
