@@ -99,16 +99,11 @@ $(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(prefix)
 		-Ivendor/ \
 		-O3 \
 		$(CFLAGS) \
-		$(LDFLAGS) \
 		$< -o $@
 
 $(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(prefix) $(OBJS_DIR)
-	$(CC) \
-	    -Ivendor/ \
-		$(CFLAGS) \
-		$(LDFLAGS) \
-		-DSQLITE_CORE -DSQLITE_VEC_STATIC \
-		-O3 -c  $< -o $(OBJS_DIR)/vec.o
+	$(CC) -Ivendor/ $(CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
+	-O3 -c  $< -o $(OBJS_DIR)/vec.o
 	$(AR) rcs $@ $(OBJS_DIR)/vec.o
 
 $(TARGET_STATIC_H): sqlite-vec.h $(prefix)
@@ -143,14 +138,14 @@ $(LIBS_DIR)/sqlite-vec.a: $(OBJS_DIR)/sqlite-vec.o $(LIBS_DIR)
 
 $(TARGET_CLI): sqlite-vec.h $(LIBS_DIR)/sqlite-vec.a $(LIBS_DIR)/shell.a $(LIBS_DIR)/sqlite3.a examples/sqlite3-cli/core_init.c $(prefix)
 	$(CC) -g3  \
-    	-Ivendor/ -I./ \
-    	-DSQLITE_CORE \
-    	-DSQLITE_VEC_STATIC \
-    	-DSQLITE_THREADSAFE=0 -DSQLITE_ENABLE_FTS4 \
-    	-DSQLITE_ENABLE_STMT_SCANSTATUS -DSQLITE_ENABLE_BYTECODE_VTAB -DSQLITE_ENABLE_EXPLAIN_COMMENTS \
-    	-DSQLITE_EXTRA_INIT=core_init \
-    	$(CFLAGS) \
-    	-ldl -lm \
+	-Ivendor/ -I./ \
+	-DSQLITE_CORE \
+	-DSQLITE_VEC_STATIC \
+	-DSQLITE_THREADSAFE=0 -DSQLITE_ENABLE_FTS4 \
+	-DSQLITE_ENABLE_STMT_SCANSTATUS -DSQLITE_ENABLE_BYTECODE_VTAB -DSQLITE_ENABLE_EXPLAIN_COMMENTS \
+	-DSQLITE_EXTRA_INIT=core_init \
+	$(CFLAGS) \
+	-ldl -lm \
 	examples/sqlite3-cli/core_init.c $(LIBS_DIR)/shell.a $(LIBS_DIR)/sqlite3.a $(LIBS_DIR)/sqlite-vec.a -o $@
 
 
