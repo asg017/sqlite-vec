@@ -71,11 +71,12 @@ Install directly from GitHub to get the latest features from this community fork
 
 | Language | Install Latest (main branch) | Install Specific Version |
 |----------|------------------------------|--------------------------|
-| **Go** | `go get github.com/vlasky/sqlite-vec/bindings/go/cgo@main` | `go get github.com/vlasky/sqlite-vec/bindings/go/cgo@v0.2.0-alpha` |
-| **Python** | `pip install git+https://github.com/vlasky/sqlite-vec.git` | `pip install git+https://github.com/vlasky/sqlite-vec.git@v0.2.0-alpha` |
-| **Rust** | `cargo add sqlite-vec --git https://github.com/vlasky/sqlite-vec` | `cargo add sqlite-vec --git https://github.com/vlasky/sqlite-vec --tag v0.2.0-alpha` |
-| **Node.js** | `npm install vlasky/sqlite-vec` | `npm install vlasky/sqlite-vec#v0.2.0-alpha` |
-| **Ruby** | `gem 'sqlite-vec', git: 'https://github.com/vlasky/sqlite-vec'` | `gem 'sqlite-vec', git: 'https://github.com/vlasky/sqlite-vec', tag: 'v0.2.0-alpha'` |
+| **Go** | `go get github.com/vlasky/sqlite-vec/bindings/go/cgo@main` | `go get github.com/vlasky/sqlite-vec/bindings/go/cgo@v0.2.4-alpha` |
+| **Lua** | `luarocks install lsqlite3` then copy [`sqlite_vec.lua`](bindings/lua/) to your project. See [Lua example](/examples/simple-lua/) | Download [`sqlite_vec.lua` at v0.2.4-alpha](https://github.com/vlasky/sqlite-vec/blob/v0.2.4-alpha/bindings/lua/sqlite_vec.lua) |
+| **Python** | `pip install git+https://github.com/vlasky/sqlite-vec.git` | `pip install git+https://github.com/vlasky/sqlite-vec.git@v0.2.4-alpha` |
+| **Rust** | `cargo add sqlite-vec --git https://github.com/vlasky/sqlite-vec` | `cargo add sqlite-vec --git https://github.com/vlasky/sqlite-vec --tag v0.2.4-alpha` |
+| **Node.js** | `npm install vlasky/sqlite-vec` | `npm install vlasky/sqlite-vec#v0.2.4-alpha` |
+| **Ruby** | `gem 'sqlite-vec', git: 'https://github.com/vlasky/sqlite-vec'` | `gem 'sqlite-vec', git: 'https://github.com/vlasky/sqlite-vec', tag: 'v0.2.4-alpha'` |
 
 **Python Note:** Requires Python built with loadable extension support (`--enable-loadable-sqlite-extensions`). If you encounter an error about extension support not being available:
 - Use `uv` to create virtual environments (automatically uses system Python which typically has extension support)

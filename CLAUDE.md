@@ -7,12 +7,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > [!NOTE]
 > This is a community fork of [`asg017/sqlite-vec`](https://github.com/asg017/sqlite-vec) created to merge pending upstream PRs and provide continued support while the original author is unavailable.
 
-`sqlite-vec` is a lightweight, fast vector search SQLite extension written in pure C with no dependencies. It's a pre-v1 project (current: v0.2.2-alpha) that provides vector similarity search capabilities for SQLite databases across all platforms where SQLite runs.
+`sqlite-vec` is a lightweight, fast vector search SQLite extension written in pure C with no dependencies. It's a pre-v1 project (current: v0.2.4-alpha) that provides vector similarity search capabilities for SQLite databases across all platforms where SQLite runs.
 
 Key features:
 - Supports float, int8, and binary vector types via `vec0` virtual tables
 - Pure C implementation with optional SIMD optimizations (AVX on x86_64, NEON on ARM)
-- Multi-language bindings (Python, Node.js, Ruby, Go, Rust)
+- Multi-language bindings (Python, Node.js, Ruby, Go, Rust, Lua)
 - Runs anywhere: Linux/MacOS/Windows, WASM, embedded devices
 - Distance constraints for KNN queries (enables pagination and range queries)
 - Optimize command for space reclamation after deletes
@@ -134,6 +134,13 @@ All bindings wrap the core C extension:
   - Crate configuration in `Cargo.toml`
   - Exports `sqlite3_vec_init()` in `src/lib.rs`
 
+- **Lua** (`bindings/lua/`): Lua 5.1+ compatible binding
+  - Requires `lsqlite3` module
+  - `load()` function to load the extension
+  - `serialize_f32()` for IEEE 754 binary format
+  - `serialize_json()` for JSON format
+  - Example in `examples/simple-lua/`
+
 ### Documentation Site
 
 Built with VitePress (Vue-based static site generator):
@@ -203,6 +210,8 @@ Code uses preprocessor directives to select implementations. Distance calculatio
 - Vector format: JSON arrays `'[1,2,3]'` or raw bytes via helper functions
 
 **Fork-specific notes:**
+- Version v0.2.4-alpha includes: Lua binding with IEEE 754 compliant float serialization (#237)
+- Version v0.2.3-alpha includes: Android 16KB page support (#254), LDFLAGS support, documentation fixes (#208, #209)
 - Version v0.2.2-alpha includes: GLOB operator for text metadata (#191), IS/IS NOT/IS NULL/IS NOT NULL operators (#190), all compilation warnings fixed (including critical logic bug)
 - Version v0.2.1-alpha includes: LIKE operator for text metadata (#197), locale-independent JSON parsing (#241), musl libc compilation fix
 - Version v0.2.0-alpha merged upstream PRs: #166 (distance constraints), #210 (optimize), #203 (ALTER TABLE RENAME), #212 (cosine distance for binary), #243 (delete memory leak fix), #228 (CI/CD updates)

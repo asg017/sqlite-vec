@@ -2,6 +2,17 @@
 
 All notable changes to this community fork will be documented in this file.
 
+## [0.2.4-alpha] - 2026-01-03
+
+### Added
+
+- **Lua binding with IEEE 754 compliant float serialization** ([#237](https://github.com/asg017/sqlite-vec/pull/237))
+  - `bindings/lua/sqlite_vec.lua` provides `load()`, `serialize_f32()`, and `serialize_json()` functions
+  - Lua 5.1+ compatible with lsqlite3
+  - IEEE 754 single-precision float encoding with round-half-to-even (banker's rounding)
+  - Proper handling of special values: NaN, Inf, -Inf, -0.0, subnormals
+  - Example script and runner in `/examples/simple-lua/`
+
 ## [0.2.3-alpha] - 2025-12-29
 
 ### Added
