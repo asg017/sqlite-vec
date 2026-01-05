@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sqlite-vec"
-version = "0.2.0a0"
+version = "0.2.4a0"
 description = "A vector search SQLite extension that runs anywhere"
 readme = "README.md"
 authors = [

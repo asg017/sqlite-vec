@@ -7,7 +7,8 @@ description = "FFI bindings to the sqlite-vec SQLite extension"
 homepage = "https://github.com/vlasky/sqlite-vec"
 repository = "https://github.com/vlasky/sqlite-vec"
 keywords = ["sqlite", "sqlite-extension"]
-license = "MIT OR Apache-2.0"
+license = "MIT/Apache-2.0"
+
 
 [dependencies]
 
