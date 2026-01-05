@@ -281,6 +281,10 @@ PRAGMA journal_mode = WAL;
 
 After deletes, reclaim space:
 
+**Important**: Both `optimize` and `VACUUM` require exclusive database access.
+Close all other connections before running these commands, or run them on
+application startup before spawning additional connections.
+
 ```sql
 -- Compact shadow tables
 INSERT INTO vec_examples(vec_examples) VALUES('optimize');
