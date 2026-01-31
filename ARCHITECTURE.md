@@ -120,3 +120,30 @@ The third character of the block is the constraint operator. It will be one of
 metadata column KNN filters.
 
 The foruth character of the block is a `_` filler.
+
+#### `VEC0_IDXSTR_KIND_KNN_DISTANCE_CONSTRAINT` (`'*'`)
+
+`argv[i]` is a constraint on the `distance` column in a KNN query.
+
+This enables filtering KNN results by distance thresholds, useful for:
+- Cursor-based pagination: `WHERE embedding MATCH ? AND k = 10 AND distance > 0.21`
+- Range queries: `WHERE embedding MATCH ? AND k = 100 AND distance BETWEEN 0.5 AND 1.0`
+
+The second character of the block denotes the constraint operator. It will be one of
+the values of `enum vec0_distance_constraint_operator`:
+
+| Operator | Value | Description              | SQL Example          |
+| -------- | ----- | ------------------------ | -------------------- |
+| `GT`     | `'a'` | Greater than             | `distance > 0.5`     |
+| `GE`     | `'b'` | Greater than or equal to | `distance >= 0.5`    |
+| `LT`     | `'c'` | Less than                | `distance < 1.0`     |
+| `LE`     | `'d'` | Less than or equal to    | `distance <= 1.0`    |
+
+The third and fourth characters of the block are `_` fillers.
+
+**Note on precision:** Distance values are cast from f64 to f32 for comparison, which may
+result in precision loss for very small distance differences.
+
+**Note on pagination:** When multiple vectors have identical distances, pagination using
+`distance > X` may skip some results. For stable pagination, combine distance with rowid:
+`WHERE (distance > 0.5) OR (distance = 0.5 AND rowid > 123)`

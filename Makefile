@@ -3,9 +3,10 @@ COMMIT=$(shell git rev-parse HEAD)
 VERSION=$(shell cat VERSION)
 DATE=$(shell date +'%FT%TZ%z')
 
-INSTALL_LIB_DIR = /usr/local/lib
-INSTALL_INCLUDE_DIR = /usr/local/include
-INSTALL_BIN_DIR = /usr/local/bin
+INSTALL_PREFIX ?= /usr/local
+INSTALL_LIB_DIR ?= $(INSTALL_PREFIX)/lib
+INSTALL_INCLUDE_DIR ?= $(INSTALL_PREFIX)/include
+INSTALL_BIN_DIR ?= $(INSTALL_PREFIX)/bin
 
 ifndef CC
 CC=gcc
@@ -13,6 +14,10 @@ endif
 ifndef AR
 AR=ar
 endif
+
+# Capture user-provided flags
+EXT_CFLAGS := $(CFLAGS) $(CPPFLAGS)
+EXT_LDFLAGS := $(LDFLAGS)
 
 ifeq ($(shell uname -s),Darwin)
 CONFIG_DARWIN=y
@@ -24,11 +29,14 @@ endif
 
 ifdef CONFIG_DARWIN
 LOADABLE_EXTENSION=dylib
+# Let unresolved SQLite symbols resolve against host at load time
+# This is standard for SQLite loadable extensions on macOS.
+CFLAGS += -undefined dynamic_lookup
 endif
 
 ifdef CONFIG_LINUX
 LOADABLE_EXTENSION=so
-CFLAGS += -lm
+LDLIBS += -lm
 endif
 
 ifdef CONFIG_WINDOWS
@@ -95,14 +103,16 @@ $(BUILD_DIR): $(prefix)
 $(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(prefix)
 	$(CC) \
 		-fPIC -shared \
+		-fvisibility=hidden \
 		-Wall -Wextra \
 		-Ivendor/ \
 		-O3 \
-		$(CFLAGS) \
-		$< -o $@
+		$(CFLAGS) $(EXT_CFLAGS) \
+		$< -o $@ \
+		$(EXT_LDFLAGS) $(LDLIBS)
 
 $(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(prefix) $(OBJS_DIR)
-	$(CC) -Ivendor/ $(CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
+	$(CC) -Ivendor/ -fvisibility=hidden $(CFLAGS) $(EXT_CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
 	-O3 -c  $< -o $(OBJS_DIR)/vec.o
 	$(AR) rcs $@ $(OBJS_DIR)/vec.o
 
@@ -130,7 +140,7 @@ $(LIBS_DIR)/shell.a: $(OBJS_DIR)/shell.o $(LIBS_DIR)
 	$(AR) rcs $@ $<
 
 $(OBJS_DIR)/sqlite-vec.o: sqlite-vec.c $(OBJS_DIR)
-	$(CC) -c -g3 -Ivendor/ -I./ $(CFLAGS) $< -o $@
+	$(CC) -c -g3 -fvisibility=hidden -Ivendor/ -I./ $(CFLAGS) $(EXT_CFLAGS) $< -o $@
 
 $(LIBS_DIR)/sqlite-vec.a: $(OBJS_DIR)/sqlite-vec.o $(LIBS_DIR)
 	$(AR) rcs $@ $<
@@ -138,14 +148,15 @@ $(LIBS_DIR)/sqlite-vec.a: $(OBJS_DIR)/sqlite-vec.o $(LIBS_DIR)
 
 $(TARGET_CLI): sqlite-vec.h $(LIBS_DIR)/sqlite-vec.a $(LIBS_DIR)/shell.a $(LIBS_DIR)/sqlite3.a examples/sqlite3-cli/core_init.c $(prefix)
 	$(CC) -g3  \
+	-fvisibility=hidden \
 	-Ivendor/ -I./ \
 	-DSQLITE_CORE \
 	-DSQLITE_VEC_STATIC \
 	-DSQLITE_THREADSAFE=0 -DSQLITE_ENABLE_FTS4 \
 	-DSQLITE_ENABLE_STMT_SCANSTATUS -DSQLITE_ENABLE_BYTECODE_VTAB -DSQLITE_ENABLE_EXPLAIN_COMMENTS \
 	-DSQLITE_EXTRA_INIT=core_init \
-	$(CFLAGS) \
-	-ldl -lm \
+	$(CFLAGS) $(EXT_CFLAGS) \
+	$(EXT_LDFLAGS) -ldl -lm \
 	examples/sqlite3-cli/core_init.c $(LIBS_DIR)/shell.a $(LIBS_DIR)/sqlite3.a $(LIBS_DIR)/sqlite-vec.a -o $@
 
 
@@ -193,6 +204,10 @@ test-loadable: loadable
 test-loadable-snapshot-update: loadable
 	$(PYTHON) -m pytest -vv tests/test-loadable.py --snapshot-update
 
+# Update snapshots for all loadable tests (use after intentional behavior changes)
+test-snapshots-update: loadable
+	$(PYTHON) -m pytest -vv tests/test-*.py --snapshot-update
+
 test-loadable-watch:
 	watchexec --exts c,py,Makefile --clear -- make test-loadable
 
@@ -216,7 +231,7 @@ install:
 		install -m 644 $(TARGET_STATIC) $(INSTALL_LIB_DIR); \
 	fi
 	@if [ -f $(TARGET_CLI) ]; then \
-		sudo install -m 755 $(TARGET_CLI) $(INSTALL_BIN_DIR); \
+		install -m 755 $(TARGET_CLI) $(INSTALL_BIN_DIR); \
 	fi
 	ldconfig
 

@@ -423,6 +423,51 @@ def test_vec_distance_cosine():
     check([1, 2, 3], [-9, -8, -7], dtype=np.int8)
     assert vec_distance_cosine("[1.1, 1.0]", "[1.2, 1.2]") == 0.001131898257881403
 
+    vec_distance_cosine_bit = lambda *args: db.execute(
+        "select vec_distance_cosine(vec_bit(?), vec_bit(?))", args
+    ).fetchone()[0]
+    assert isclose(
+        vec_distance_cosine_bit(b"\xff", b"\x01"),
+        npy_cosine([1,1,1,1,1,1,1,1], [0,0,0,0,0,0,0,1]),
+        abs_tol=1e-6
+    )
+    assert isclose(
+        vec_distance_cosine_bit(b"\xab", b"\xab"),
+        npy_cosine([1,0,1,0,1,0,1,1], [1,0,1,0,1,0,1,1]),
+        abs_tol=1e-6
+    )
+    # test 64-bit
+    assert isclose(
+        vec_distance_cosine_bit(b"\xaa" * 8, b"\xff" * 8),
+        npy_cosine([1,0] * 32, [1] * 64),
+        abs_tol=1e-6
+    )
+
+def test_ensure_vector_match_cleanup_on_second_vector_error():
+    """
+    Test that ensure_vector_match properly cleans up the first vector
+    when the second vector fails to parse.
+
+    This tests the fix for a bug where aCleanup(a) was called instead of
+    aCleanup(*a), passing the wrong pointer to the cleanup function.
+
+    The bug only manifests when the first vector is parsed from JSON/TEXT
+    (which uses sqlite3_free as cleanup) rather than BLOB (which uses noop).
+    """
+    # Valid first vector as JSON text - this causes memory allocation
+    # and sets cleanup to sqlite3_free
+    valid_vector_json = "[1.0, 2.0, 3.0, 4.0]"
+
+    # Invalid second vector: 5 bytes, not divisible by 4 (sizeof float32)
+    # This will fail in fvec_from_value with "invalid float32 vector BLOB length"
+    invalid_vector = b"\x01\x02\x03\x04\x05"
+
+    with pytest.raises(sqlite3.OperationalError, match=r"^Error reading 2nd vector: invalid float32 vector BLOB length\. Must be divisible by 4, found 5$"):
+        db.execute(
+            "select vec_distance_cosine(?, ?)",
+            [valid_vector_json, invalid_vector]
+        ).fetchone()
+
 
 def test_vec_distance_hamming():
     vec_distance_hamming = lambda *args: db.execute(
@@ -949,6 +994,54 @@ def test_vec0_inserts():
         db.execute("insert into txt_pk(txt_id, aaa) values ('b', '[2,2,2,2]')")
     db.set_authorizer(None)
     db.execute("insert into txt_pk(txt_id, aaa) values ('b', '[2,2,2,2]')")
+
+
+def test_vec0_locale_independent():
+    """Test that JSON float parsing is locale-independent (issue #241)"""
+    import locale
+
+    db = connect(EXT_PATH)
+    db.execute("create virtual table v using vec0(embedding float[3])")
+
+    # Test with C locale first (baseline)
+    db.execute("insert into v(rowid, embedding) values (1, '[0.1, 0.2, 0.3]')")
+
+    # Try to set a non-C locale that uses comma as decimal separator
+    # Common locales: fr_FR, de_DE, it_IT, es_ES, pt_BR, etc.
+    test_locales = ['fr_FR.UTF-8', 'de_DE.UTF-8', 'it_IT.UTF-8', 'C.UTF-8']
+    locale_set = False
+    original_locale = locale.setlocale(locale.LC_NUMERIC)
+
+    for test_locale in test_locales:
+        try:
+            locale.setlocale(locale.LC_NUMERIC, test_locale)
+            locale_set = True
+            break
+        except locale.Error:
+            continue
+
+    try:
+        # Even with non-C locale, JSON parsing should work (using dot as decimal separator)
+        # Before the fix, this would fail in French/German/etc locales
+        db.execute("insert into v(rowid, embedding) values (2, '[0.4, 0.5, 0.6]')")
+
+        # Verify the data was inserted correctly
+        result = db.execute("select embedding from v where rowid = 2").fetchone()
+        expected = _f32([0.4, 0.5, 0.6])
+        assert result[0] == expected, f"Expected {expected}, got {result[0]}"
+
+        # Also verify with different decimal values
+        db.execute("insert into v(rowid, embedding) values (3, '[1.23, 4.56, 7.89]')")
+        result = db.execute("select embedding from v where rowid = 3").fetchone()
+        expected = _f32([1.23, 4.56, 7.89])
+        assert result[0] == expected, f"Expected {expected}, got {result[0]}"
+
+    finally:
+        # Restore original locale
+        locale.setlocale(locale.LC_NUMERIC, original_locale)
+
+    # If we couldn't set a non-C locale, the test still passes (baseline check)
+    # but we didn't really test the locale-independence
 
 
 def test_vec0_insert_errors2():

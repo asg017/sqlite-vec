@@ -35,6 +35,6 @@ If your embeddings are provided as a list of numbers, use `.pack("f*")` to conve
 
 ```ruby
 embedding = [0.1, 0.2, 0.3, 0.4]
-result = db.execute("SELECT vec_length(?)", [query.pack("f*")]])
+result = db.execute("SELECT vec_length(?)", [embedding.pack("f*")])
 puts result.first.first # 4
 ```

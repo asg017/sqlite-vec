@@ -1,0 +1,62 @@
+{
+  "name": "sqlite-vec",
+  "version": "0.2.4-alpha",
+  "description": "A vector search SQLite extension that runs anywhere",
+  "main": "./index.cjs",
+  "module": "./index.mjs",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./index.cjs",
+      "import": "./index.mjs",
+      "types": "./index.d.ts"
+    }
+  },
+  "scripts": {
+    "install": "bash -c './scripts/vendor.sh && make loadable'",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vlasky/sqlite-vec.git"
+  },
+  "keywords": [
+    "sqlite",
+    "vector",
+    "search",
+    "embedding",
+    "similarity"
+  ],
+  "author": "Alex Garcia <alex@alex.garcia>",
+  "contributors": [
+    "Vlad Lasky"
+  ],
+  "license": "(MIT OR Apache-2.0)",
+  "bugs": {
+    "url": "https://github.com/vlasky/sqlite-vec/issues"
+  },
+  "homepage": "https://github.com/vlasky/sqlite-vec#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "files": [
+    "index.cjs",
+    "index.mjs",
+    "index.d.ts",
+    "dist/vec0.so",
+    "dist/vec0.dylib",
+    "dist/vec0.dll",
+    "sqlite-vec.c",
+    "sqlite-vec.h",
+    "sqlite-vec.h.tmpl",
+    "VERSION",
+    "vendor/",
+    "scripts/vendor.sh",
+    "Makefile"
+  ]
+}

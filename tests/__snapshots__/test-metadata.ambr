@@ -28,7 +28,7 @@
           'chunk_id': 1,
           'size': 8,
           'validity': b'\x02',
-          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+          'rowids': b'\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
         }),
       ]),
     }),
@@ -89,7 +89,7 @@
       'rows': list([
         OrderedDict({
           'rowid': 1,
-          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+          'vectors': b'\x00\x00\x00\x00""""\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
         }),
       ]),
     }),
@@ -264,7 +264,7 @@
           'chunk_id': 1,
           'size': 8,
           'validity': b'\x06',
-          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+          'rowids': b'\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
         }),
       ]),
     }),
@@ -335,7 +335,7 @@
       'rows': list([
         OrderedDict({
           'rowid': 1,
-          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+          'vectors': b'\x00\x00\x00\x00""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
         }),
       ]),
     }),
@@ -379,6 +379,256 @@
   dict({
     'error': 'OperationalError',
     'message': 'Could not extract metadata value for column t at rowid 1',
+  })
+# ---
+# name: test_glob[contains *o*]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 9 and name glob '*o*'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 8,
+        'name': 'yet_another_string',
+        'distance': 0.12000000476837158,
+      }),
+      OrderedDict({
+        'rowid': 7,
+        'name': 'this_is_another_long_one',
+        'distance': 0.23000001907348633,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'name': 'this_is_a_very_long_string_name',
+        'distance': 0.3399999737739563,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'carol',
+        'distance': 0.44999998807907104,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bobby',
+        'distance': 0.5600000023841858,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bob',
+        'distance': 0.6699999570846558,
+      }),
+    ]),
+  })
+# ---
+# name: test_glob[error: GLOB on integer column]
+  dict({
+    'error': 'OperationalError',
+    'message': 'GLOB operator is only allowed on TEXT metadata columns.',
+  })
+# ---
+# name: test_glob[match all *]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 9 and name glob '*'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 9,
+        'name': 'zebra',
+        'distance': 0.009999990463256836,
+      }),
+      OrderedDict({
+        'rowid': 8,
+        'name': 'yet_another_string',
+        'distance': 0.12000000476837158,
+      }),
+      OrderedDict({
+        'rowid': 7,
+        'name': 'this_is_another_long_one',
+        'distance': 0.23000001907348633,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'name': 'this_is_a_very_long_string_name',
+        'distance': 0.3399999737739563,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'carol',
+        'distance': 0.44999998807907104,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bobby',
+        'distance': 0.5600000023841858,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bob',
+        'distance': 0.6699999570846558,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'alex',
+        'distance': 0.7799999713897705,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'alice',
+        'distance': 0.8899999856948853,
+      }),
+    ]),
+  })
+# ---
+# name: test_glob[no matches nomatch*]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 9 and name glob 'nomatch*'",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_glob[prefix a*]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 5 and name glob 'a*'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'name': 'alex',
+        'distance': 0.7799999713897705,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'alice',
+        'distance': 0.8899999856948853,
+      }),
+    ]),
+  })
+# ---
+# name: test_glob[prefix bob*]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 5 and name glob 'bob*'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bobby',
+        'distance': 0.5600000023841858,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bob',
+        'distance': 0.6699999570846558,
+      }),
+    ]),
+  })
+# ---
+# name: test_glob[prefix this_* with long strings]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 5 and name glob 'this_*'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 7,
+        'name': 'this_is_another_long_one',
+        'distance': 0.23000001907348633,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'name': 'this_is_a_very_long_string_name',
+        'distance': 0.3399999737739563,
+      }),
+    ]),
+  })
+# ---
+# name: test_glob[suffix *ice]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 9 and name glob '*ice'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'name': 'alice',
+        'distance': 0.8899999856948853,
+      }),
+    ]),
+  })
+# ---
+# name: test_glob[wildcard pattern a?e?]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 9 and name glob 'a?e?'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'name': 'alex',
+        'distance': 0.7799999713897705,
+      }),
+    ]),
+  })
+# ---
+# name: test_glob_boundary_conditions[boundary: case sensitive at 12 bytes]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_glob_boundary_conditions[boundary: prefix pattern at boundary]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_glob_case_sensitive[complex pattern case sensitive]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name glob '*APPLE*'",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_glob_case_sensitive[exact case match Apple*]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'Apple*'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'name': 'Apple',
+      }),
+    ]),
+  })
+# ---
+# name: test_glob_case_sensitive[exact case match Cherry*]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'Cherry*'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'Cherry',
+      }),
+    ]),
+  })
+# ---
+# name: test_glob_case_sensitive[lowercase pattern matches long lowercase data]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'elderberry*'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'name': 'elderberry_is_very_long_string',
+      }),
+    ]),
+  })
+# ---
+# name: test_glob_case_sensitive[lowercase pattern should not match uppercase data]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'apple*'",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_glob_case_sensitive[uppercase pattern should not match long lowercase data]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'ELDERBERRY*'",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_glob_case_sensitive[uppercase pattern should not match mixed case]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'CHERRY*'",
+    'rows': list([
+    ]),
   })
 # ---
 # name: test_idxstr
@@ -573,10 +823,338 @@
     ]),
   })
 # ---
+# name: test_is_boolean_metadata[IS NOT NULL boolean]
+  OrderedDict({
+    'sql': "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is not null",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'is_hidden': 0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'is_hidden': 1,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'is_hidden': 0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'is_hidden': 1,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'is_hidden': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_boolean_metadata[IS NULL boolean]
+  OrderedDict({
+    'sql': "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is null",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_is_boolean_metadata[is_hidden IS NOT false]
+  OrderedDict({
+    'sql': "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is not 0",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'is_hidden': 1,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'is_hidden': 1,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_boolean_metadata[is_hidden IS false]
+  OrderedDict({
+    'sql': "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is 0",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'is_hidden': 0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'is_hidden': 0,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'is_hidden': 0,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_boolean_metadata[is_hidden IS true]
+  OrderedDict({
+    'sql': "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is 1",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'is_hidden': 1,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'is_hidden': 1,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_float_metadata[IS 2.5]
+  OrderedDict({
+    'sql': "select rowid, score from v where vector match '[1]' and k = 5 and score is 2.5",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'score': 2.5,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'score': 2.5,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_float_metadata[IS NOT 2.5]
+  OrderedDict({
+    'sql': "select rowid, score from v where vector match '[1]' and k = 5 and score is not 2.5",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'score': 4.5,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'score': 3.5,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'score': 1.5,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_float_metadata[IS NOT NULL float]
+  OrderedDict({
+    'sql': "select rowid, score from v where vector match '[1]' and k = 5 and score is not null",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'score': 4.5,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'score': 2.5,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'score': 3.5,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'score': 2.5,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'score': 1.5,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_float_metadata[IS NULL float]
+  OrderedDict({
+    'sql': "select rowid, score from v where vector match '[1]' and k = 5 and score is null",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_is_integer_metadata[IS 20]
+  OrderedDict({
+    'sql': "select rowid, age from v where vector match '[1]' and k = 5 and age is 20",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'age': 20,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'age': 20,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_integer_metadata[IS NOT 20]
+  OrderedDict({
+    'sql': "select rowid, age from v where vector match '[1]' and k = 5 and age is not 20",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'age': 40,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'age': 30,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'age': 10,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_integer_metadata[IS NOT NULL]
+  OrderedDict({
+    'sql': "select rowid, age from v where vector match '[1]' and k = 5 and age is not null",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'age': 40,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'age': 20,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'age': 30,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'age': 20,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'age': 10,
+      }),
+    ]),
+  })
+# ---
+# name: test_is_integer_metadata[IS NULL]
+  OrderedDict({
+    'sql': "select rowid, age from v where vector match '[1]' and k = 5 and age is null",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_is_text_metadata[IS NOT NULL text]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name is not null",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'name': 'david',
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bob',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'carol',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'bob',
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'alice',
+      }),
+    ]),
+  })
+# ---
+# name: test_is_text_metadata[IS NOT bob]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name is not 'bob'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'name': 'david',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'carol',
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'alice',
+      }),
+    ]),
+  })
+# ---
+# name: test_is_text_metadata[IS NULL text]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name is null",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_is_text_metadata[IS bob]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name is 'bob'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bob',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'bob',
+      }),
+    ]),
+  })
+# ---
+# name: test_is_with_long_text[IS NOT long string]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name is not 'this_is_a_very_long_string_name'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'name': 'yet_another_long_one',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'short',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'another_long_string',
+      }),
+    ]),
+  })
+# ---
+# name: test_is_with_long_text[IS long string]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name is 'this_is_a_very_long_string_name'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'name': 'this_is_a_very_long_string_name',
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'this_is_a_very_long_string_name',
+      }),
+    ]),
+  })
+# ---
 # name: test_knn.1
-  dict({
-    'error': 'OperationalError',
-    'message': 'An illegal WHERE constraint was provided on a vec0 metadata column in a KNN query. Only one of EQUALS, GREATER_THAN, LESS_THAN_OR_EQUAL, LESS_THAN, GREATER_THAN_OR_EQUAL, NOT_EQUALS is allowed.',
+  OrderedDict({
+    'sql': "select *, distance from v where vector match '[5]' and k = 3 and name like 'a%'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x00\x00\x80?',
+        'name': 'alex',
+        'distance': 4.0,
+      }),
+    ]),
   })
 # ---
 # name: test_knn[sqlite_master]
@@ -615,14 +1193,14 @@
         'type': 'table',
         'name': 'v_metadatachunks00',
         'tbl_name': 'v_metadatachunks00',
-        'rootpage': 9,
-        'sql': 'CREATE TABLE "v_metadatachunks00"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+        'rootpage': 8,
+        'sql': 'CREATE TABLE "v_metadatachunks00"(rowid INTEGER PRIMARY KEY, data BLOB NOT NULL)',
       }),
       OrderedDict({
         'type': 'table',
         'name': 'v_metadatatext00',
         'tbl_name': 'v_metadatatext00',
-        'rootpage': 11,
+        'rootpage': 9,
         'sql': 'CREATE TABLE "v_metadatatext00"(rowid PRIMARY KEY, data TEXT)',
       }),
       OrderedDict({
@@ -637,7 +1215,269 @@
         'name': 'v_vector_chunks00',
         'tbl_name': 'v_vector_chunks00',
         'rootpage': 7,
-        'sql': 'CREATE TABLE "v_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)',
+        'sql': 'CREATE TABLE "v_vector_chunks00"(rowid INTEGER PRIMARY KEY,vectors BLOB NOT NULL)',
+      }),
+    ]),
+  })
+# ---
+# name: test_like[contains %o%]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 9 and name like '%o%'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 8,
+        'name': 'yet_another_string',
+        'distance': 0.12000000476837158,
+      }),
+      OrderedDict({
+        'rowid': 7,
+        'name': 'this_is_another_long_one',
+        'distance': 0.23000001907348633,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'name': 'this_is_a_very_long_string_name',
+        'distance': 0.3399999737739563,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'carol',
+        'distance': 0.44999998807907104,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bobby',
+        'distance': 0.5600000023841858,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bob',
+        'distance': 0.6699999570846558,
+      }),
+    ]),
+  })
+# ---
+# name: test_like[error: LIKE on integer column]
+  dict({
+    'error': 'OperationalError',
+    'message': 'LIKE operator is only allowed on TEXT metadata columns.',
+  })
+# ---
+# name: test_like[match all %]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 9 and name like '%'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 9,
+        'name': 'zebra',
+        'distance': 0.009999990463256836,
+      }),
+      OrderedDict({
+        'rowid': 8,
+        'name': 'yet_another_string',
+        'distance': 0.12000000476837158,
+      }),
+      OrderedDict({
+        'rowid': 7,
+        'name': 'this_is_another_long_one',
+        'distance': 0.23000001907348633,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'name': 'this_is_a_very_long_string_name',
+        'distance': 0.3399999737739563,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'name': 'carol',
+        'distance': 0.44999998807907104,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bobby',
+        'distance': 0.5600000023841858,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bob',
+        'distance': 0.6699999570846558,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'name': 'alex',
+        'distance': 0.7799999713897705,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'alice',
+        'distance': 0.8899999856948853,
+      }),
+    ]),
+  })
+# ---
+# name: test_like[no matches nomatch%]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 9 and name like 'nomatch%'",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_like[prefix a%]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 5 and name like 'a%'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'name': 'alex',
+        'distance': 0.7799999713897705,
+      }),
+      OrderedDict({
+        'rowid': 1,
+        'name': 'alice',
+        'distance': 0.8899999856948853,
+      }),
+    ]),
+  })
+# ---
+# name: test_like[prefix bob%]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 5 and name like 'bob%'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'name': 'bobby',
+        'distance': 0.5600000023841858,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'name': 'bob',
+        'distance': 0.6699999570846558,
+      }),
+    ]),
+  })
+# ---
+# name: test_like[prefix this_% with long strings]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 5 and name like 'this_%'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 7,
+        'name': 'this_is_another_long_one',
+        'distance': 0.23000001907348633,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'name': 'this_is_a_very_long_string_name',
+        'distance': 0.3399999737739563,
+      }),
+    ]),
+  })
+# ---
+# name: test_like[suffix %ice]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 9 and name like '%ice'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'name': 'alice',
+        'distance': 0.8899999856948853,
+      }),
+    ]),
+  })
+# ---
+# name: test_like[wildcard pattern a_e_]
+  OrderedDict({
+    'sql': "select rowid, name, distance from v where vector match '[1]' and k = 9 and name like 'a_e_'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 2,
+        'name': 'alex',
+        'distance': 0.7799999713897705,
+      }),
+    ]),
+  })
+# ---
+# name: test_like_boundary_conditions[12-byte boundary: exact match]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_like_boundary_conditions[12-byte boundary: prefix matches both 12 and 13 byte strings]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_like_boundary_conditions[13-byte boundary: 12-byte pattern]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_like_boundary_conditions[boundary: case insensitive at 12 bytes]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_like_boundary_conditions[boundary: short pattern on mixed length strings]
+  dict({
+    'error': 'OperationalError',
+    'message': 'Could not filter metadata fields',
+  })
+# ---
+# name: test_like_case_insensitive[complex pattern case insensitive]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name like '%APPLE%'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'name': 'Apple',
+      }),
+    ]),
+  })
+# ---
+# name: test_like_case_insensitive[lowercase pattern matches uppercase data]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name like 'apple%'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'name': 'Apple',
+      }),
+    ]),
+  })
+# ---
+# name: test_like_case_insensitive[mixed case pattern matches uppercase data]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name like 'DuRiAn%'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 4,
+        'name': 'DURIAN_IS_LONG',
+      }),
+    ]),
+  })
+# ---
+# name: test_like_case_insensitive[uppercase pattern matches long lowercase data]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name like 'ELDERBERRY%'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 5,
+        'name': 'elderberry_is_very_long_string',
+      }),
+    ]),
+  })
+# ---
+# name: test_like_case_insensitive[uppercase pattern matches mixed case data]
+  OrderedDict({
+    'sql': "select rowid, name from v where vector match '[1]' and k = 5 and name like 'CHERRY%'",
+    'rows': list([
+      OrderedDict({
+        'rowid': 3,
+        'name': 'Cherry',
       }),
     ]),
   })
@@ -1877,35 +2717,35 @@
         'type': 'table',
         'name': 'v_metadatachunks00',
         'tbl_name': 'v_metadatachunks00',
-        'rootpage': 9,
-        'sql': 'CREATE TABLE "v_metadatachunks00"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+        'rootpage': 8,
+        'sql': 'CREATE TABLE "v_metadatachunks00"(rowid INTEGER PRIMARY KEY, data BLOB NOT NULL)',
       }),
       OrderedDict({
         'type': 'table',
         'name': 'v_metadatachunks01',
         'tbl_name': 'v_metadatachunks01',
-        'rootpage': 11,
-        'sql': 'CREATE TABLE "v_metadatachunks01"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+        'rootpage': 9,
+        'sql': 'CREATE TABLE "v_metadatachunks01"(rowid INTEGER PRIMARY KEY, data BLOB NOT NULL)',
       }),
       OrderedDict({
         'type': 'table',
         'name': 'v_metadatachunks02',
         'tbl_name': 'v_metadatachunks02',
-        'rootpage': 13,
-        'sql': 'CREATE TABLE "v_metadatachunks02"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+        'rootpage': 10,
+        'sql': 'CREATE TABLE "v_metadatachunks02"(rowid INTEGER PRIMARY KEY, data BLOB NOT NULL)',
       }),
       OrderedDict({
         'type': 'table',
         'name': 'v_metadatachunks03',
         'tbl_name': 'v_metadatachunks03',
-        'rootpage': 15,
-        'sql': 'CREATE TABLE "v_metadatachunks03"(rowid PRIMARY KEY, data BLOB NOT NULL)',
+        'rootpage': 11,
+        'sql': 'CREATE TABLE "v_metadatachunks03"(rowid INTEGER PRIMARY KEY, data BLOB NOT NULL)',
       }),
       OrderedDict({
         'type': 'table',
         'name': 'v_metadatatext03',
         'tbl_name': 'v_metadatatext03',
-        'rootpage': 17,
+        'rootpage': 12,
         'sql': 'CREATE TABLE "v_metadatatext03"(rowid PRIMARY KEY, data TEXT)',
       }),
       OrderedDict({
@@ -1920,9 +2760,153 @@
         'name': 'v_vector_chunks00',
         'tbl_name': 'v_vector_chunks00',
         'rootpage': 7,
-        'sql': 'CREATE TABLE "v_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)',
+        'sql': 'CREATE TABLE "v_vector_chunks00"(rowid INTEGER PRIMARY KEY,vectors BLOB NOT NULL)',
       }),
     ]),
+  })
+# ---
+# name: test_renames
+  OrderedDict({
+    'sql': 'insert into v(rowid, vector, b, n, f, t) values (?, ?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_renames.1
+  OrderedDict({
+    'sql': 'insert into v(rowid, vector, b, n, f, t) values (?, ?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_renames.2
+  OrderedDict({
+    'sql': 'insert into v(rowid, vector, b, n, f, t) values (?, ?, ?, ?, ?, ?)',
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_renames.3
+  OrderedDict({
+    'sql': 'select * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x11\x11\x11\x11',
+        'b': 1,
+        'n': 1,
+        'f': 1.1,
+        't': 'test1',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'""""',
+        'b': 1,
+        'n': 2,
+        'f': 2.2,
+        't': 'test2',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'3333',
+        'b': 1,
+        'n': 3,
+        'f': 3.3,
+        't': '1234567890123',
+      }),
+    ]),
+  })
+# ---
+# name: test_renames.4
+  dict({
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks00': OrderedDict({
+      'sql': 'select * from v_metadatachunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x07',
+        }),
+      ]),
+    }),
+    'v_metadatachunks01': OrderedDict({
+      'sql': 'select * from v_metadatachunks01',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks02': OrderedDict({
+      'sql': 'select * from v_metadatachunks02',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x9a\x99\x99\x99\x99\x99\xf1?\x9a\x99\x99\x99\x99\x99\x01@ffffff\n@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatachunks03': OrderedDict({
+      'sql': 'select * from v_metadatachunks03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'data': b'\x05\x00\x00\x00test1\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00test2\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00123456789012\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_metadatatext03': OrderedDict({
+      'sql': 'select * from v_metadatatext03',
+      'rows': list([
+        OrderedDict({
+          'rowid': 3,
+          'data': '1234567890123',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
   })
 # ---
 # name: test_stress
@@ -2690,7 +3674,7 @@
 # name: test_stress[bool-other-op]
   dict({
     'error': 'OperationalError',
-    'message': 'ONLY EQUALS (=) or NOT_EQUALS (!=) operators are allowed on boolean metadata columns.',
+    'message': 'ONLY EQUALS (=), NOT_EQUALS (!=), IS, IS NOT, IS NULL, or IS NOT NULL operators are allowed on boolean metadata columns.',
   })
 # ---
 # name: test_text_knn

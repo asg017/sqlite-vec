@@ -264,6 +264,29 @@ def test_deletes(db, snapshot):
     assert vec0_shadow_table_contents(db, "v") == snapshot()
 
 
+def test_renames(db, snapshot):
+    db.execute(
+        "create virtual table v using vec0(vector float[1], b boolean, n int, f float, t text, chunk_size=8)"
+    )
+    INSERT = "insert into v(rowid, vector, b, n, f, t) values (?, ?, ?, ?, ?, ?)"
+
+    assert exec(db, INSERT, [1, b"\x11\x11\x11\x11", 1, 1, 1.1, "test1"]) == snapshot()
+    assert exec(db, INSERT, [2, b"\x22\x22\x22\x22", 1, 2, 2.2, "test2"]) == snapshot()
+    assert (
+        exec(db, INSERT, [3, b"\x33\x33\x33\x33", 1, 3, 3.3, "1234567890123"])
+        == snapshot()
+    )
+
+    assert exec(db, "select * from v") == snapshot()
+    assert vec0_shadow_table_contents(db, "v") == snapshot()
+
+    result = exec(db, "select * from v")
+    db.execute(
+        "alter table v rename to v1"
+    )
+    assert exec(db, "select * from v1")["rows"] == result["rows"]
+
+
 def test_knn(db, snapshot):
     db.execute(
         "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
@@ -276,14 +299,793 @@ def test_knn(db, snapshot):
         [("[1]", "alex"), ("[2]", "brian"), ("[3]", "craig")],
     )
 
-    # EVIDENCE-OF: V16511_00582 catches "illegal" constraints on metadata columns
+    # LIKE is now supported on text metadata columns
     assert (
         exec(
             db,
-            "select *, distance from v where vector match '[5]' and k = 3 and name like 'illegal'",
+            "select *, distance from v where vector match '[5]' and k = 3 and name like 'a%'",
         )
         == snapshot()
     )
+
+
+def test_like(db, snapshot):
+    """Test LIKE operator on text metadata columns with various patterns"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
+    )
+
+    # Insert test data with both short (≤12 bytes) and long (>12 bytes) strings
+    db.execute(
+        """
+      INSERT INTO v(vector, name) VALUES
+        ('[.11]', 'alice'),
+        ('[.22]', 'alex'),
+        ('[.33]', 'bob'),
+        ('[.44]', 'bobby'),
+        ('[.55]', 'carol'),
+        ('[.66]', 'this_is_a_very_long_string_name'),
+        ('[.77]', 'this_is_another_long_one'),
+        ('[.88]', 'yet_another_string'),
+        ('[.99]', 'zebra');
+    """
+    )
+
+    # Test prefix-only patterns (fast path)
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 5 and name like 'a%'",
+        )
+        == snapshot(name="prefix a%")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 5 and name like 'bob%'",
+        )
+        == snapshot(name="prefix bob%")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 5 and name like 'this_%'",
+        )
+        == snapshot(name="prefix this_% with long strings")
+    )
+
+    # Test complex patterns (slow path)
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 9 and name like '%ice'",
+        )
+        == snapshot(name="suffix %ice")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 9 and name like '%o%'",
+        )
+        == snapshot(name="contains %o%")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 9 and name like 'a_e_'",
+        )
+        == snapshot(name="wildcard pattern a_e_")
+    )
+
+    # Test edge cases
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 9 and name like '%'",
+        )
+        == snapshot(name="match all %")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 9 and name like 'nomatch%'",
+        )
+        == snapshot(name="no matches nomatch%")
+    )
+
+    # Test LIKE on non-TEXT metadata should error
+    db.execute(
+        "create virtual table v2 using vec0(vector float[1], age int)"
+    )
+    db.execute("insert into v2(vector, age) values ('[1]', 25)")
+
+    assert (
+        exec(
+            db,
+            "select * from v2 where vector match '[1]' and k = 1 and age like '2%'",
+        )
+        == snapshot(name="error: LIKE on integer column")
+    )
+
+
+def test_like_case_insensitive(db, snapshot):
+    """Test LIKE operator is case-insensitive (SQLite default)"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
+    )
+
+    # Insert test data with mixed case
+    db.execute(
+        """
+      INSERT INTO v(vector, name) VALUES
+        ('[.11]', 'Apple'),
+        ('[.22]', 'BANANA'),
+        ('[.33]', 'Cherry'),
+        ('[.44]', 'DURIAN_IS_LONG'),
+        ('[.55]', 'elderberry_is_very_long_string');
+    """
+    )
+
+    # Test case insensitivity with prefix patterns (fast path)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'apple%'",
+        )
+        == snapshot(name="lowercase pattern matches uppercase data")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'CHERRY%'",
+        )
+        == snapshot(name="uppercase pattern matches mixed case data")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'DuRiAn%'",
+        )
+        == snapshot(name="mixed case pattern matches uppercase data")
+    )
+
+    # Test case insensitivity with long strings
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'ELDERBERRY%'",
+        )
+        == snapshot(name="uppercase pattern matches long lowercase data")
+    )
+
+    # Test case insensitivity with complex patterns (slow path)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like '%APPLE%'",
+        )
+        == snapshot(name="complex pattern case insensitive")
+    )
+
+
+def test_like_boundary_conditions(db, snapshot):
+    """Test LIKE operator at 12-byte cache boundary"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
+    )
+
+    # Insert test data with specific lengths
+    # Exactly 12 bytes: fits in cache
+    # Exactly 13 bytes: first 12 bytes in cache, last byte requires full fetch
+    db.execute(
+        """
+      INSERT INTO v(vector, name) VALUES
+        ('[.11]', 'exactly_12ch'),
+        ('[.22]', 'exactly_13chr'),
+        ('[.33]', 'short'),
+        ('[.44]', 'this_is_14byte'),
+        ('[.55]', 'this_is_much_longer_than_12_bytes');
+    """
+    )
+
+    # Verify lengths
+    lengths = db.execute("select name, length(name) from v order by rowid").fetchall()
+    assert lengths[0][1] == 12, f"Expected 12 bytes, got {lengths[0][1]} for '{lengths[0][0]}'"
+    assert lengths[1][1] == 13, f"Expected 13 bytes, got {lengths[1][1]} for '{lengths[1][0]}'"
+
+    # Test prefix matching at exactly 12 bytes
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'exactly_12%'",
+        )
+        == snapshot(name="12-byte boundary: exact match")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'exactly%'",
+        )
+        == snapshot(name="12-byte boundary: prefix matches both 12 and 13 byte strings")
+    )
+
+    # Test pattern that is exactly 12 bytes (excluding %)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'exactly_13ch%'",
+        )
+        == snapshot(name="13-byte boundary: 12-byte pattern")
+    )
+
+    # Test short pattern on long strings
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'this%'",
+        )
+        == snapshot(name="boundary: short pattern on mixed length strings")
+    )
+
+    # Test case insensitivity at boundary
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name like 'EXACTLY_12%'",
+        )
+        == snapshot(name="boundary: case insensitive at 12 bytes")
+    )
+
+
+def test_glob(db, snapshot):
+    """Test GLOB operator on text metadata columns with various patterns"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
+    )
+
+    # Insert test data with both short (≤12 bytes) and long (>12 bytes) strings
+    db.execute(
+        """
+      INSERT INTO v(vector, name) VALUES
+        ('[.11]', 'alice'),
+        ('[.22]', 'alex'),
+        ('[.33]', 'bob'),
+        ('[.44]', 'bobby'),
+        ('[.55]', 'carol'),
+        ('[.66]', 'this_is_a_very_long_string_name'),
+        ('[.77]', 'this_is_another_long_one'),
+        ('[.88]', 'yet_another_string'),
+        ('[.99]', 'zebra');
+    """
+    )
+
+    # Test prefix-only patterns (fast path)
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 5 and name glob 'a*'",
+        )
+        == snapshot(name="prefix a*")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 5 and name glob 'bob*'",
+        )
+        == snapshot(name="prefix bob*")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 5 and name glob 'this_*'",
+        )
+        == snapshot(name="prefix this_* with long strings")
+    )
+
+    # Test complex patterns (slow path)
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 9 and name glob '*ice'",
+        )
+        == snapshot(name="suffix *ice")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 9 and name glob '*o*'",
+        )
+        == snapshot(name="contains *o*")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 9 and name glob 'a?e?'",
+        )
+        == snapshot(name="wildcard pattern a?e?")
+    )
+
+    # Test edge cases
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 9 and name glob '*'",
+        )
+        == snapshot(name="match all *")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name, distance from v where vector match '[1]' and k = 9 and name glob 'nomatch*'",
+        )
+        == snapshot(name="no matches nomatch*")
+    )
+
+    # Test GLOB on non-TEXT metadata should error
+    db.execute(
+        "create virtual table v2 using vec0(vector float[1], age int)"
+    )
+    db.execute("insert into v2(vector, age) values ('[1]', 25)")
+
+    assert (
+        exec(
+            db,
+            "select * from v2 where vector match '[1]' and k = 1 and age glob '2*'",
+        )
+        == snapshot(name="error: GLOB on integer column")
+    )
+
+
+def test_glob_case_sensitive(db, snapshot):
+    """Test GLOB operator is case-sensitive (unlike LIKE)"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
+    )
+
+    # Insert test data with mixed case
+    db.execute(
+        """
+      INSERT INTO v(vector, name) VALUES
+        ('[.11]', 'Apple'),
+        ('[.22]', 'BANANA'),
+        ('[.33]', 'Cherry'),
+        ('[.44]', 'DURIAN_IS_LONG'),
+        ('[.55]', 'elderberry_is_very_long_string');
+    """
+    )
+
+    # Test case sensitivity with prefix patterns (fast path)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'apple*'",
+        )
+        == snapshot(name="lowercase pattern should not match uppercase data")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'Apple*'",
+        )
+        == snapshot(name="exact case match Apple*")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'CHERRY*'",
+        )
+        == snapshot(name="uppercase pattern should not match mixed case")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'Cherry*'",
+        )
+        == snapshot(name="exact case match Cherry*")
+    )
+
+    # Test case sensitivity with long strings
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'ELDERBERRY*'",
+        )
+        == snapshot(name="uppercase pattern should not match long lowercase data")
+    )
+
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'elderberry*'",
+        )
+        == snapshot(name="lowercase pattern matches long lowercase data")
+    )
+
+    # Test case sensitivity with complex patterns (slow path)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name glob '*APPLE*'",
+        )
+        == snapshot(name="complex pattern case sensitive")
+    )
+
+
+def test_glob_boundary_conditions(db, snapshot):
+    """Test GLOB operator at 12-byte cache boundary"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
+    )
+
+    # Insert test data with specific lengths
+    db.execute(
+        """
+      INSERT INTO v(vector, name) VALUES
+        ('[.11]', 'exactly_12ch'),
+        ('[.22]', 'exactly_13chr'),
+        ('[.33]', 'short'),
+        ('[.44]', 'this_is_14byte'),
+        ('[.55]', 'this_is_much_longer_than_12_bytes');
+    """
+    )
+
+    # Test prefix pattern that fits in cache (fast path)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'exactly_*'",
+        )
+        == snapshot(name="boundary: prefix pattern at boundary")
+    )
+
+    # Test that case sensitivity works at boundary
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name glob 'EXACTLY_*'",
+        )
+        == snapshot(name="boundary: case sensitive at 12 bytes")
+    )
+
+
+def test_is_integer_metadata(db, snapshot):
+    """Test IS operator on integer metadata columns"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], age int, chunk_size=8)"
+    )
+
+    # Insert test data
+    db.execute(
+        """
+      INSERT INTO v(vector, age) VALUES
+        ('[.11]', 10),
+        ('[.22]', 20),
+        ('[.33]', 30),
+        ('[.44]', 20),
+        ('[.55]', 40);
+    """
+    )
+
+    # Test IS (should work like =)
+    assert (
+        exec(
+            db,
+            "select rowid, age from v where vector match '[1]' and k = 5 and age is 20",
+        )
+        == snapshot(name="IS 20")
+    )
+
+    # Test IS NOT (should work like !=)
+    assert (
+        exec(
+            db,
+            "select rowid, age from v where vector match '[1]' and k = 5 and age is not 20",
+        )
+        == snapshot(name="IS NOT 20")
+    )
+
+    # Test IS NULL (should return no rows - metadata doesn't support NULL)
+    assert (
+        exec(
+            db,
+            "select rowid, age from v where vector match '[1]' and k = 5 and age is null",
+        )
+        == snapshot(name="IS NULL")
+    )
+
+    # Test IS NOT NULL (should return all rows - metadata doesn't support NULL)
+    assert (
+        exec(
+            db,
+            "select rowid, age from v where vector match '[1]' and k = 5 and age is not null",
+        )
+        == snapshot(name="IS NOT NULL")
+    )
+
+
+def test_is_float_metadata(db, snapshot):
+    """Test IS operator on float metadata columns"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], score float, chunk_size=8)"
+    )
+
+    # Insert test data
+    db.execute(
+        """
+      INSERT INTO v(vector, score) VALUES
+        ('[.11]', 1.5),
+        ('[.22]', 2.5),
+        ('[.33]', 3.5),
+        ('[.44]', 2.5),
+        ('[.55]', 4.5);
+    """
+    )
+
+    # Test IS (should work like =)
+    assert (
+        exec(
+            db,
+            "select rowid, score from v where vector match '[1]' and k = 5 and score is 2.5",
+        )
+        == snapshot(name="IS 2.5")
+    )
+
+    # Test IS NOT (should work like !=)
+    assert (
+        exec(
+            db,
+            "select rowid, score from v where vector match '[1]' and k = 5 and score is not 2.5",
+        )
+        == snapshot(name="IS NOT 2.5")
+    )
+
+    # Test IS NULL (should return no rows)
+    assert (
+        exec(
+            db,
+            "select rowid, score from v where vector match '[1]' and k = 5 and score is null",
+        )
+        == snapshot(name="IS NULL float")
+    )
+
+    # Test IS NOT NULL (should return all rows)
+    assert (
+        exec(
+            db,
+            "select rowid, score from v where vector match '[1]' and k = 5 and score is not null",
+        )
+        == snapshot(name="IS NOT NULL float")
+    )
+
+
+def test_is_text_metadata(db, snapshot):
+    """Test IS operator on text metadata columns"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
+    )
+
+    # Insert test data
+    db.execute(
+        """
+      INSERT INTO v(vector, name) VALUES
+        ('[.11]', 'alice'),
+        ('[.22]', 'bob'),
+        ('[.33]', 'carol'),
+        ('[.44]', 'bob'),
+        ('[.55]', 'david');
+    """
+    )
+
+    # Test IS (should work like =)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name is 'bob'",
+        )
+        == snapshot(name="IS bob")
+    )
+
+    # Test IS NOT (should work like !=)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name is not 'bob'",
+        )
+        == snapshot(name="IS NOT bob")
+    )
+
+    # Test IS NULL (should return no rows)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name is null",
+        )
+        == snapshot(name="IS NULL text")
+    )
+
+    # Test IS NOT NULL (should return all rows)
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name is not null",
+        )
+        == snapshot(name="IS NOT NULL text")
+    )
+
+
+def test_is_boolean_metadata(db, snapshot):
+    """Test IS operator on boolean metadata columns (issue #190 use case)"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], is_hidden boolean, chunk_size=8)"
+    )
+
+    # Insert test data
+    db.execute(
+        """
+      INSERT INTO v(vector, is_hidden) VALUES
+        ('[.11]', 0),
+        ('[.22]', 1),
+        ('[.33]', 0),
+        ('[.44]', 1),
+        ('[.55]', 0);
+    """
+    )
+
+    # Test IS FALSE (the original use case from issue #190)
+    assert (
+        exec(
+            db,
+            "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is 0",
+        )
+        == snapshot(name="is_hidden IS false")
+    )
+
+    # Test IS TRUE
+    assert (
+        exec(
+            db,
+            "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is 1",
+        )
+        == snapshot(name="is_hidden IS true")
+    )
+
+    # Test IS NOT FALSE
+    assert (
+        exec(
+            db,
+            "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is not 0",
+        )
+        == snapshot(name="is_hidden IS NOT false")
+    )
+
+    # Test IS NULL (should return no rows)
+    assert (
+        exec(
+            db,
+            "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is null",
+        )
+        == snapshot(name="IS NULL boolean")
+    )
+
+    # Test IS NOT NULL (should return all rows)
+    assert (
+        exec(
+            db,
+            "select rowid, is_hidden from v where vector match '[1]' and k = 5 and is_hidden is not null",
+        )
+        == snapshot(name="IS NOT NULL boolean")
+    )
+
+
+def test_is_with_long_text(db, snapshot):
+    """Test IS operator with long text strings (>12 bytes)"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"
+    )
+
+    # Insert test data with long strings
+    db.execute(
+        """
+      INSERT INTO v(vector, name) VALUES
+        ('[.11]', 'this_is_a_very_long_string_name'),
+        ('[.22]', 'another_long_string'),
+        ('[.33]', 'short'),
+        ('[.44]', 'this_is_a_very_long_string_name'),
+        ('[.55]', 'yet_another_long_one');
+    """
+    )
+
+    # Test IS with long string
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name is 'this_is_a_very_long_string_name'",
+        )
+        == snapshot(name="IS long string")
+    )
+
+    # Test IS NOT with long string
+    assert (
+        exec(
+            db,
+            "select rowid, name from v where vector match '[1]' and k = 5 and name is not 'this_is_a_very_long_string_name'",
+        )
+        == snapshot(name="IS NOT long string")
+    )
+
+
+def test_is_equivalence_to_eq(db, snapshot):
+    """Verify IS behaves identically to = for non-NULL values"""
+    db.execute(
+        "create virtual table v using vec0(vector float[1], age int, name text, chunk_size=8)"
+    )
+
+    db.execute(
+        """
+      INSERT INTO v(vector, age, name) VALUES
+        ('[.11]', 10, 'alice'),
+        ('[.22]', 20, 'bob'),
+        ('[.33]', 30, 'carol');
+    """
+    )
+
+    # IS should give same results as =
+    result_is = exec(
+        db,
+        "select rowid from v where vector match '[1]' and k = 5 and age is 20",
+    )
+    result_eq = exec(
+        db,
+        "select rowid from v where vector match '[1]' and k = 5 and age = 20",
+    )
+    assert result_is["rows"] == result_eq["rows"], "IS should behave like ="
+
+    # IS NOT should give same results as !=
+    result_isnot = exec(
+        db,
+        "select rowid from v where vector match '[1]' and k = 5 and name is not 'bob'",
+    )
+    result_ne = exec(
+        db,
+        "select rowid from v where vector match '[1]' and k = 5 and name != 'bob'",
+    )
+    assert result_isnot["rows"] == result_ne["rows"], "IS NOT should behave like !="
+
+
+def test_vacuum(db, snapshot):
+    db.execute(
+        "create virtual table v using vec0(vector float[1], name text)"
+    )
+    db.executemany(
+        "insert into v(vector, name) values (?, ?)",
+        [("[1]", "alex"), ("[2]", "brian"), ("[3]", "craig")],
+    )
+
+    exec(db, "delete from v where 1 = 1")
+    prev_page_count = exec(db, "pragma page_count")["rows"][0]["page_count"]
+
+    db.execute("insert into v(v) values ('optimize')")
+    db.commit()
+    db.execute("vacuum")
+
+    cur_page_count = exec(db, "pragma page_count")["rows"][0]["page_count"]
+    assert cur_page_count < prev_page_count
 
 
 SUPPORTS_VTAB_IN = sqlite3.sqlite_version_info[1] >= 38
