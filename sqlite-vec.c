@@ -1137,7 +1137,7 @@ int ensure_vector_match(sqlite3_value *aValue, sqlite3_value *bValue, void **a,
   if (rc != SQLITE_OK) {
     *outError = sqlite3_mprintf("Error reading 2nd vector: %s", error);
     sqlite3_free(error);
-    aCleanup(a);
+    aCleanup(*a);
     return SQLITE_ERROR;
   }
 

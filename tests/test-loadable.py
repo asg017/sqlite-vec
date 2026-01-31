@@ -443,6 +443,32 @@ def test_vec_distance_cosine():
         abs_tol=1e-6
     )
 
+def test_ensure_vector_match_cleanup_on_second_vector_error():
+    """
+    Test that ensure_vector_match properly cleans up the first vector
+    when the second vector fails to parse.
+
+    This tests the fix for a bug where aCleanup(a) was called instead of
+    aCleanup(*a), passing the wrong pointer to the cleanup function.
+
+    The bug only manifests when the first vector is parsed from JSON/TEXT
+    (which uses sqlite3_free as cleanup) rather than BLOB (which uses noop).
+    """
+    # Valid first vector as JSON text - this causes memory allocation
+    # and sets cleanup to sqlite3_free
+    valid_vector_json = "[1.0, 2.0, 3.0, 4.0]"
+
+    # Invalid second vector: 5 bytes, not divisible by 4 (sizeof float32)
+    # This will fail in fvec_from_value with "invalid float32 vector BLOB length"
+    invalid_vector = b"\x01\x02\x03\x04\x05"
+
+    with pytest.raises(sqlite3.OperationalError, match=r"^Error reading 2nd vector: invalid float32 vector BLOB length\. Must be divisible by 4, found 5$"):
+        db.execute(
+            "select vec_distance_cosine(?, ?)",
+            [valid_vector_json, invalid_vector]
+        ).fetchone()
+
+
 def test_vec_distance_hamming():
     vec_distance_hamming = lambda *args: db.execute(
         "select vec_distance_hamming(vec_bit(?), vec_bit(?))", args
