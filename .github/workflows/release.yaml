@@ -281,8 +281,6 @@ jobs:
           npm publish --provenance --access public distx/npm/sqlite-vec-windows-x64.tar.gz
           npm publish --provenance --access public distx/npm/sqlite-vec-wasm-demo.tar.gz
           npm publish --provenance --access public distx/npm/sqlite-vec.tar.gz
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: 3.2
