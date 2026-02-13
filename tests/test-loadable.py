@@ -2328,6 +2328,7 @@ def test_vec0_stress_small_chunks():
     data = np.zeros((1000, 8), dtype=np.float32)
     for i in range(1000):
         data[i] = np.array([(i + 1) * 0.1] * 8)
+    db.execute("drop table if exists vec_small")
     db.execute("create virtual table vec_small using vec0(chunk_size=8, a float[8])")
     assert execute_all(db, "select rowid, * from vec_small") == []
     with db:
@@ -2512,6 +2513,7 @@ def topk(
 def test_stress1():
     np.random.seed(1234)
     data = np.random.uniform(-1.0, 1.0, (8000, 128)).astype(np.float32)
+    db.execute("drop table if exists vec_stress1")
     db.execute(
         "create virtual table vec_stress1 using vec0( a float[128] distance_metric=cosine)"
     )

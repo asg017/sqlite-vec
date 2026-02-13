@@ -181,10 +181,10 @@ publish-release:
 
 # -k test_vec0_update
 test-loadable: loadable
-	uv run --project tests pytest -vv -s -x . tests/test-*.py
+	uv run --managed-python --project tests pytest -vv -s -x . tests/test-*.py
 
 test-loadable-snapshot-update: loadable
-	uv run --project tests pytest -vv tests/test-loadable.py --snapshot-update
+	uv run --managed-python --project tests pytest -vv tests/test-loadable.py --snapshot-update
 
 test-loadable-watch:
 	watchexec --exts c,py,Makefile --clear -- make test-loadable
