@@ -275,13 +275,20 @@ jobs:
           registry-url: "https://registry.npmjs.org"
       - run: |
           VERSION=$(cat VERSION)
-          npm publish --provenance --access public --tag $VERSION distx/npm/sqlite-vec-darwin-arm64.tar.gz
-          npm publish --provenance --access public --tag $VERSION distx/npm/sqlite-vec-darwin-x64.tar.gz
-          npm publish --provenance --access public --tag $VERSION distx/npm/sqlite-vec-linux-x64.tar.gz
-          npm publish --provenance --access public --tag $VERSION distx/npm/sqlite-vec-linux-arm64.tar.gz
-          npm publish --provenance --access public --tag $VERSION distx/npm/sqlite-vec-windows-x64.tar.gz
-          npm publish --provenance --access public --tag $VERSION distx/npm/sqlite-vec-wasm-demo.tar.gz
-          npm publish --provenance --access public --tag $VERSION distx/npm/sqlite-vec.tar.gz
+          if echo "$VERSION" | grep -q "alpha"; then
+            TAG=alpha
+          elif echo "$VERSION" | grep -q "beta"; then
+            TAG=beta
+          else
+            TAG=latest
+          fi
+          npm publish --provenance --access public --tag $TAG distx/npm/sqlite-vec-darwin-arm64.tar.gz
+          npm publish --provenance --access public --tag $TAG distx/npm/sqlite-vec-darwin-x64.tar.gz
+          npm publish --provenance --access public --tag $TAG distx/npm/sqlite-vec-linux-x64.tar.gz
+          npm publish --provenance --access public --tag $TAG distx/npm/sqlite-vec-linux-arm64.tar.gz
+          npm publish --provenance --access public --tag $TAG distx/npm/sqlite-vec-windows-x64.tar.gz
+          npm publish --provenance --access public --tag $TAG distx/npm/sqlite-vec-wasm-demo.tar.gz
+          npm publish --provenance --access public --tag $TAG distx/npm/sqlite-vec.tar.gz
         env:
           NODE_AUTH_TOKEN: ""
       - uses: ruby/setup-ruby@v1
