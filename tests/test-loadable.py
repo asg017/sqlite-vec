@@ -2209,6 +2209,7 @@ def test_correctness_npy():
 
 
 def test_smoke():
+    db.execute("drop table if exists vec_xyz")
     db.execute("create virtual table vec_xyz using vec0( a float[2] )")
     assert execute_all(
         db,
