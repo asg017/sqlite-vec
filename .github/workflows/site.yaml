@@ -32,4 +32,4 @@ jobs:
         with:
           path: site/.vitepress/dist
       - id: deployment
-        uses: actions/deploy-pages@v1
+        uses: actions/deploy-pages@v4
