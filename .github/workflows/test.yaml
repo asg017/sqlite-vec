@@ -73,29 +73,19 @@ jobs:
           name: sqlite-vec-windows-x86_64-extension
           path: dist/*
   build-linux-aarch64-extension:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04-arm
     steps:
-      - uses: green-coding-solutions/eco-ci-energy-estimation@v4
-        with:
-          task: start-measurement
       - uses: actions/checkout@v4
         with:
           version: "latest"
-      - run: sudo apt-get install gcc-arm-linux-gnueabihf
       - run: ./scripts/vendor.sh
-      - run: make sqlite-vec.h
-      - run: make CC=arm-linux-gnueabihf-gcc loadable static
+      - run: make loadable static
+      - run: uv sync --directory tests
+      - run: make test-loadable
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-linux-aarch64-extension
           path: dist/*
-      - uses: green-coding-solutions/eco-ci-energy-estimation@v4
-        with:
-          task: get-measurement
-          label: "all"
-      - uses: green-coding-solutions/eco-ci-energy-estimation@v4
-        with:
-          task: display-results
   build-android-extensions:
     runs-on: ubuntu-latest
     strategy:
