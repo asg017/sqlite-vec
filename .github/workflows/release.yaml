@@ -193,8 +193,11 @@ jobs:
         build-android-extensions,
         build-ios-extensions,
       ]
+    environment:
+      name: release
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -271,13 +274,13 @@ jobs:
           node-version: "16"
           registry-url: "https://registry.npmjs.org"
       - run: |
-          npm publish --access public distx/npm/sqlite-vec-darwin-arm64.tar.gz
-          npm publish --access public distx/npm/sqlite-vec-darwin-x64.tar.gz
-          npm publish --access public distx/npm/sqlite-vec-linux-x64.tar.gz
-          npm publish --access public distx/npm/sqlite-vec-linux-arm64.tar.gz
-          npm publish --access public distx/npm/sqlite-vec-windows-x64.tar.gz
-          npm publish --access public distx/npm/sqlite-vec-wasm-demo.tar.gz
-          npm publish --access public distx/npm/sqlite-vec.tar.gz
+          npm publish --provenance --access public distx/npm/sqlite-vec-darwin-arm64.tar.gz
+          npm publish --provenance --access public distx/npm/sqlite-vec-darwin-x64.tar.gz
+          npm publish --provenance --access public distx/npm/sqlite-vec-linux-x64.tar.gz
+          npm publish --provenance --access public distx/npm/sqlite-vec-linux-arm64.tar.gz
+          npm publish --provenance --access public distx/npm/sqlite-vec-windows-x64.tar.gz
+          npm publish --provenance --access public distx/npm/sqlite-vec-wasm-demo.tar.gz
+          npm publish --provenance --access public distx/npm/sqlite-vec.tar.gz
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - uses: ruby/setup-ruby@v1
