@@ -11,8 +11,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
       - run: ./scripts/vendor.sh
       - run: make loadable static
       - run: uv sync --directory tests
@@ -76,8 +74,7 @@ jobs:
     runs-on: ubuntu-22.04-arm
     steps:
       - uses: actions/checkout@v4
-        with:
-          version: "latest"
+      - uses: astral-sh/setup-uv@v7
       - run: ./scripts/vendor.sh
       - run: make loadable static
       - run: uv sync --directory tests
