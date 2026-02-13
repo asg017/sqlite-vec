@@ -269,9 +269,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Install node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: "16"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
       - run: |
           npm publish --provenance --access public distx/npm/sqlite-vec-darwin-arm64.tar.gz
