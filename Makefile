@@ -35,13 +35,6 @@ ifdef CONFIG_WINDOWS
 LOADABLE_EXTENSION=dll
 endif
 
-
-ifdef python
-PYTHON=$(python)
-else
-PYTHON=python3
-endif
-
 ifndef OMIT_SIMD
 	ifeq ($(shell uname -sm),Darwin x86_64)
 	CFLAGS += -mavx -DSQLITE_VEC_ENABLE_AVX
@@ -188,10 +181,10 @@ publish-release:
 
 # -k test_vec0_update
 test-loadable: loadable
-	$(PYTHON) -m pytest -vv -s -x tests/test-*.py
+	uv run pytest -vv -s -x tests/test-*.py
 
 test-loadable-snapshot-update: loadable
-	$(PYTHON) -m pytest -vv tests/test-loadable.py --snapshot-update
+	uv run pytest -vv tests/test-loadable.py --snapshot-update
 
 test-loadable-watch:
 	watchexec --exts c,py,Makefile --clear -- make test-loadable
