@@ -6,7 +6,7 @@ permissions:
   contents: read
 jobs:
   build-linux-x86_64-extension:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - run: ./scripts/vendor.sh
@@ -16,7 +16,7 @@ jobs:
           name: sqlite-vec-linux-x86_64-extension
           path: dist/*
   build-macos-x86_64-extension:
-    runs-on: macos-13
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
       - run: ./scripts/vendor.sh
@@ -317,6 +317,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
   build-ncruces-go:
+    if: false
     runs-on: ubuntu-latest
     permissions:
       contents: write
