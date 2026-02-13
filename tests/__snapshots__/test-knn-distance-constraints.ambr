@@ -1,0 +1,273 @@
+# serializer version: 1
+# name: test_normal
+  OrderedDict({
+    'sql': 'SELECT * FROM v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'embedding': b'\x00\x00\x80?',
+        'is_odd': 1,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'embedding': b'\x00\x00\x00@',
+        'is_odd': 0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'embedding': b'\x00\x00@@',
+        'is_odd': 1,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'embedding': b'\x00\x00\x80@',
+        'is_odd': 0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'embedding': b'\x00\x00\xa0@',
+        'is_odd': 1,
+      }),
+      OrderedDict({
+        'rowid': 6,
+        'embedding': b'\x00\x00\xc0@',
+        'is_odd': 0,
+      }),
+      OrderedDict({
+        'rowid': 7,
+        'embedding': b'\x00\x00\xe0@',
+        'is_odd': 1,
+      }),
+      OrderedDict({
+        'rowid': 8,
+        'embedding': b'\x00\x00\x00A',
+        'is_odd': 0,
+      }),
+      OrderedDict({
+        'rowid': 9,
+        'embedding': b'\x00\x00\x10A',
+        'is_odd': 1,
+      }),
+      OrderedDict({
+        'rowid': 10,
+        'embedding': b'\x00\x00 A',
+        'is_odd': 0,
+      }),
+      OrderedDict({
+        'rowid': 11,
+        'embedding': b'\x00\x000A',
+        'is_odd': 1,
+      }),
+      OrderedDict({
+        'rowid': 12,
+        'embedding': b'\x00\x00@A',
+        'is_odd': 0,
+      }),
+      OrderedDict({
+        'rowid': 13,
+        'embedding': b'\x00\x00PA',
+        'is_odd': 1,
+      }),
+      OrderedDict({
+        'rowid': 14,
+        'embedding': b'\x00\x00`A',
+        'is_odd': 0,
+      }),
+      OrderedDict({
+        'rowid': 15,
+        'embedding': b'\x00\x00pA',
+        'is_odd': 1,
+      }),
+      OrderedDict({
+        'rowid': 16,
+        'embedding': b'\x00\x00\x80A',
+        'is_odd': 0,
+      }),
+      OrderedDict({
+        'rowid': 17,
+        'embedding': b'\x00\x00\x88A',
+        'is_odd': 1,
+      }),
+    ]),
+  })
+# ---
+# name: test_normal.1
+  OrderedDict({
+    'sql': 'select rowid, distance from v where embedding match ? and k = ? ',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'distance': 0.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'distance': 1.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'distance': 2.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'distance': 3.0,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'distance': 4.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_normal.2
+  OrderedDict({
+    'sql': 'select rowid, distance from v where embedding match ? and k = ? AND distance > 5',
+    'rows': list([
+      OrderedDict({
+        'rowid': 7,
+        'distance': 6.0,
+      }),
+      OrderedDict({
+        'rowid': 8,
+        'distance': 7.0,
+      }),
+      OrderedDict({
+        'rowid': 9,
+        'distance': 8.0,
+      }),
+      OrderedDict({
+        'rowid': 10,
+        'distance': 9.0,
+      }),
+      OrderedDict({
+        'rowid': 11,
+        'distance': 10.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_normal.3
+  OrderedDict({
+    'sql': 'select rowid, distance from v where embedding match ? and k = ? AND distance >= 5',
+    'rows': list([
+      OrderedDict({
+        'rowid': 6,
+        'distance': 5.0,
+      }),
+      OrderedDict({
+        'rowid': 7,
+        'distance': 6.0,
+      }),
+      OrderedDict({
+        'rowid': 8,
+        'distance': 7.0,
+      }),
+      OrderedDict({
+        'rowid': 9,
+        'distance': 8.0,
+      }),
+      OrderedDict({
+        'rowid': 10,
+        'distance': 9.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_normal.4
+  OrderedDict({
+    'sql': 'select rowid, distance from v where embedding match ? and k = ? AND distance < 3',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'distance': 0.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'distance': 1.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'distance': 2.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_normal.5
+  OrderedDict({
+    'sql': 'select rowid, distance from v where embedding match ? and k = ? AND distance <= 3',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'distance': 0.0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'distance': 1.0,
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'distance': 2.0,
+      }),
+      OrderedDict({
+        'rowid': 4,
+        'distance': 3.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_normal.6
+  OrderedDict({
+    'sql': 'select rowid, distance from v where embedding match ? and k = ? AND distance > 7 AND distance <= 10',
+    'rows': list([
+      OrderedDict({
+        'rowid': 9,
+        'distance': 8.0,
+      }),
+      OrderedDict({
+        'rowid': 10,
+        'distance': 9.0,
+      }),
+      OrderedDict({
+        'rowid': 11,
+        'distance': 10.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_normal.7
+  OrderedDict({
+    'sql': 'select rowid, distance from v where embedding match ? and k = ? AND distance BETWEEN 7 AND 10',
+    'rows': list([
+      OrderedDict({
+        'rowid': 8,
+        'distance': 7.0,
+      }),
+      OrderedDict({
+        'rowid': 9,
+        'distance': 8.0,
+      }),
+      OrderedDict({
+        'rowid': 10,
+        'distance': 9.0,
+      }),
+      OrderedDict({
+        'rowid': 11,
+        'distance': 10.0,
+      }),
+    ]),
+  })
+# ---
+# name: test_normal.8
+  OrderedDict({
+    'sql': 'select rowid, distance from v where embedding match ? and k = ? AND is_odd == TRUE AND distance BETWEEN 7 AND 10',
+    'rows': list([
+      OrderedDict({
+        'rowid': 9,
+        'distance': 8.0,
+      }),
+      OrderedDict({
+        'rowid': 11,
+        'distance': 10.0,
+      }),
+    ]),
+  })
+# ---

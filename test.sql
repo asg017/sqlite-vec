@@ -1,5 +1,5 @@
 
-.load dist/vec0main
+.load dist/vec0
 .bail on
 
 .mode qbox
