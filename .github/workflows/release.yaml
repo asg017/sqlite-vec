@@ -252,20 +252,18 @@ jobs:
         with:
           name: sqlite-vec-iossimulator-x86_64-extension
           path: dist/iossimulator-x86_64
-      - run: |
-          curl -L https://github.com/asg017/sqlite-dist/releases/download/v0.0.1-alpha.17/sqlite-dist-x86_64-unknown-linux-gnu.tar.xz \
-            | tar xfJ - --strip-components 1
       - run: make sqlite-vec.h
-      - run: ./sqlite-dist ./sqlite-dist.toml --input dist/ --output distx/ --version $(cat VERSION)
+      - uses: asg017/setup-sqlite-dist@73e37b2ffb0b51e64a64eb035da38c958b9ff6c6
+      - run: sqlite-dist build --set-version $(cat VERSION)
       - run: |
           gh release upload ${{ github.ref_name }} \
-            distx/amalgamation/* \
-            distx/github_releases/* \
-            distx/spm/* \
-            distx/sqlpkg/* \
-            distx/checksums.txt \
-            distx/sqlite-dist-manifest.json \
-            distx/install.sh
+            .sqlite-dist/amalgamation/* \
+            .sqlite-dist/github_releases/* \
+            .sqlite-dist/spm/* \
+            .sqlite-dist/sqlpkg/* \
+            .sqlite-dist/checksums.txt \
+            .sqlite-dist/sqlite-dist-manifest.json \
+            .sqlite-dist/install.sh
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Install node
@@ -282,20 +280,20 @@ jobs:
           else
             TAG=latest
           fi
-          npm publish --provenance --access public --tag $TAG distx/npm/sqlite-vec-darwin-arm64.tar.gz
-          npm publish --provenance --access public --tag $TAG distx/npm/sqlite-vec-darwin-x64.tar.gz
-          npm publish --provenance --access public --tag $TAG distx/npm/sqlite-vec-linux-x64.tar.gz
-          npm publish --provenance --access public --tag $TAG distx/npm/sqlite-vec-linux-arm64.tar.gz
-          npm publish --provenance --access public --tag $TAG distx/npm/sqlite-vec-windows-x64.tar.gz
-          npm publish --provenance --access public --tag $TAG distx/npm/sqlite-vec-wasm-demo.tar.gz
-          npm publish --provenance --access public --tag $TAG distx/npm/sqlite-vec.tar.gz
+          npm publish --provenance --access public --tag $TAG .sqlite-dist/npm/sqlite-vec-darwin-arm64.tar.gz
+          npm publish --provenance --access public --tag $TAG .sqlite-dist/npm/sqlite-vec-darwin-x64.tar.gz
+          npm publish --provenance --access public --tag $TAG .sqlite-dist/npm/sqlite-vec-linux-x64.tar.gz
+          npm publish --provenance --access public --tag $TAG .sqlite-dist/npm/sqlite-vec-linux-arm64.tar.gz
+          npm publish --provenance --access public --tag $TAG .sqlite-dist/npm/sqlite-vec-windows-x64.tar.gz
+          npm publish --provenance --access public --tag $TAG .sqlite-dist/npm/sqlite-vec-wasm-demo.tar.gz
+          npm publish --provenance --access public --tag $TAG .sqlite-dist/npm/sqlite-vec.tar.gz
         env:
           NODE_AUTH_TOKEN: ""
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: 3.2
       - run: |
-          for file in distx/gem/*; do
+          for file in .sqlite-dist/gem/*; do
             gem push  "$file"
           done
         env:
@@ -305,9 +303,9 @@ jobs:
           python-version: "3.12"
       - run: pip install twine
       - run: |
-          twine upload distx/pip/*
-          twine upload distx/datasette/*
-          twine upload distx/sqlite_utils/*
+          twine upload .sqlite-dist/pip/*
+          twine upload .sqlite-dist/datasette/*
+          twine upload .sqlite-dist/sqlite_utils/*
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
