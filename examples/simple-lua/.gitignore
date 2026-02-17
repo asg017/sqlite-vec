@@ -1,0 +1,7 @@
+# Lua specific
+*.luac
+
+# SQLite databases (if any test files are created)
+*.db
+*.sqlite
+*.sqlite3 
