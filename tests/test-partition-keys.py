@@ -74,6 +74,32 @@ def test_updates(db, snapshot):
     )
 
 
+def test_vacuum(db, snapshot):
+    db.execute(
+        "create virtual table v using vec0(p text partition key, a float[1])"
+    )
+
+    db.execute(
+        "insert into v(rowid, p, a) values (?, ?, ?)", [1, "a", b"\x11\x11\x11\x11"]
+    )
+    db.execute(
+        "insert into v(rowid, p, a) values (?, ?, ?)", [2, "a", b"\x22\x22\x22\x22"]
+    )
+    db.execute(
+        "insert into v(rowid, p, a) values (?, ?, ?)", [3, "a", b"\x33\x33\x33\x33"]
+    )
+
+    exec(db, "delete from v where 1 = 1")
+    prev_page_count = exec(db, "pragma page_count")["rows"][0]["page_count"]
+
+    db.execute("insert into v(v) values ('optimize')")
+    db.commit()
+    db.execute("vacuum")
+
+    cur_page_count = exec(db, "pragma page_count")["rows"][0]["page_count"]
+    assert cur_page_count < prev_page_count
+
+
 class Row:
     def __init__(self):
         pass

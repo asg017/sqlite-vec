@@ -334,13 +334,6 @@
         'sql': None,
       }),
       OrderedDict({
-        'type': 'index',
-        'name': 'sqlite_autoindex_v_vector_chunks00_1',
-        'tbl_name': 'v_vector_chunks00',
-        'rootpage': 8,
-        'sql': None,
-      }),
-      OrderedDict({
         'type': 'table',
         'name': 'sqlite_sequence',
         'tbl_name': 'sqlite_sequence',
@@ -358,7 +351,7 @@
         'type': 'table',
         'name': 'v_auxiliary',
         'tbl_name': 'v_auxiliary',
-        'rootpage': 9,
+        'rootpage': 8,
         'sql': 'CREATE TABLE "v_auxiliary"( rowid integer PRIMARY KEY , value00)',
       }),
       OrderedDict({
@@ -387,7 +380,7 @@
         'name': 'v_vector_chunks00',
         'tbl_name': 'v_vector_chunks00',
         'rootpage': 7,
-        'sql': 'CREATE TABLE "v_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)',
+        'sql': 'CREATE TABLE "v_vector_chunks00"(rowid INTEGER PRIMARY KEY,vectors BLOB NOT NULL)',
       }),
     ]),
   })
