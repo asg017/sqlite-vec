@@ -9050,6 +9050,111 @@ static int vec0Rollback(sqlite3_vtab *pVTab) {
   return SQLITE_OK;
 }
 
+static int vec0Rename(sqlite3_vtab *pVTab, const char *zName) {
+  vec0_vtab *p = (vec0_vtab *)pVTab;
+  sqlite3_stmt *stmt;
+  int rc;
+  const char *zSql;
+
+  vec0_free_resources(p);
+
+  zSql = sqlite3_mprintf("ALTER TABLE " VEC0_SHADOW_CHUNKS_NAME " RENAME TO \"%w_chunks\"",
+                         p->schemaName, p->tableName, zName);
+  rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, 0);
+  sqlite3_free((void *)zSql);
+  if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
+    rc = SQLITE_ERROR;
+    vtab_set_error(pVTab, "could not rename chunks shadow table");
+    goto done;
+  }
+  sqlite3_finalize(stmt);
+
+  zSql = sqlite3_mprintf("ALTER TABLE " VEC0_SHADOW_INFO_NAME " RENAME TO \"%w_info\"", p->schemaName,
+                         p->tableName, zName);
+  rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, 0);
+  sqlite3_free((void *)zSql);
+  if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
+    rc = SQLITE_ERROR;
+    vtab_set_error(pVTab, "could not rename info shadow table");
+    goto done;
+  }
+  sqlite3_finalize(stmt);
+
+  zSql = sqlite3_mprintf("ALTER TABLE " VEC0_SHADOW_ROWIDS_NAME " RENAME TO \"%w_rowids\"", p->schemaName,
+                         p->tableName, zName);
+  rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, 0);
+  sqlite3_free((void *)zSql);
+  if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
+    rc = SQLITE_ERROR;
+    vtab_set_error(pVTab, "could not rename rowids shadow table");
+    goto done;
+  }
+  sqlite3_finalize(stmt);
+
+  for (int i = 0; i < p->numVectorColumns; i++) {
+    char *newShadowVectorChunksName = sqlite3_mprintf("%s_vector_chunks%02d", zName, i);
+    if (!newShadowVectorChunksName) {
+      return SQLITE_NOMEM;
+    }
+    zSql = sqlite3_mprintf("ALTER TABLE \"%w\".\"%w\" RENAME TO \"%w\"", p->schemaName,
+                           p->shadowVectorChunksNames[i], newShadowVectorChunksName);
+    rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, 0);
+    sqlite3_free((void *)zSql);
+    if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
+      rc = SQLITE_ERROR;
+      vtab_set_error(pVTab, "could not rename vector_chunks shadow table");
+      goto done;
+    }
+    sqlite3_finalize(stmt);
+  }
+
+  if(p->numAuxiliaryColumns > 0) {
+    zSql = sqlite3_mprintf("ALTER TABLE " VEC0_SHADOW_AUXILIARY_NAME " RENAME TO \"%w_auxiliary\"",
+                           p->schemaName, p->tableName, zName);
+    rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, 0);
+    sqlite3_free((void *)zSql);
+    if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
+      rc = SQLITE_ERROR;
+      vtab_set_error(pVTab, "could not rename auxiliary shadow table");
+      goto done;
+    }
+    sqlite3_finalize(stmt);
+  }
+
+  for (int i = 0; i < p->numMetadataColumns; i++) {
+    zSql = sqlite3_mprintf("ALTER TABLE " VEC0_SHADOW_METADATA_N_NAME " RENAME TO \"%w_metadatachunks%02d\"",
+                           p->schemaName, p->tableName, i, zName, i);
+    rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, 0);
+    sqlite3_free((void *)zSql);
+    if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
+      rc = SQLITE_ERROR;
+      vtab_set_error(pVTab, "could not rename metadatachunks shadow table");
+      goto done;
+    }
+    sqlite3_finalize(stmt);
+
+    if(p->metadata_columns[i].kind == VEC0_METADATA_COLUMN_KIND_TEXT) {
+      zSql = sqlite3_mprintf("ALTER TABLE " VEC0_SHADOW_METADATA_TEXT_DATA_NAME " RENAME TO \"%w_metadatatext%02d\"",
+                             p->schemaName, p->tableName, i, zName, i);
+      rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, 0);
+      sqlite3_free((void *)zSql);
+      if ((rc != SQLITE_OK) || (sqlite3_step(stmt) != SQLITE_DONE)) {
+        rc = SQLITE_ERROR;
+        vtab_set_error(pVTab, "could not rename metadatatext shadow table");
+        goto done;
+      }
+      sqlite3_finalize(stmt);
+    }
+  }
+
+  stmt = NULL;
+  rc = SQLITE_OK;
+
+done:
+  sqlite3_finalize(stmt);
+  return rc;
+}
+
 static sqlite3_module vec0Module = {
     /* iVersion      */ 3,
     /* xCreate       */ vec0Create,
@@ -9070,7 +9175,7 @@ static sqlite3_module vec0Module = {
     /* xCommit       */ vec0Commit,
     /* xRollback     */ vec0Rollback,
     /* xFindFunction */ 0,
-    /* xRename       */ 0, // https://github.com/asg017/sqlite-vec/issues/43
+    /* xRename       */ vec0Rename,
     /* xSavepoint    */ 0,
     /* xRelease      */ 0,
     /* xRollbackTo   */ 0,
