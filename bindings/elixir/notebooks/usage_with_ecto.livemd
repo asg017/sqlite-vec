@@ -1,0 +1,177 @@
+# Usage with Ecto
+
+```elixir
+Mix.install([
+  {:sqlite_vec, "~> 0.1"},
+  {:ecto, "~> 3.12"},
+  {:ecto_sql, "~> 3.12"},
+  {:ecto_sqlite3, "~> 0.17.2"},
+  {:kino, "~> 0.14.1"},
+  {:nx, "~> 0.9.1"}
+])
+```
+
+## Setup
+
+You can load the extension in the runtime configuration like so:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+config :ecto_sqlite3, load_extensions: [SqliteVec.path()]
+```
+
+<!-- livebook:{"break_markdown":true} -->
+
+Next, we must define our Repo.
+
+```elixir
+defmodule MyApp.Repo do
+  use Ecto.Repo,
+    otp_app: :my_app,
+    adapter: Ecto.Adapters.SQLite3
+end
+
+db_path = Path.join(System.tmp_dir!(), "demo.db")
+Kino.start_child({MyApp.Repo, database: db_path, load_extensions: [SqliteVec.path()]})
+```
+
+## With a regular table
+
+You can use the vector types in any regular table. Note however, that using virtual tables as described below will be [faster](https://alexgarcia.xyz/sqlite-vec/features/knn.html).
+
+```elixir
+defmodule MyApp.Repo.Migrations.CreateEmbeddingsTable do
+  use Ecto.Migration
+
+  def up do
+    execute("CREATE TABLE embeddings(id INTEGER PRIMARY KEY, embedding float[4], metadata TEXT)")
+  end
+
+  def down do
+    execute("DROP TABLE embeddings")
+  end
+end
+```
+
+```elixir
+Ecto.Migrator.up(MyApp.Repo, 1, MyApp.Repo.Migrations.CreateEmbeddingsTable)
+```
+
+Schema definition:
+
+```elixir
+defmodule Embedding do
+  use Ecto.Schema
+
+  schema "embeddings" do
+    field(:embedding, SqliteVec.Ecto.Float32)
+    field(:metadata, :string)
+  end
+end
+```
+
+Insert some vectors:
+
+```elixir
+MyApp.Repo.insert(%Embedding{
+  embedding: SqliteVec.Float32.new([1, 2, 3, 4])
+})
+
+MyApp.Repo.insert(%Embedding{
+  embedding: SqliteVec.Float32.new([3, 4, 5, 6])
+})
+
+MyApp.Repo.insert(%Embedding{
+  embedding: SqliteVec.Float32.new(Nx.tensor([3, 4, 5, 6], type: :f32)),
+  metadata: "from tensor"
+})
+```
+
+Query them:
+
+```elixir
+import Ecto.Query
+import SqliteVec.Ecto.Query
+
+v = SqliteVec.Float32.new([2, 2, 3, 3])
+
+MyApp.Repo.all(
+  from(i in Embedding,
+    order_by: vec_distance_L2(i.embedding, vec_f32(v))
+  )
+)
+```
+
+## With a virtual table
+
+You can create a virtual table to enable fast KNN queries. Since version 0.1.6, auxiliary columns and metadata are available in virtual tables.
+Please refer to [this](https://alexgarcia.xyz/sqlite-vec/features/vec0.html) documentation to decide what's best for your use case.
+
+```elixir
+defmodule MyApp.Repo.Migrations.CreateVirtualEmbeddingsTable do
+  use Ecto.Migration
+
+  def up do
+    execute(
+      "CREATE VIRTUAL TABLE virtual_embeddings_table USING vec0(id INTEGER PRIMARY KEY, embedding float[2], metadata TEXT, +auxiliary_column TEXT)"
+    )
+  end
+
+  def down do
+    execute("DROP VIRTUAL TABLE virtual_embeddings_table")
+  end
+end
+```
+
+```elixir
+Ecto.Migrator.up(MyApp.Repo, 2, MyApp.Repo.Migrations.CreateVirtualEmbeddingsTable)
+```
+
+```elixir
+defmodule VirtualEmbedding do
+  use Ecto.Schema
+
+  schema "virtual_embeddings_table" do
+    field(:embedding, SqliteVec.Ecto.Float32)
+    field(:metadata, :string)
+    field(:auxiliary_column, :string)
+  end
+end
+```
+
+```elixir
+MyApp.Repo.insert(%VirtualEmbedding{
+  embedding: SqliteVec.Float32.new([0, 0]),
+  metadata: "first vector",
+  auxiliary_column: "first vector"
+})
+
+MyApp.Repo.insert(%VirtualEmbedding{
+  embedding: SqliteVec.Float32.new([1, 1]),
+  metadata: "second vector",
+  auxiliary_column: "second vector"
+})
+
+MyApp.Repo.insert(%VirtualEmbedding{
+  embedding: SqliteVec.Float32.new([2, 3]),
+  metadata: "third vector",
+  auxiliary_column: "third vector"
+})
+```
+
+You can perform a K-nearest-neighbors query using `match` and `limit`.
+
+```elixir
+import Ecto.Query
+import SqliteVec.Ecto.Query
+
+v = SqliteVec.Float32.new([2, 2])
+
+MyApp.Repo.all(
+  from(i in VirtualEmbedding,
+    where: match(i.embedding, vec_f32(v)),
+    limit: 3
+  )
+)
+```
