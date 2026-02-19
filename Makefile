@@ -1,11 +1,13 @@
 
 COMMIT=$(shell git rev-parse HEAD)
 VERSION=$(shell cat VERSION)
+SOVERSION=$(shell cat VERSION | cut -d '.' -f 1)
 DATE=$(shell date +'%FT%TZ%z')
 
-INSTALL_LIB_DIR = /usr/local/lib
-INSTALL_INCLUDE_DIR = /usr/local/include
-INSTALL_BIN_DIR = /usr/local/bin
+INSTALL_PREFIX ?= /usr/local
+INSTALL_LIB_DIR ?= $(INSTALL_PREFIX)/lib
+INSTALL_INCLUDE_DIR ?= $(INSTALL_PREFIX)/include
+INSTALL_BIN_DIR ?= $(INSTALL_PREFIX)/bin
 
 ifndef CC
 CC=gcc
@@ -13,6 +15,9 @@ endif
 ifndef AR
 AR=ar
 endif
+
+EXT_CFLAGS := $(CFLAGS) $(CPPFLAGS)
+CFLAGS = -fvisibility=hidden
 
 ifeq ($(shell uname -s),Darwin)
 CONFIG_DARWIN=y
@@ -61,11 +66,13 @@ $(prefix):
 	mkdir -p $(prefix)
 
 TARGET_LOADABLE=$(prefix)/vec0.$(LOADABLE_EXTENSION)
+TARGET_LOADABLE_SOVERSION=$(prefix)/vec0.$(SOVERSION).$(LOADABLE_EXTENSION)
+TARGET_LOADABLE_FULLVERSION=$(prefix)/vec0.$(VERSION).$(LOADABLE_EXTENSION)
 TARGET_STATIC=$(prefix)/libsqlite_vec0.a
 TARGET_STATIC_H=$(prefix)/sqlite-vec.h
 TARGET_CLI=$(prefix)/sqlite3
 
-loadable: $(TARGET_LOADABLE)
+loadable: $(TARGET_LOADABLE) $(TARGET_LOADABLE_SOVERSION) $(TARGET_LOADABLE_FULLVERSION)
 static: $(TARGET_STATIC)
 cli: $(TARGET_CLI)
 
@@ -85,17 +92,24 @@ $(BUILD_DIR): $(prefix)
 	mkdir -p $@
 
 
-$(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(prefix)
+$(TARGET_LOADABLE_FULLVERSION): sqlite-vec.c sqlite-vec.h $(prefix)
 	$(CC) \
 		-fPIC -shared \
 		-Wall -Wextra \
 		-Ivendor/ \
 		-O3 \
-		$(CFLAGS) \
+		$(CFLAGS) $(EXT_CFLAGS) \
+		-Wl,-soname,$(shell basename $(TARGET_LOADABLE_SOVERSION)) \
 		$< -o $@
 
+$(TARGET_LOADABLE_SOVERSION): $(TARGET_LOADABLE_FULLVERSION)
+	ln -sf $(shell basename $<) $@
+
+$(TARGET_LOADABLE): $(TARGET_LOADABLE_SOVERSION)
+	ln -sf $(shell basename $<) $@
+
 $(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(prefix) $(OBJS_DIR)
-	$(CC) -Ivendor/ $(CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
+	$(CC) -Ivendor/ $(CFLAGS) $(EXT_CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
 	-O3 -c  $< -o $(OBJS_DIR)/vec.o
 	$(AR) rcs $@ $(OBJS_DIR)/vec.o
 
@@ -123,7 +137,7 @@ $(LIBS_DIR)/shell.a: $(OBJS_DIR)/shell.o $(LIBS_DIR)
 	$(AR) rcs $@ $<
 
 $(OBJS_DIR)/sqlite-vec.o: sqlite-vec.c $(OBJS_DIR)
-	$(CC) -c -g3 -Ivendor/ -I./ $(CFLAGS) $< -o $@
+	$(CC) -c -g3 -Ivendor/ -I./ $(CFLAGS) $(EXT_CFLAGS) $< -o $@
 
 $(LIBS_DIR)/sqlite-vec.a: $(OBJS_DIR)/sqlite-vec.o $(LIBS_DIR)
 	$(AR) rcs $@ $<
@@ -137,7 +151,7 @@ $(TARGET_CLI): sqlite-vec.h $(LIBS_DIR)/sqlite-vec.a $(LIBS_DIR)/shell.a $(LIBS_
 	-DSQLITE_THREADSAFE=0 -DSQLITE_ENABLE_FTS4 \
 	-DSQLITE_ENABLE_STMT_SCANSTATUS -DSQLITE_ENABLE_BYTECODE_VTAB -DSQLITE_ENABLE_EXPLAIN_COMMENTS \
 	-DSQLITE_EXTRA_INIT=core_init \
-	$(CFLAGS) \
+	$(CFLAGS) $(EXT_CFLAGS) \
 	-ldl -lm \
 	examples/sqlite3-cli/core_init.c $(LIBS_DIR)/shell.a $(LIBS_DIR)/sqlite3.a $(LIBS_DIR)/sqlite-vec.a -o $@
 
@@ -202,19 +216,23 @@ install:
 	install -d $(INSTALL_LIB_DIR)
 	install -d $(INSTALL_INCLUDE_DIR)
 	install -m 644 sqlite-vec.h $(INSTALL_INCLUDE_DIR)
-	@if [ -f $(TARGET_LOADABLE) ]; then \
+	if [ -f $(TARGET_LOADABLE_FULLVERSION) ]; then \
 		install -m 644 $(TARGET_LOADABLE) $(INSTALL_LIB_DIR); \
+		install -m 644 $(TARGET_LOADABLE_SOVERSION) $(INSTALL_LIB_DIR); \
+		install -m 644 $(TARGET_LOADABLE_FULLVERSION) $(INSTALL_LIB_DIR); \
 	fi
-	@if [ -f $(TARGET_STATIC) ]; then \
+	if [ -f $(TARGET_STATIC) ]; then \
 		install -m 644 $(TARGET_STATIC) $(INSTALL_LIB_DIR); \
 	fi
-	@if [ -f $(TARGET_CLI) ]; then \
-		sudo install -m 755 $(TARGET_CLI) $(INSTALL_BIN_DIR); \
+	if [ -f $(TARGET_CLI) ]; then \
+		install -m 755 $(TARGET_CLI) $(INSTALL_BIN_DIR); \
 	fi
 	ldconfig
 
 uninstall:
 	rm -f $(INSTALL_LIB_DIR)/$(notdir $(TARGET_LOADABLE))
+	rm -f $(INSTALL_LIB_DIR)/$(notdir $(TARGET_LOADABLE_SOVERSION))
+	rm -f $(INSTALL_LIB_DIR)/$(notdir $(TARGET_LOADABLE_FULLVERSION))
 	rm -f $(INSTALL_LIB_DIR)/$(notdir $(TARGET_STATIC))
 	rm -f $(INSTALL_LIB_DIR)/$(notdir $(TARGET_CLI))
 	rm -f $(INSTALL_INCLUDE_DIR)/sqlite-vec.h
