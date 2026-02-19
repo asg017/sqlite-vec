@@ -35,6 +35,11 @@ If your embeddings are provided as a list of numbers, use `.pack("f*")` to conve
 
 ```ruby
 embedding = [0.1, 0.2, 0.3, 0.4]
-result = db.execute("SELECT vec_length(?)", [query.pack("f*")]])
+result = db.execute("SELECT vec_length(?)", [query.pack("f*")])
 puts result.first.first # 4
+
+# Or, if using Active Record:
+embedding_blob = embedding.pack("f*").unpack1('H*') # Hex string representation
+result = ActiveRecord::Base.connection.execute("SELECT vec_length(x'#{embedding_blob}')")
+result.first.first.last
 ```
