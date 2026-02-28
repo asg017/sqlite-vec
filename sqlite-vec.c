@@ -7001,7 +7001,9 @@ static f32 vec0_compute_distance(struct VectorColumnDefinition *vector_column,
  * cosine similarity between d and any already-selected result.
  *
  * Reorders topk_rowids and topk_distances in place.
- * After return, the first k_target entries are the MMR-selected results.
+ * After return, the first *out_n_selected entries are the MMR-selected results.
+ * out_n_selected may be less than k_target if the greedy selection exhausts
+ * candidates early.
  */
 static int vec0_mmr_rerank(
     vec0_vtab *p,
@@ -7011,7 +7013,8 @@ static int vec0_mmr_rerank(
     f32 *topk_distances,
     i64 k_used,
     i64 k_target,
-    f32 mmr_lambda
+    f32 mmr_lambda,
+    i64 *out_n_selected
 ) {
     int rc = SQLITE_OK;
 
@@ -7056,6 +7059,7 @@ static int vec0_mmr_rerank(
     }
     memset(selected, 0, k_used);
 
+    i64 n_selected = 0;
     for (i64 step = 0; step < k_target && step < k_used; step++) {
         f32 best_mmr = -FLT_MAX;
         i64 best_idx = -1;
@@ -7085,13 +7089,15 @@ static int vec0_mmr_rerank(
         out_rowids[step] = topk_rowids[best_idx];
         out_distances[step] = topk_distances[best_idx];
         out_vectors[step] = vectors[best_idx];
+        n_selected++;
     }
 
-    // 5. Copy results back to input arrays
-    for (i64 i = 0; i < k_target; i++) {
+    // 5. Copy only the actually-selected entries back to input arrays
+    for (i64 i = 0; i < n_selected; i++) {
         topk_rowids[i] = out_rowids[i];
         topk_distances[i] = out_distances[i];
     }
+    *out_n_selected = n_selected;
 
 cleanup:
     if (vectors) {
@@ -7387,11 +7393,12 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
 
   // MMR reranking: select diverse subset from over-fetched candidates
   if (mmr_lambda >= 0.0f && mmr_lambda < 1.0f && k_used > k_original) {
+    i64 n_selected = 0;
     rc = vec0_mmr_rerank(p, vectorColumnIdx, vector_column,
                          topk_rowids, topk_distances, k_used, k_original,
-                         mmr_lambda);
+                         mmr_lambda, &n_selected);
     if (rc != SQLITE_OK) goto cleanup;
-    k_used = k_original;
+    k_used = n_selected;
     k = k_original;
   }
 
