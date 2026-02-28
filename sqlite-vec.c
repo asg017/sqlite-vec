@@ -7072,7 +7072,7 @@ static int vec0_mmr_rerank(
             for (i64 j = 0; j < step; j++) {
                 f32 d = vec0_compute_distance(vector_column,
                                               vectors[i], out_vectors[j]);
-                f32 sim = 1.0f - d;
+                f32 sim = 1.0f - (d / max_dist);
                 if (sim > max_sim) max_sim = sim;
             }
 

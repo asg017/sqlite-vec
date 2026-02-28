@@ -193,12 +193,12 @@
         'distance': 0.0,
       }),
       OrderedDict({
-        'rowid': 3,
-        'distance': 0.028284257277846336,
-      }),
-      OrderedDict({
         'rowid': 2,
         'distance': 0.014142128638923168,
+      }),
+      OrderedDict({
+        'rowid': 5,
+        'distance': 1.4142135381698608,
       }),
     ]),
   })
