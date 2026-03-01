@@ -951,6 +951,54 @@ def test_vec0_inserts():
     db.execute("insert into txt_pk(txt_id, aaa) values ('b', '[2,2,2,2]')")
 
 
+def test_vec0_locale_independent():
+    """Test that JSON float parsing is locale-independent (issue #241)"""
+    import locale
+
+    db = connect(EXT_PATH)
+    db.execute("create virtual table v using vec0(embedding float[3])")
+
+    # Test with C locale first (baseline)
+    db.execute("insert into v(rowid, embedding) values (1, '[0.1, 0.2, 0.3]')")
+
+    # Try to set a non-C locale that uses comma as decimal separator
+    # Common locales: fr_FR, de_DE, it_IT, es_ES, pt_BR, etc.
+    test_locales = ['fr_FR.UTF-8', 'de_DE.UTF-8', 'it_IT.UTF-8', 'C.UTF-8']
+    locale_set = False
+    original_locale = locale.setlocale(locale.LC_NUMERIC)
+
+    for test_locale in test_locales:
+        try:
+            locale.setlocale(locale.LC_NUMERIC, test_locale)
+            locale_set = True
+            break
+        except locale.Error:
+            continue
+
+    try:
+        # Even with non-C locale, JSON parsing should work (using dot as decimal separator)
+        # Before the fix, this would fail in French/German/etc locales
+        db.execute("insert into v(rowid, embedding) values (2, '[0.4, 0.5, 0.6]')")
+
+        # Verify the data was inserted correctly
+        result = db.execute("select embedding from v where rowid = 2").fetchone()
+        expected = _f32([0.4, 0.5, 0.6])
+        assert result[0] == expected, f"Expected {expected}, got {result[0]}"
+
+        # Also verify with different decimal values
+        db.execute("insert into v(rowid, embedding) values (3, '[1.23, 4.56, 7.89]')")
+        result = db.execute("select embedding from v where rowid = 3").fetchone()
+        expected = _f32([1.23, 4.56, 7.89])
+        assert result[0] == expected, f"Expected {expected}, got {result[0]}"
+
+    finally:
+        # Restore original locale
+        locale.setlocale(locale.LC_NUMERIC, original_locale)
+
+    # If we couldn't set a non-C locale, the test still passes (baseline check)
+    # but we didn't really test the locale-independence
+
+
 def test_vec0_insert_errors2():
     db = connect(EXT_PATH)
     db.execute("create virtual table t1 using vec0(aaa float[4], chunk_size=8)")
