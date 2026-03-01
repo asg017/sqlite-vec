@@ -524,7 +524,7 @@ static f32 distance_hamming_u8(u8 *a, u8 *b, size_t n) {
 // From
 // https://github.com/ngtcp2/ngtcp2/blob/b64f1e77b5e0d880b93d31f474147fae4a1d17cc/lib/ngtcp2_ringbuf.c,
 // line 34-43
-static unsigned int __builtin_popcountl(unsigned int x) {
+static unsigned int __builtin_popcountl(u64 x) {
   unsigned int c = 0;
   for (; x; ++c) {
     x &= x - 1;
