@@ -28,7 +28,7 @@ jobs:
         working-directory: site/
       - run: make site-build
       - uses: actions/configure-pages@v2
-      - uses: actions/upload-pages-artifact@v1
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: site/.vitepress/dist
       - id: deployment
