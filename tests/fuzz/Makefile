@@ -66,9 +66,12 @@ $(TARGET_DIR)/metadata_columns: metadata-columns.c $(FUZZ_SRCS) | $(TARGET_DIR)
 $(TARGET_DIR)/vec_each: vec-each.c $(FUZZ_SRCS) | $(TARGET_DIR)
 	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
 
+$(TARGET_DIR)/vec_mismatch: vec-mismatch.c $(FUZZ_SRCS) | $(TARGET_DIR)
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
+
 FUZZ_TARGETS = vec0_create exec json numpy \
                shadow_corrupt vec0_operations scalar_functions \
-               vec0_create_full metadata_columns vec_each
+               vec0_create_full metadata_columns vec_each vec_mismatch
 
 all: $(addprefix $(TARGET_DIR)/,$(FUZZ_TARGETS))
 
