@@ -692,9 +692,9 @@ char *type_name(int type) {
   return "";
 }
 
-typedef void (*fvec_cleanup)(f32 *vector);
+typedef void (*fvec_cleanup)(void *vector);
 
-void fvec_cleanup_noop(f32 *_) { UNUSED_PARAMETER(_); }
+void fvec_cleanup_noop(void *_) { UNUSED_PARAMETER(_); }
 
 static int fvec_from_value(sqlite3_value *value, f32 **vector,
                            size_t *dimensions, fvec_cleanup *cleanup,
@@ -714,9 +714,15 @@ static int fvec_from_value(sqlite3_value *value, f32 **vector,
                                sizeof(f32), bytes);
       return SQLITE_ERROR;
     }
-    *vector = (f32 *)blob;
+    f32 *buf = sqlite3_malloc(bytes);
+    if (!buf) {
+      *pzErr = sqlite3_mprintf("out of memory");
+      return SQLITE_NOMEM;
+    }
+    memcpy(buf, blob, bytes);
+    *vector = buf;
     *dimensions = bytes / sizeof(f32);
-    *cleanup = fvec_cleanup_noop;
+    *cleanup = sqlite3_free;
     return SQLITE_OK;
   }
 
@@ -806,7 +812,7 @@ static int fvec_from_value(sqlite3_value *value, f32 **vector,
     if (x.length > 0) {
       *vector = (f32 *)x.z;
       *dimensions = x.length;
-      *cleanup = (fvec_cleanup)sqlite3_free;
+      *cleanup = sqlite3_free;
       return SQLITE_OK;
     }
     sqlite3_free(x.z);
@@ -1458,7 +1464,10 @@ static void vec_quantize_int8(sqlite3_context *context, int argc,
   }
   f32 step = (1.0 - (-1.0)) / 255;
   for (size_t i = 0; i < dimensions; i++) {
-    out[i] = ((srcVector[i] - (-1.0)) / step) - 128;
+    double val = ((srcVector[i] - (-1.0)) / step) - 128;
+    if (val > 127.0) val = 127.0;
+    if (val < -128.0) val = -128.0;
+    out[i] = (i8)val;
   }
 
   sqlite3_result_blob(context, out, dimensions * sizeof(i8), sqlite3_free);
@@ -2718,7 +2727,7 @@ int npy_token_next(unsigned char *start, unsigned char *end,
         }
         ptr++;
       }
-      if ((*ptr) != '\'') {
+      if (ptr >= end || (*ptr) != '\'') {
         return VEC0_TOKEN_RESULT_ERROR;
       }
       out->start = start;

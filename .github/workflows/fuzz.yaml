@@ -69,7 +69,11 @@ jobs:
       - name: Generate sqlite-vec.h
         run: make sqlite-vec.h
       - name: Build fuzz targets
-        run: make -C tests/fuzz all FUZZ_CC=/opt/homebrew/opt/llvm/bin/clang
+        run: |
+          LLVM=/opt/homebrew/opt/llvm
+          make -C tests/fuzz all \
+            FUZZ_CC=$LLVM/bin/clang \
+            FUZZ_LDFLAGS="-Wl,-ld_classic -L$LLVM/lib/c++ -Wl,-rpath,$LLVM/lib/c++"
       - name: Run fuzz targets
         env:
           DYLD_LIBRARY_PATH: "/opt/homebrew/opt/llvm/lib/c++:${{ env.DYLD_LIBRARY_PATH }}"
