@@ -63,20 +63,17 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-      - name: Install LLVM 18
-        run: brew install llvm@18
+      # Use Apple's Xcode clang (avoids Homebrew LLVM libc++ ABI issues
+      # with __ZnwmSt19__type_descriptor_t on macOS 14).
       - run: ./scripts/vendor.sh
       - name: Generate sqlite-vec.h
         run: make sqlite-vec.h
       - name: Build fuzz targets
         run: |
-          LLVM=/opt/homebrew/opt/llvm@18
           make -C tests/fuzz all \
-            FUZZ_CC=$LLVM/bin/clang \
-            FUZZ_LDFLAGS="-Wl,-ld_classic -nostdlib++ -L$LLVM/lib/c++ -lc++ -Wl,-rpath,$LLVM/lib/c++"
+            FUZZ_CC=$(xcrun -f clang) \
+            FUZZ_LDFLAGS=""
       - name: Run fuzz targets
-        env:
-          DYLD_LIBRARY_PATH: "/opt/homebrew/opt/llvm@18/lib/c++:${{ env.DYLD_LIBRARY_PATH }}"
         run: |
           DURATION=${{ github.event.inputs.duration || '60' }}
           EXIT_CODE=0
