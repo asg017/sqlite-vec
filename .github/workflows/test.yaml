@@ -51,7 +51,7 @@ jobs:
           name: sqlite-vec-macos-aarch64-extension
           path: dist/*
   build-windows-x86_64-extension:
-    runs-on: windows-2019
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
