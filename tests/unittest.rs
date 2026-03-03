@@ -1,19 +1,30 @@
 fn main() {
     println!("Hello, world!");
-    println!("{:?}", _min_idx(vec![3.0, 2.0, 1.0], 2));
+    println!("{:?}", _min_idx(vec![3.0, 2.0, 1.0, f32::MAX, f32::MAX, f32::MAX, f32::MAX, f32::MAX], 2));
 }
 
 fn _min_idx(distances: Vec<f32>, k: i32) -> Vec<i32> {
+    let n = distances.len();
+    assert!(n % 8 == 0, "distances.len() must be a multiple of 8");
+
     let mut out: Vec<i32> = vec![0; k as usize];
+    let bitmap_bytes = n / 8;
+    let mut candidates: Vec<u8> = vec![0xFF; bitmap_bytes];
+    let mut b_taken: Vec<u8> = vec![0; bitmap_bytes];
+    let mut k_used: i32 = 0;
 
     unsafe {
         min_idx(
-            distances.as_ptr().cast(),
-            distances.len() as i32,
+            distances.as_ptr(),
+            n as i32,
+            candidates.as_mut_ptr(),
             out.as_mut_ptr(),
             k,
+            b_taken.as_mut_ptr(),
+            &mut k_used,
         );
     }
+    out.truncate(k_used as usize);
     out
 }
 
@@ -51,7 +62,15 @@ fn _merge_sorted_lists(
 
 #[link(name = "sqlite-vec-internal")]
 extern "C" {
-    fn min_idx(distances: *const f32, n: i32, out: *mut i32, k: i32) -> i32;
+    fn min_idx(
+        distances: *const f32,
+        n: i32,
+        candidates: *mut u8,
+        out: *mut i32,
+        k: i32,
+        b_taken: *mut u8,
+        k_used: *mut i32,
+    ) -> i32;
 
     fn merge_sorted_lists(
         a: *const f32,
@@ -74,11 +93,17 @@ mod tests {
 
     #[test]
     fn test_basic() {
-        assert_eq!(_min_idx(vec![1.0, 2.0, 3.0], 3), vec![0, 1, 2]);
-        assert_eq!(_min_idx(vec![3.0, 2.0, 1.0], 3), vec![2, 1, 0]);
+        let pad = |v: &[f32]| -> Vec<f32> {
+            let mut r = v.to_vec();
+            r.resize(8, f32::MAX);
+            r
+        };
 
-        assert_eq!(_min_idx(vec![1.0, 2.0, 3.0], 2), vec![0, 1]);
-        assert_eq!(_min_idx(vec![3.0, 2.0, 1.0], 2), vec![2, 1]);
+        assert_eq!(_min_idx(pad(&[1.0, 2.0, 3.0]), 3), vec![0, 1, 2]);
+        assert_eq!(_min_idx(pad(&[3.0, 2.0, 1.0]), 3), vec![2, 1, 0]);
+
+        assert_eq!(_min_idx(pad(&[1.0, 2.0, 3.0]), 2), vec![0, 1]);
+        assert_eq!(_min_idx(pad(&[3.0, 2.0, 1.0]), 2), vec![2, 1]);
     }
 
     #[test]
