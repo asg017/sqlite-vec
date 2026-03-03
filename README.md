@@ -40,6 +40,11 @@ See <a href="#sponsors">the Sponsors section</a> for more details.
 </i>
 </p>
 
+<a href="https://idx.google.com/import?url=https://github.com/asg017/sqlite-vec">
+  <img height="32" alt="Try in IDX" src="https://cdn.idx.dev/btn/try_dark_32.svg">
+</a>
+
+
 ## Installing
 
 See [Installing `sqlite-vec`](https://alexgarcia.xyz/sqlite-vec/installation.html)
