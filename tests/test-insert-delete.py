@@ -1,31 +1,7 @@
 import sqlite3
 import struct
-from collections import OrderedDict
 import pytest
-
-
-def _f32(list):
-    return struct.pack("%sf" % len(list), *list)
-
-
-def exec(db, sql, parameters=[]):
-    try:
-        rows = db.execute(sql, parameters).fetchall()
-    except (sqlite3.OperationalError, sqlite3.DatabaseError) as e:
-        return {
-            "error": e.__class__.__name__,
-            "message": str(e),
-        }
-    a = []
-    for row in rows:
-        o = OrderedDict()
-        for k in row.keys():
-            o[k] = row[k]
-        a.append(o)
-    result = OrderedDict()
-    result["sql"] = sql
-    result["rows"] = a
-    return result
+from helpers import _f32, exec
 
 
 def test_insert_creates_chunks_and_vectors(db, snapshot):
