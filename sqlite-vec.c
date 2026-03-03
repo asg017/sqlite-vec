@@ -562,6 +562,18 @@ static f32 distance_hamming(const void *a, const void *b, const void *d) {
   return distance_hamming_u8((u8 *)a, (u8 *)b, dimensions / CHAR_BIT);
 }
 
+#ifdef SQLITE_VEC_TEST
+f32 _test_distance_l2_sqr_float(const f32 *a, const f32 *b, size_t dims) {
+  return distance_l2_sqr_float(a, b, &dims);
+}
+f32 _test_distance_cosine_float(const f32 *a, const f32 *b, size_t dims) {
+  return distance_cosine_float(a, b, &dims);
+}
+f32 _test_distance_hamming(const u8 *a, const u8 *b, size_t dims) {
+  return distance_hamming(a, b, &dims);
+}
+#endif
+
 // from SQLite source:
 // https://github.com/sqlite/sqlite/blob/a509a90958ddb234d1785ed7801880ccb18b497e/src/json.c#L153
 static const char vecJsonIsSpaceX[] = {

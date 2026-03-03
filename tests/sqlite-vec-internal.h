@@ -75,4 +75,10 @@ int vec0_parse_partition_key_definition(const char *source, int source_length,
                                         int *out_column_name_length,
                                         int *out_column_type);
 
+#ifdef SQLITE_VEC_TEST
+float _test_distance_l2_sqr_float(const float *a, const float *b, size_t dims);
+float _test_distance_cosine_float(const float *a, const float *b, size_t dims);
+float _test_distance_hamming(const unsigned char *a, const unsigned char *b, size_t dims);
+#endif
+
 #endif /* SQLITE_VEC_INTERNAL_H */

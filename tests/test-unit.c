@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
 
@@ -477,11 +478,132 @@ void test_vec0_parse_partition_key_definition() {
   }
 }
 
+void test_distance_l2_sqr_float() {
+  printf("Starting %s...\n", __func__);
+  float d;
+
+  // Identical vectors: distance = 0
+  {
+    float a[] = {1.0f, 2.0f, 3.0f};
+    float b[] = {1.0f, 2.0f, 3.0f};
+    d = _test_distance_l2_sqr_float(a, b, 3);
+    assert(d == 0.0f);
+  }
+
+  // Orthogonal unit vectors: sqrt(1+1) = sqrt(2)
+  {
+    float a[] = {1.0f, 0.0f, 0.0f};
+    float b[] = {0.0f, 1.0f, 0.0f};
+    d = _test_distance_l2_sqr_float(a, b, 3);
+    assert(fabsf(d - sqrtf(2.0f)) < 1e-6f);
+  }
+
+  // Known computation: [1,2,3] vs [4,5,6] = sqrt(9+9+9) = sqrt(27)
+  {
+    float a[] = {1.0f, 2.0f, 3.0f};
+    float b[] = {4.0f, 5.0f, 6.0f};
+    d = _test_distance_l2_sqr_float(a, b, 3);
+    assert(fabsf(d - sqrtf(27.0f)) < 1e-5f);
+  }
+
+  // Single dimension: sqrt(16) = 4.0
+  {
+    float a[] = {3.0f};
+    float b[] = {7.0f};
+    d = _test_distance_l2_sqr_float(a, b, 1);
+    assert(d == 4.0f);
+  }
+
+  printf("  All distance_l2_sqr_float tests passed.\n");
+}
+
+void test_distance_cosine_float() {
+  printf("Starting %s...\n", __func__);
+  float d;
+
+  // Identical direction: distance = 0.0
+  {
+    float a[] = {1.0f, 0.0f};
+    float b[] = {2.0f, 0.0f};
+    d = _test_distance_cosine_float(a, b, 2);
+    assert(fabsf(d - 0.0f) < 1e-6f);
+  }
+
+  // Orthogonal: distance = 1.0
+  {
+    float a[] = {1.0f, 0.0f};
+    float b[] = {0.0f, 1.0f};
+    d = _test_distance_cosine_float(a, b, 2);
+    assert(fabsf(d - 1.0f) < 1e-6f);
+  }
+
+  // Opposite direction: distance = 2.0
+  {
+    float a[] = {1.0f, 0.0f};
+    float b[] = {-1.0f, 0.0f};
+    d = _test_distance_cosine_float(a, b, 2);
+    assert(fabsf(d - 2.0f) < 1e-6f);
+  }
+
+  printf("  All distance_cosine_float tests passed.\n");
+}
+
+void test_distance_hamming() {
+  printf("Starting %s...\n", __func__);
+  float d;
+
+  // Identical bitmaps: distance = 0
+  {
+    unsigned char a[] = {0xFF};
+    unsigned char b[] = {0xFF};
+    d = _test_distance_hamming(a, b, 8);
+    assert(d == 0.0f);
+  }
+
+  // All different: distance = 8
+  {
+    unsigned char a[] = {0xFF};
+    unsigned char b[] = {0x00};
+    d = _test_distance_hamming(a, b, 8);
+    assert(d == 8.0f);
+  }
+
+  // Half different: 0xFF vs 0x0F = 4 bits differ
+  {
+    unsigned char a[] = {0xFF};
+    unsigned char b[] = {0x0F};
+    d = _test_distance_hamming(a, b, 8);
+    assert(d == 4.0f);
+  }
+
+  // Multi-byte: [0xFF, 0x00] vs [0x00, 0xFF] = 16 bits differ
+  {
+    unsigned char a[] = {0xFF, 0x00};
+    unsigned char b[] = {0x00, 0xFF};
+    d = _test_distance_hamming(a, b, 16);
+    assert(d == 16.0f);
+  }
+
+  printf("  All distance_hamming tests passed.\n");
+}
+
 int main() {
   printf("Starting unit tests...\n");
+#ifdef SQLITE_VEC_ENABLE_AVX
+  printf("SQLITE_VEC_ENABLE_AVX=1\n");
+#endif
+#ifdef SQLITE_VEC_ENABLE_NEON
+  printf("SQLITE_VEC_ENABLE_NEON=1\n");
+#endif
+#if !defined(SQLITE_VEC_ENABLE_AVX) && !defined(SQLITE_VEC_ENABLE_NEON)
+  printf("SIMD: none\n");
+#endif
   test_vec0_token_next();
   test_vec0_scanner();
   test_vec0_parse_vector_column();
   test_vec0_parse_partition_key_definition();
+  test_distance_l2_sqr_float();
+  test_distance_cosine_float();
+  test_distance_hamming();
   printf("All unit tests passed.\n");
 }

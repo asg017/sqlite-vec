@@ -190,7 +190,7 @@ test-loadable-watch:
 	watchexec --exts c,py,Makefile --clear -- make test-loadable
 
 test-unit:
-	$(CC) -DSQLITE_CORE tests/test-unit.c sqlite-vec.c vendor/sqlite3.c -I./ -Ivendor -o $(prefix)/test-unit && $(prefix)/test-unit
+	$(CC) -DSQLITE_CORE -DSQLITE_VEC_TEST tests/test-unit.c sqlite-vec.c vendor/sqlite3.c -I./ -Ivendor -o $(prefix)/test-unit && $(prefix)/test-unit
 
 site-dev:
 	npm --prefix site run dev
