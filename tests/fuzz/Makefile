@@ -1,48 +1,78 @@
+# Auto-detect clang with libFuzzer support.
+# Priority: Homebrew LLVM (macOS ARM) → Homebrew LLVM (macOS Intel) →
+#           versioned clang (Linux) → system clang
+FUZZ_CC ?= $(shell \
+  if [ -x /opt/homebrew/opt/llvm/bin/clang ]; then \
+    echo "/opt/homebrew/opt/llvm/bin/clang"; \
+  elif [ -x /usr/local/opt/llvm/bin/clang ]; then \
+    echo "/usr/local/opt/llvm/bin/clang"; \
+  elif command -v clang-18 >/dev/null 2>&1; then \
+    echo "clang-18"; \
+  elif command -v clang-17 >/dev/null 2>&1; then \
+    echo "clang-17"; \
+  elif command -v clang >/dev/null 2>&1; then \
+    echo "clang"; \
+  else \
+    echo "FUZZ_CC_NOT_FOUND"; \
+  fi)
 
-TARGET_DIR=./targets
+# AddressSanitizer + UndefinedBehaviorSanitizer + libFuzzer.
+# Override FUZZ_SANITIZERS to change (e.g., drop ubsan on Windows).
+FUZZ_SANITIZERS ?= -fsanitize=address,undefined,fuzzer
+
+# On macOS, Homebrew LLVM may need -Wl,-ld_classic to work with the system linker.
+FUZZ_LDFLAGS ?= $(shell \
+  if [ "$$(uname -s)" = "Darwin" ]; then \
+    echo "-Wl,-ld_classic"; \
+  fi)
+
+FUZZ_CFLAGS = $(FUZZ_SANITIZERS) -I ../../ -I ../../vendor -DSQLITE_CORE -g $(FUZZ_LDFLAGS)
+FUZZ_SRCS = ../../vendor/sqlite3.c ../../sqlite-vec.c
+
+TARGET_DIR = ./targets
 
 $(TARGET_DIR):
 	mkdir -p $@
 
-# ASAN_OPTIONS=detect_leaks=1  ./fuzz_json -detect_leaks=1 '-trace_malloc=[12]' tmp
-$(TARGET_DIR)/json: json.c $(TARGET_DIR)
-	/opt/homebrew/opt/llvm/bin/clang \
-	-fsanitize=address,fuzzer \
-	-I ../../ -I ../../vendor -DSQLITE_CORE -g \
-	../../vendor/sqlite3.c \
-	../../sqlite-vec.c \
-	$< \
-	-o $@
+# Existing targets (filename uses -, Makefile target uses _)
+$(TARGET_DIR)/vec0_create: vec0-create.c $(FUZZ_SRCS) | $(TARGET_DIR)
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
 
+$(TARGET_DIR)/exec: exec.c $(FUZZ_SRCS) | $(TARGET_DIR)
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
 
-$(TARGET_DIR)/vec0_create: vec0-create.c ../../sqlite-vec.c $(TARGET_DIR)
-	/opt/homebrew/opt/llvm/bin/clang \
-	-fsanitize=address,fuzzer \
-	-I ../../ -I ../../vendor -DSQLITE_CORE -g \
-	../../vendor/sqlite3.c \
-	../../sqlite-vec.c \
-	$< \
-	-o $@
+$(TARGET_DIR)/json: json.c $(FUZZ_SRCS) | $(TARGET_DIR)
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
 
-$(TARGET_DIR)/numpy: numpy.c ../../sqlite-vec.c $(TARGET_DIR)
-	/opt/homebrew/opt/llvm/bin/clang \
-	-fsanitize=address,fuzzer \
-	-I ../../ -I ../../vendor -DSQLITE_CORE -g \
-	../../vendor/sqlite3.c \
-	../../sqlite-vec.c \
-	$< \
-	-o $@
+$(TARGET_DIR)/numpy: numpy.c $(FUZZ_SRCS) | $(TARGET_DIR)
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
 
-$(TARGET_DIR)/exec: exec.c ../../sqlite-vec.c $(TARGET_DIR)
-	/opt/homebrew/opt/llvm/bin/clang \
-	-fsanitize=address,fuzzer \
-	-I ../../ -I ../../vendor -DSQLITE_CORE -g \
-	../../vendor/sqlite3.c \
-	../../sqlite-vec.c \
-	$< \
-	-o $@
+# New targets
+$(TARGET_DIR)/shadow_corrupt: shadow-corrupt.c $(FUZZ_SRCS) | $(TARGET_DIR)
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
 
-all: $(TARGET_DIR)/json $(TARGET_DIR)/numpy $(TARGET_DIR)/json $(TARGET_DIR)/exec
+$(TARGET_DIR)/vec0_operations: vec0-operations.c $(FUZZ_SRCS) | $(TARGET_DIR)
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
+
+$(TARGET_DIR)/scalar_functions: scalar-functions.c $(FUZZ_SRCS) | $(TARGET_DIR)
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
+
+$(TARGET_DIR)/vec0_create_full: vec0-create-full.c $(FUZZ_SRCS) | $(TARGET_DIR)
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
+
+$(TARGET_DIR)/metadata_columns: metadata-columns.c $(FUZZ_SRCS) | $(TARGET_DIR)
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
+
+$(TARGET_DIR)/vec_each: vec-each.c $(FUZZ_SRCS) | $(TARGET_DIR)
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
+
+FUZZ_TARGETS = vec0_create exec json numpy \
+               shadow_corrupt vec0_operations scalar_functions \
+               vec0_create_full metadata_columns vec_each
+
+all: $(addprefix $(TARGET_DIR)/,$(FUZZ_TARGETS))
 
 clean:
 	rm -rf $(TARGET_DIR)/*
+
+.PHONY: all clean

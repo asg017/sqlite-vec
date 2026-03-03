@@ -1,0 +1,8 @@
+json_vec1="[1.0, 2.0, 3.0, 4.0]"
+json_vec2="[0.5, -0.5]"
+json_empty="[]"
+json_nan="[NaN]"
+json_inf="[Infinity]"
+json_large="[1e38, -1e38]"
+unit="unit"
+null="null"
