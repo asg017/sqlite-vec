@@ -336,53 +336,95 @@ void test_vec0_parse_vector_column() {
     sqlite3_free(col.name);
   }
 
-  // Error: empty string
+  // SQLITE_EMPTY: empty string
   {
     const char *input = "";
     rc = vec0_parse_vector_column(input, 0, &col);
-    assert(rc != SQLITE_OK);
+    assert(rc == SQLITE_EMPTY);
   }
 
-  // Error: no type
+  // SQLITE_EMPTY: non-vector column (text primary key)
+  {
+    const char *input = "document_id text primary key";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_EMPTY);
+  }
+
+  // SQLITE_EMPTY: non-vector column (partition key)
+  {
+    const char *input = "user_id integer partition key";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_EMPTY);
+  }
+
+  // SQLITE_EMPTY: no type (single identifier)
   {
     const char *input = "emb";
     rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
-    assert(rc != SQLITE_OK);
+    assert(rc == SQLITE_EMPTY);
   }
 
-  // Error: unknown type
+  // SQLITE_EMPTY: unknown type
   {
     const char *input = "emb double[128]";
     rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
-    assert(rc != SQLITE_OK);
+    assert(rc == SQLITE_EMPTY);
   }
 
-  // Error: missing dimensions
+  // SQLITE_EMPTY: unknown type (unknowntype)
+  {
+    const char *input = "v unknowntype[128]";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_EMPTY);
+  }
+
+  // SQLITE_EMPTY: missing brackets entirely
   {
     const char *input = "emb float";
     rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
-    assert(rc != SQLITE_OK);
+    assert(rc == SQLITE_EMPTY);
+  }
+
+  // Error: zero dimensions
+  {
+    const char *input = "v float[0]";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_ERROR);
+  }
+
+  // Error: empty brackets (no dimensions)
+  {
+    const char *input = "v float[]";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_ERROR);
   }
 
   // Error: unknown distance metric
   {
     const char *input = "emb float[128] distance_metric=hamming";
     rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
-    assert(rc != SQLITE_OK);
+    assert(rc == SQLITE_ERROR);
+  }
+
+  // Error: unknown distance metric (foo)
+  {
+    const char *input = "v float[128] distance_metric=foo";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_ERROR);
   }
 
   // Error: unknown option key
   {
     const char *input = "emb float[128] foobar=baz";
     rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
-    assert(rc != SQLITE_OK);
+    assert(rc == SQLITE_ERROR);
   }
 
   // Error: distance_metric on bit type
   {
     const char *input = "emb bit[64] distance_metric=cosine";
     rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
-    assert(rc != SQLITE_OK);
+    assert(rc == SQLITE_ERROR);
   }
 
   printf("  All vec0_parse_vector_column tests passed.\n");
