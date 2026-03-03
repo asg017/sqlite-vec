@@ -103,8 +103,8 @@ jobs:
           distribution: "temurin"
       - uses: android-actions/setup-android@v3
       - run: |
-          sdkmanager --install "ndk;27.0.12077973"
-          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> $GITHUB_ENV
+          sdkmanager --install "ndk;29.0.14206865"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/29.0.14206865" >> $GITHUB_ENV
       - run: |
           ls $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/
           ls $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
