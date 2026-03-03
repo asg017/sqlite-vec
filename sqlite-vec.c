@@ -1465,8 +1465,8 @@ static void vec_quantize_int8(sqlite3_context *context, int argc,
   f32 step = (1.0 - (-1.0)) / 255;
   for (size_t i = 0; i < dimensions; i++) {
     double val = ((srcVector[i] - (-1.0)) / step) - 128;
-    if (val > 127.0) val = 127.0;
-    if (val < -128.0) val = -128.0;
+    if (!(val <= 127.0)) val = 127.0;   /* also clamps NaN */
+    if (!(val >= -128.0)) val = -128.0;
     out[i] = (i8)val;
   }
 
@@ -2577,6 +2577,7 @@ static int vec_eachFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
   int rc = vector_from_value(argv[0], &pCur->vector, &pCur->dimensions,
                              &pCur->vector_type, &pCur->cleanup, &pzErrMsg);
   if (rc != SQLITE_OK) {
+    sqlite3_free(pzErrMsg);
     return SQLITE_ERROR;
   }
   pCur->iRowid = 0;
@@ -5202,6 +5203,7 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
 
 error:
   vec0_free(pNew);
+  sqlite3_free(pNew);
   return SQLITE_ERROR;
 }
 
@@ -7258,6 +7260,10 @@ cleanup:
   }
 
   sqlite3_free(aMetadataIn);
+
+  if (rc != SQLITE_OK) {
+    sqlite3_free(knn_data);
+  }
 
   return rc;
 }

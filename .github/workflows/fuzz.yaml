@@ -63,20 +63,20 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-      - name: Install LLVM
-        run: brew install llvm
+      - name: Install LLVM 18
+        run: brew install llvm@18
       - run: ./scripts/vendor.sh
       - name: Generate sqlite-vec.h
         run: make sqlite-vec.h
       - name: Build fuzz targets
         run: |
-          LLVM=/opt/homebrew/opt/llvm
+          LLVM=/opt/homebrew/opt/llvm@18
           make -C tests/fuzz all \
             FUZZ_CC=$LLVM/bin/clang \
-            FUZZ_LDFLAGS="-Wl,-ld_classic -L$LLVM/lib/c++ -Wl,-rpath,$LLVM/lib/c++"
+            FUZZ_LDFLAGS="-Wl,-ld_classic"
       - name: Run fuzz targets
         env:
-          DYLD_LIBRARY_PATH: "/opt/homebrew/opt/llvm/lib/c++:${{ env.DYLD_LIBRARY_PATH }}"
+          DYLD_LIBRARY_PATH: "/opt/homebrew/opt/llvm@18/lib/c++:${{ env.DYLD_LIBRARY_PATH }}"
         run: |
           DURATION=${{ github.event.inputs.duration || '60' }}
           EXIT_CODE=0
