@@ -659,6 +659,252 @@ void test_distance_hamming() {
   printf("  All distance_hamming tests passed.\n");
 }
 
+// Helper: create an in-memory DB with vec0 loaded
+static sqlite3 *test_db_open(void) {
+  sqlite3 *db;
+  int rc = sqlite3_open(":memory:", &db);
+  assert(rc == SQLITE_OK);
+  rc = sqlite3_vec_init(db, NULL, NULL);
+  assert(rc == SQLITE_OK);
+  return db;
+}
+
+// Helper: execute SQL, assert success
+static void test_exec(sqlite3 *db, const char *sql) {
+  char *errmsg = NULL;
+  int rc = sqlite3_exec(db, sql, NULL, NULL, &errmsg);
+  if (rc != SQLITE_OK) {
+    fprintf(stderr, "SQL error: %s\n  SQL: %s\n", errmsg ? errmsg : "(null)", sql);
+    sqlite3_free(errmsg);
+    assert(0);
+  }
+}
+
+// Helper: execute SQL, return integer from first column of first row
+static int test_exec_int(sqlite3 *db, const char *sql) {
+  sqlite3_stmt *stmt;
+  int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+  assert(rc == SQLITE_OK);
+  rc = sqlite3_step(stmt);
+  assert(rc == SQLITE_ROW);
+  int val = sqlite3_column_int(stmt, 0);
+  sqlite3_finalize(stmt);
+  return val;
+}
+
+// Helper: insert a float[4] vector with given rowid
+static void test_insert_f4(sqlite3 *db, int64_t rowid, float v0, float v1, float v2, float v3) {
+  sqlite3_stmt *stmt;
+  int rc = sqlite3_prepare_v2(db,
+    "INSERT INTO v(rowid, emb) VALUES (?, ?)", -1, &stmt, NULL);
+  assert(rc == SQLITE_OK);
+  float vec[4] = {v0, v1, v2, v3};
+  sqlite3_bind_int64(stmt, 1, rowid);
+  sqlite3_bind_blob(stmt, 2, vec, sizeof(vec), SQLITE_TRANSIENT);
+  rc = sqlite3_step(stmt);
+  assert(rc == SQLITE_DONE);
+  sqlite3_finalize(stmt);
+}
+
+// Helper: verify a float[4] vector at given rowid
+static void test_verify_f4(sqlite3 *db, int64_t rowid, float v0, float v1, float v2, float v3) {
+  sqlite3_stmt *stmt;
+  int rc = sqlite3_prepare_v2(db,
+    "SELECT emb FROM v WHERE rowid = ?", -1, &stmt, NULL);
+  assert(rc == SQLITE_OK);
+  sqlite3_bind_int64(stmt, 1, rowid);
+  rc = sqlite3_step(stmt);
+  assert(rc == SQLITE_ROW);
+  const float *blob = sqlite3_column_blob(stmt, 0);
+  assert(blob != NULL);
+  assert(sqlite3_column_bytes(stmt, 0) == 16);
+  float eps = 1e-6f;
+  assert(fabsf(blob[0] - v0) < eps);
+  assert(fabsf(blob[1] - v1) < eps);
+  assert(fabsf(blob[2] - v2) < eps);
+  assert(fabsf(blob[3] - v3) < eps);
+  sqlite3_finalize(stmt);
+}
+
+void test_optimize_basic(void) {
+  printf("Starting %s...\n", __func__);
+  sqlite3 *db = test_db_open();
+  test_exec(db, "CREATE VIRTUAL TABLE v USING vec0(emb float[4], chunk_size=8)");
+
+  // Insert 16 rows (2 chunks)
+  for (int i = 1; i <= 16; i++) {
+    test_insert_f4(db, i, (float)i, (float)i, (float)i, (float)i);
+  }
+  assert(test_exec_int(db, "SELECT count(*) FROM v_chunks") == 2);
+
+  // Delete first 6 rows
+  for (int i = 1; i <= 6; i++) {
+    char sql[64];
+    snprintf(sql, sizeof(sql), "DELETE FROM v WHERE rowid = %d", i);
+    test_exec(db, sql);
+  }
+  assert(test_exec_int(db, "SELECT count(*) FROM v") == 10);
+
+  // Optimize
+  test_exec(db, "INSERT INTO v(v) VALUES ('optimize')");
+
+  // All remaining rows still queryable
+  for (int i = 7; i <= 16; i++) {
+    test_verify_f4(db, i, (float)i, (float)i, (float)i, (float)i);
+  }
+
+  sqlite3_close(db);
+  printf("  Passed.\n");
+}
+
+void test_optimize_full_compaction(void) {
+  printf("Starting %s...\n", __func__);
+  sqlite3 *db = test_db_open();
+  test_exec(db, "CREATE VIRTUAL TABLE v USING vec0(emb float[4], chunk_size=8)");
+
+  for (int i = 1; i <= 24; i++) {
+    test_insert_f4(db, i, (float)i, (float)i, (float)i, (float)i);
+  }
+  assert(test_exec_int(db, "SELECT count(*) FROM v_chunks") == 3);
+
+  // Keep 1-4, delete 5-24
+  for (int i = 5; i <= 24; i++) {
+    char sql[64];
+    snprintf(sql, sizeof(sql), "DELETE FROM v WHERE rowid = %d", i);
+    test_exec(db, sql);
+  }
+
+  test_exec(db, "INSERT INTO v(v) VALUES ('optimize')");
+
+  // Should compact to 1 chunk
+  assert(test_exec_int(db, "SELECT count(*) FROM v_chunks") == 1);
+  assert(test_exec_int(db, "SELECT count(*) FROM v_vector_chunks00") == 1);
+
+  for (int i = 1; i <= 4; i++) {
+    test_verify_f4(db, i, (float)i, (float)i, (float)i, (float)i);
+  }
+
+  sqlite3_close(db);
+  printf("  Passed.\n");
+}
+
+void test_optimize_empty_table(void) {
+  printf("Starting %s...\n", __func__);
+  sqlite3 *db = test_db_open();
+  test_exec(db, "CREATE VIRTUAL TABLE v USING vec0(emb float[4], chunk_size=8)");
+
+  // Optimize on empty table — should be no-op
+  test_exec(db, "INSERT INTO v(v) VALUES ('optimize')");
+  assert(test_exec_int(db, "SELECT count(*) FROM v_chunks") == 0);
+
+  sqlite3_close(db);
+  printf("  Passed.\n");
+}
+
+void test_optimize_noop_full_chunk(void) {
+  printf("Starting %s...\n", __func__);
+  sqlite3 *db = test_db_open();
+  test_exec(db, "CREATE VIRTUAL TABLE v USING vec0(emb float[4], chunk_size=8)");
+
+  for (int i = 1; i <= 8; i++) {
+    test_insert_f4(db, i, (float)i, (float)i, (float)i, (float)i);
+  }
+
+  // Single full chunk — optimize is no-op
+  test_exec(db, "INSERT INTO v(v) VALUES ('optimize')");
+  assert(test_exec_int(db, "SELECT count(*) FROM v_chunks") == 1);
+
+  for (int i = 1; i <= 8; i++) {
+    test_verify_f4(db, i, (float)i, (float)i, (float)i, (float)i);
+  }
+
+  sqlite3_close(db);
+  printf("  Passed.\n");
+}
+
+void test_optimize_knn_after(void) {
+  printf("Starting %s...\n", __func__);
+  sqlite3 *db = test_db_open();
+  test_exec(db, "CREATE VIRTUAL TABLE v USING vec0(emb float[4], chunk_size=8)");
+
+  for (int i = 1; i <= 16; i++) {
+    test_insert_f4(db, i, (float)i, 0, 0, 0);
+  }
+
+  for (int i = 1; i <= 6; i++) {
+    char sql[64];
+    snprintf(sql, sizeof(sql), "DELETE FROM v WHERE rowid = %d", i);
+    test_exec(db, sql);
+  }
+
+  test_exec(db, "INSERT INTO v(v) VALUES ('optimize')");
+
+  // KNN: find vector closest to [7,0,0,0]
+  sqlite3_stmt *stmt;
+  float query[4] = {7.0f, 0.0f, 0.0f, 0.0f};
+  int rc = sqlite3_prepare_v2(db,
+    "SELECT rowid FROM v WHERE emb MATCH ? AND k = 1", -1, &stmt, NULL);
+  assert(rc == SQLITE_OK);
+  sqlite3_bind_blob(stmt, 1, query, sizeof(query), SQLITE_TRANSIENT);
+  rc = sqlite3_step(stmt);
+  assert(rc == SQLITE_ROW);
+  assert(sqlite3_column_int64(stmt, 0) == 7);
+  sqlite3_finalize(stmt);
+
+  sqlite3_close(db);
+  printf("  Passed.\n");
+}
+
+void test_optimize_insert_after(void) {
+  printf("Starting %s...\n", __func__);
+  sqlite3 *db = test_db_open();
+  test_exec(db, "CREATE VIRTUAL TABLE v USING vec0(emb float[4], chunk_size=8)");
+
+  for (int i = 1; i <= 16; i++) {
+    test_insert_f4(db, i, (float)i, (float)i, (float)i, (float)i);
+  }
+
+  for (int i = 1; i <= 6; i++) {
+    char sql[64];
+    snprintf(sql, sizeof(sql), "DELETE FROM v WHERE rowid = %d", i);
+    test_exec(db, sql);
+  }
+
+  test_exec(db, "INSERT INTO v(v) VALUES ('optimize')");
+
+  // Insert new rows after optimize
+  for (int i = 100; i < 108; i++) {
+    test_insert_f4(db, i, (float)i, (float)i, (float)i, (float)i);
+  }
+
+  // Both old and new rows queryable
+  for (int i = 7; i <= 16; i++) {
+    test_verify_f4(db, i, (float)i, (float)i, (float)i, (float)i);
+  }
+  for (int i = 100; i < 108; i++) {
+    test_verify_f4(db, i, (float)i, (float)i, (float)i, (float)i);
+  }
+
+  sqlite3_close(db);
+  printf("  Passed.\n");
+}
+
+void test_optimize_unknown_command(void) {
+  printf("Starting %s...\n", __func__);
+  sqlite3 *db = test_db_open();
+  test_exec(db, "CREATE VIRTUAL TABLE v USING vec0(emb float[4], chunk_size=8)");
+
+  char *errmsg = NULL;
+  int rc = sqlite3_exec(db, "INSERT INTO v(v) VALUES ('bogus')", NULL, NULL, &errmsg);
+  assert(rc != SQLITE_OK);
+  assert(errmsg != NULL);
+  assert(strstr(errmsg, "nknown") != NULL || strstr(errmsg, "unknown") != NULL);
+  sqlite3_free(errmsg);
+
+  sqlite3_close(db);
+  printf("  Passed.\n");
+}
+
 int main() {
   printf("Starting unit tests...\n");
 #ifdef SQLITE_VEC_ENABLE_AVX
@@ -677,5 +923,12 @@ int main() {
   test_distance_l2_sqr_float();
   test_distance_cosine_float();
   test_distance_hamming();
+  test_optimize_basic();
+  test_optimize_full_compaction();
+  test_optimize_empty_table();
+  test_optimize_noop_full_chunk();
+  test_optimize_knn_after();
+  test_optimize_insert_after();
+  test_optimize_unknown_command();
   printf("All unit tests passed.\n");
 }
