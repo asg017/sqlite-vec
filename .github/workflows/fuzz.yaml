@@ -24,6 +24,8 @@ jobs:
           wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 18
           echo "FUZZ_CC=clang-18" >> $GITHUB_ENV
       - run: ./scripts/vendor.sh
+      - name: Generate sqlite-vec.h
+        run: make sqlite-vec.h
       - name: Build fuzz targets
         run: make -C tests/fuzz all FUZZ_CC=$FUZZ_CC FUZZ_LDFLAGS=
       - name: Run fuzz targets
@@ -64,6 +66,8 @@ jobs:
       - name: Install LLVM
         run: brew install llvm
       - run: ./scripts/vendor.sh
+      - name: Generate sqlite-vec.h
+        run: make sqlite-vec.h
       - name: Build fuzz targets
         run: make -C tests/fuzz all FUZZ_CC=/opt/homebrew/opt/llvm/bin/clang
       - name: Run fuzz targets
@@ -106,10 +110,13 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      - name: Install LLVM 18
-        run: choco install llvm --version=18.1.8 -y
+      - name: Install LLVM
+        run: choco install llvm -y
       - run: bash ./scripts/vendor.sh
         shell: bash
+      - name: Generate sqlite-vec.h
+        shell: bash
+        run: make sqlite-vec.h
       - name: Build fuzz targets
         shell: bash
         run: |
