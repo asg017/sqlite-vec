@@ -1814,6 +1814,9 @@ enum Vec0TokenType {
   TOKEN_TYPE_RBRACKET,
   TOKEN_TYPE_PLUS,
   TOKEN_TYPE_EQ,
+  TOKEN_TYPE_LPAREN,
+  TOKEN_TYPE_RPAREN,
+  TOKEN_TYPE_COMMA,
 };
 struct Vec0Token {
   enum Vec0TokenType token_type;
@@ -1863,6 +1866,24 @@ int vec0_token_next(char *start, char *end, struct Vec0Token *out) {
       out->start = ptr;
       out->end = ptr;
       out->token_type = TOKEN_TYPE_EQ;
+      return VEC0_TOKEN_RESULT_SOME;
+    } else if (curr == '(') {
+      ptr++;
+      out->start = ptr;
+      out->end = ptr;
+      out->token_type = TOKEN_TYPE_LPAREN;
+      return VEC0_TOKEN_RESULT_SOME;
+    } else if (curr == ')') {
+      ptr++;
+      out->start = ptr;
+      out->end = ptr;
+      out->token_type = TOKEN_TYPE_RPAREN;
+      return VEC0_TOKEN_RESULT_SOME;
+    } else if (curr == ',') {
+      ptr++;
+      out->start = ptr;
+      out->end = ptr;
+      out->token_type = TOKEN_TYPE_COMMA;
       return VEC0_TOKEN_RESULT_SOME;
     } else if (is_alpha(curr)) {
       char *start = ptr;

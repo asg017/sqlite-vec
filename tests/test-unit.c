@@ -108,6 +108,24 @@ void test_vec0_token_next() {
   assert(token.token_type == TOKEN_TYPE_DIGIT);
   assert(token.end - token.start == 2);
 
+  // Left paren
+  input = "(";
+  rc = vec0_token_next(input, input + 1, &token);
+  assert(rc == VEC0_TOKEN_RESULT_SOME);
+  assert(token.token_type == TOKEN_TYPE_LPAREN);
+
+  // Right paren
+  input = ")";
+  rc = vec0_token_next(input, input + 1, &token);
+  assert(rc == VEC0_TOKEN_RESULT_SOME);
+  assert(token.token_type == TOKEN_TYPE_RPAREN);
+
+  // Comma
+  input = ",";
+  rc = vec0_token_next(input, input + 1, &token);
+  assert(rc == VEC0_TOKEN_RESULT_SOME);
+  assert(token.token_type == TOKEN_TYPE_COMMA);
+
   printf("  All vec0_token_next tests passed.\n");
 }
 
@@ -224,6 +242,60 @@ void test_vec0_scanner() {
     rc = vec0_scanner_next(&scanner, &token);
     assert(rc == VEC0_TOKEN_RESULT_SOME);
     assert(token.token_type == TOKEN_TYPE_IDENTIFIER);
+
+    rc = vec0_scanner_next(&scanner, &token);
+    assert(rc == VEC0_TOKEN_RESULT_EOF);
+  }
+
+  // Scan "diskann(k=v, k2=v2)"
+  {
+    const char *input = "diskann(k=v, k2=v2)";
+    vec0_scanner_init(&scanner, input, (int)strlen(input));
+
+    rc = vec0_scanner_next(&scanner, &token);
+    assert(rc == VEC0_TOKEN_RESULT_SOME);
+    assert(token.token_type == TOKEN_TYPE_IDENTIFIER);
+    assert(strncmp(token.start, "diskann", 7) == 0);
+
+    rc = vec0_scanner_next(&scanner, &token);
+    assert(rc == VEC0_TOKEN_RESULT_SOME);
+    assert(token.token_type == TOKEN_TYPE_LPAREN);
+
+    rc = vec0_scanner_next(&scanner, &token);
+    assert(rc == VEC0_TOKEN_RESULT_SOME);
+    assert(token.token_type == TOKEN_TYPE_IDENTIFIER);
+    assert(strncmp(token.start, "k", 1) == 0);
+
+    rc = vec0_scanner_next(&scanner, &token);
+    assert(rc == VEC0_TOKEN_RESULT_SOME);
+    assert(token.token_type == TOKEN_TYPE_EQ);
+
+    rc = vec0_scanner_next(&scanner, &token);
+    assert(rc == VEC0_TOKEN_RESULT_SOME);
+    assert(token.token_type == TOKEN_TYPE_IDENTIFIER);
+    assert(strncmp(token.start, "v", 1) == 0);
+
+    rc = vec0_scanner_next(&scanner, &token);
+    assert(rc == VEC0_TOKEN_RESULT_SOME);
+    assert(token.token_type == TOKEN_TYPE_COMMA);
+
+    rc = vec0_scanner_next(&scanner, &token);
+    assert(rc == VEC0_TOKEN_RESULT_SOME);
+    assert(token.token_type == TOKEN_TYPE_IDENTIFIER);
+    assert(strncmp(token.start, "k2", 2) == 0);
+
+    rc = vec0_scanner_next(&scanner, &token);
+    assert(rc == VEC0_TOKEN_RESULT_SOME);
+    assert(token.token_type == TOKEN_TYPE_EQ);
+
+    rc = vec0_scanner_next(&scanner, &token);
+    assert(rc == VEC0_TOKEN_RESULT_SOME);
+    assert(token.token_type == TOKEN_TYPE_IDENTIFIER);
+    assert(strncmp(token.start, "v2", 2) == 0);
+
+    rc = vec0_scanner_next(&scanner, &token);
+    assert(rc == VEC0_TOKEN_RESULT_SOME);
+    assert(token.token_type == TOKEN_TYPE_RPAREN);
 
     rc = vec0_scanner_next(&scanner, &token);
     assert(rc == VEC0_TOKEN_RESULT_EOF);
