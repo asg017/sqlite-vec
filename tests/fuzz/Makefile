@@ -72,10 +72,13 @@ $(TARGET_DIR)/vec_mismatch: vec-mismatch.c $(FUZZ_SRCS) | $(TARGET_DIR)
 $(TARGET_DIR)/vec0_delete_completeness: vec0-delete-completeness.c $(FUZZ_SRCS) | $(TARGET_DIR)
 	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
 
+$(TARGET_DIR)/vec0_optimize: vec0-optimize.c $(FUZZ_SRCS) | $(TARGET_DIR)
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
+
 FUZZ_TARGETS = vec0_create exec json numpy \
                shadow_corrupt vec0_operations scalar_functions \
                vec0_create_full metadata_columns vec_each vec_mismatch \
-               vec0_delete_completeness
+               vec0_delete_completeness vec0_optimize
 
 all: $(addprefix $(TARGET_DIR)/,$(FUZZ_TARGETS))
 

@@ -3409,6 +3409,7 @@ static sqlite3_module vec_npy_eachModule = {
 #define VEC0_COLUMN_USERN_START 1
 #define VEC0_COLUMN_OFFSET_DISTANCE 1
 #define VEC0_COLUMN_OFFSET_K 2
+#define VEC0_COLUMN_OFFSET_CMD 3
 
 #define VEC0_SHADOW_INFO_NAME "\"%w\".\"%w_info\""
 
@@ -3683,6 +3684,16 @@ int vec0_column_distance_idx(vec0_vtab *p) {
 int vec0_column_k_idx(vec0_vtab *p) {
   return VEC0_COLUMN_USERN_START + (vec0_num_defined_user_columns(p) - 1) +
          VEC0_COLUMN_OFFSET_K;
+}
+
+/**
+ * @brief Returns the column index for the hidden command column.
+ * This column shares the table name and is used for FTS5-style insert commands
+ * like: INSERT INTO t(t) VALUES ('optimize');
+ */
+int vec0_column_cmd_idx(vec0_vtab *p) {
+  return VEC0_COLUMN_USERN_START + (vec0_num_defined_user_columns(p) - 1) +
+         VEC0_COLUMN_OFFSET_CMD;
 }
 
 /**
@@ -4961,7 +4972,7 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     }
 
   }
-  sqlite3_str_appendall(createStr, " distance hidden, k hidden) ");
+  sqlite3_str_appendf(createStr, " distance hidden, k hidden, \"%w\" hidden) ", argv[2]);
   if (pkColumnName) {
     sqlite3_str_appendall(createStr, "without rowid ");
   }
@@ -8305,11 +8316,32 @@ int vec0_write_metadata_value(vec0_vtab *p, int metadata_column_idx, i64 rowid, 
  *
  * @return int SQLITE_OK on success, otherwise error code on failure
  */
+static int vec0_optimize(vec0_vtab *p);
+
+static int vec0Update_InsertCommand(sqlite3_vtab *pVTab, sqlite3_value *cmdValue) {
+  const char *zCmd = (const char *)sqlite3_value_text(cmdValue);
+  if (sqlite3_stricmp(zCmd, "optimize") == 0) {
+    return vec0_optimize((vec0_vtab *)pVTab);
+  }
+  vtab_set_error(pVTab, "Unknown vec0 command: \"%s\"", zCmd);
+  return SQLITE_ERROR;
+}
+
 int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
                       sqlite_int64 *pRowid) {
   UNUSED_PARAMETER(argc);
   vec0_vtab *p = (vec0_vtab *)pVTab;
   int rc;
+
+  // Check for FTS5-style insert commands: INSERT INTO t(t) VALUES ('cmd')
+  {
+    int cmd_argv_idx = 2 + vec0_column_cmd_idx(p);
+    if (cmd_argv_idx < argc &&
+        sqlite3_value_type(argv[cmd_argv_idx]) == SQLITE_TEXT) {
+      return vec0Update_InsertCommand(pVTab, argv[cmd_argv_idx]);
+    }
+  }
+
   // Rowid for the inserted row, deterimined by the inserted ID + _rowids shadow
   // table
   i64 rowid;
@@ -9006,6 +9038,484 @@ int vec0Update_Delete(sqlite3_vtab *pVTab, sqlite3_value *idValue) {
   }
 
   return SQLITE_OK;
+}
+
+// ============================================================
+// vec0 optimize: pack live entries into older chunks, delete empty ones
+// ============================================================
+
+/**
+ * Information about a single chunk loaded during optimize.
+ */
+struct vec0_optimize_chunk {
+  i64 chunk_id;
+  int validity_size;        // bytes in validity bitmap
+  unsigned char *validity;  // in-memory validity bitmap (owned)
+  int rowids_size;          // bytes in rowids blob
+  i64 *rowids;              // in-memory rowids array (owned)
+  int modified;             // 1 if validity/rowids were changed and need flush
+};
+
+/**
+ * Move one entry from (src_chunk, src_offset) to (dst_chunk, dst_offset).
+ * Copies vector data, metadata data, updates rowids position.
+ * In-memory validity/rowids are updated in the caller.
+ */
+static int vec0_optimize_move_entry(
+    vec0_vtab *p,
+    struct vec0_optimize_chunk *src, i64 src_offset,
+    struct vec0_optimize_chunk *dst, i64 dst_offset) {
+  int rc;
+  i64 rowid = src->rowids[src_offset];
+
+  // 1. Move vector data for each vector column
+  for (int i = 0; i < p->numVectorColumns; i++) {
+    size_t vec_size = vector_column_byte_size(p->vector_columns[i]);
+    void *buf = sqlite3_malloc(vec_size);
+    if (!buf) return SQLITE_NOMEM;
+
+    // Read from source
+    sqlite3_blob *blob = NULL;
+    rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowVectorChunksNames[i],
+                           "vectors", src->chunk_id, 1, &blob);
+    if (rc != SQLITE_OK) { sqlite3_free(buf); return rc; }
+    rc = sqlite3_blob_read(blob, buf, vec_size, src_offset * vec_size);
+    if (rc != SQLITE_OK) { sqlite3_blob_close(blob); sqlite3_free(buf); return rc; }
+    // Zero the source slot
+    void *zeros = sqlite3_malloc(vec_size);
+    if (!zeros) { sqlite3_blob_close(blob); sqlite3_free(buf); return SQLITE_NOMEM; }
+    memset(zeros, 0, vec_size);
+    rc = sqlite3_blob_write(blob, zeros, vec_size, src_offset * vec_size);
+    sqlite3_free(zeros);
+    sqlite3_blob_close(blob);
+    if (rc != SQLITE_OK) { sqlite3_free(buf); return rc; }
+
+    // Write to destination
+    rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowVectorChunksNames[i],
+                           "vectors", dst->chunk_id, 1, &blob);
+    if (rc != SQLITE_OK) { sqlite3_free(buf); return rc; }
+    rc = sqlite3_blob_write(blob, buf, vec_size, dst_offset * vec_size);
+    sqlite3_blob_close(blob);
+    sqlite3_free(buf);
+    if (rc != SQLITE_OK) return rc;
+  }
+
+  // 2. Move metadata for each metadata column
+  for (int i = 0; i < p->numMetadataColumns; i++) {
+    vec0_metadata_column_kind kind = p->metadata_columns[i].kind;
+
+    if (kind == VEC0_METADATA_COLUMN_KIND_BOOLEAN) {
+      // Boolean: bit-level copy
+      sqlite3_blob *srcBlob = NULL, *dstBlob = NULL;
+      rc = sqlite3_blob_open(p->db, p->schemaName,
+                             p->shadowMetadataChunksNames[i], "data",
+                             src->chunk_id, 1, &srcBlob);
+      if (rc != SQLITE_OK) return rc;
+
+      int blobSize = sqlite3_blob_bytes(srcBlob);
+      unsigned char *srcBuf = sqlite3_malloc(blobSize);
+      if (!srcBuf) { sqlite3_blob_close(srcBlob); return SQLITE_NOMEM; }
+      rc = sqlite3_blob_read(srcBlob, srcBuf, blobSize, 0);
+      if (rc != SQLITE_OK) { sqlite3_free(srcBuf); sqlite3_blob_close(srcBlob); return rc; }
+
+      int srcBit = bitmap_get(srcBuf, src_offset);
+      // Clear source bit
+      bitmap_set(srcBuf, src_offset, 0);
+      rc = sqlite3_blob_write(srcBlob, srcBuf, blobSize, 0);
+      sqlite3_blob_close(srcBlob);
+      sqlite3_free(srcBuf);
+      if (rc != SQLITE_OK) return rc;
+
+      // Set destination bit
+      rc = sqlite3_blob_open(p->db, p->schemaName,
+                             p->shadowMetadataChunksNames[i], "data",
+                             dst->chunk_id, 1, &dstBlob);
+      if (rc != SQLITE_OK) return rc;
+
+      blobSize = sqlite3_blob_bytes(dstBlob);
+      unsigned char *dstBuf = sqlite3_malloc(blobSize);
+      if (!dstBuf) { sqlite3_blob_close(dstBlob); return SQLITE_NOMEM; }
+      rc = sqlite3_blob_read(dstBlob, dstBuf, blobSize, 0);
+      if (rc != SQLITE_OK) { sqlite3_free(dstBuf); sqlite3_blob_close(dstBlob); return rc; }
+
+      bitmap_set(dstBuf, dst_offset, srcBit);
+      rc = sqlite3_blob_write(dstBlob, dstBuf, blobSize, 0);
+      sqlite3_blob_close(dstBlob);
+      sqlite3_free(dstBuf);
+      if (rc != SQLITE_OK) return rc;
+
+    } else {
+      // Integer, float, text view: fixed-size per slot
+      int slot_size;
+      switch (kind) {
+        case VEC0_METADATA_COLUMN_KIND_INTEGER: slot_size = sizeof(i64); break;
+        case VEC0_METADATA_COLUMN_KIND_FLOAT:   slot_size = sizeof(double); break;
+        case VEC0_METADATA_COLUMN_KIND_TEXT:     slot_size = VEC0_METADATA_TEXT_VIEW_BUFFER_LENGTH; break;
+        default: return SQLITE_ERROR;
+      }
+
+      void *buf = sqlite3_malloc(slot_size);
+      if (!buf) return SQLITE_NOMEM;
+
+      // Read from source
+      sqlite3_blob *blob = NULL;
+      rc = sqlite3_blob_open(p->db, p->schemaName,
+                             p->shadowMetadataChunksNames[i], "data",
+                             src->chunk_id, 1, &blob);
+      if (rc != SQLITE_OK) { sqlite3_free(buf); return rc; }
+      rc = sqlite3_blob_read(blob, buf, slot_size, src_offset * slot_size);
+      if (rc != SQLITE_OK) { sqlite3_blob_close(blob); sqlite3_free(buf); return rc; }
+      // Zero source slot
+      void *zeros = sqlite3_malloc(slot_size);
+      if (!zeros) { sqlite3_blob_close(blob); sqlite3_free(buf); return SQLITE_NOMEM; }
+      memset(zeros, 0, slot_size);
+      rc = sqlite3_blob_write(blob, zeros, slot_size, src_offset * slot_size);
+      sqlite3_free(zeros);
+      sqlite3_blob_close(blob);
+      if (rc != SQLITE_OK) { sqlite3_free(buf); return rc; }
+
+      // Write to destination
+      rc = sqlite3_blob_open(p->db, p->schemaName,
+                             p->shadowMetadataChunksNames[i], "data",
+                             dst->chunk_id, 1, &blob);
+      if (rc != SQLITE_OK) { sqlite3_free(buf); return rc; }
+      rc = sqlite3_blob_write(blob, buf, slot_size, dst_offset * slot_size);
+      sqlite3_blob_close(blob);
+      sqlite3_free(buf);
+      if (rc != SQLITE_OK) return rc;
+    }
+  }
+
+  // 3. Update in-memory validity and rowids
+  bitmap_set(src->validity, src_offset, 0);
+  bitmap_set(dst->validity, dst_offset, 1);
+  src->rowids[src_offset] = 0;
+  dst->rowids[dst_offset] = rowid;
+  src->modified = 1;
+  dst->modified = 1;
+
+  // 4. Update _rowids table position
+  rc = vec0_rowids_update_position(p, rowid, dst->chunk_id, dst_offset);
+  return rc;
+}
+
+/**
+ * Delete a chunk and all its associated shadow table data.
+ * Does NOT check if it's empty — caller must ensure that.
+ */
+static int vec0_optimize_delete_chunk(vec0_vtab *p, i64 chunk_id) {
+  int rc;
+  char *zSql;
+  sqlite3_stmt *stmt;
+
+  // Delete from _chunks
+  zSql = sqlite3_mprintf(
+      "DELETE FROM " VEC0_SHADOW_CHUNKS_NAME " WHERE chunk_id = ?",
+      p->schemaName, p->tableName);
+  if (!zSql) return SQLITE_NOMEM;
+  rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
+  sqlite3_free(zSql);
+  if (rc != SQLITE_OK) return rc;
+  sqlite3_bind_int64(stmt, 1, chunk_id);
+  rc = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+  if (rc != SQLITE_DONE) return SQLITE_ERROR;
+
+  // Delete from each _vector_chunksNN
+  for (int i = 0; i < p->numVectorColumns; i++) {
+    zSql = sqlite3_mprintf(
+        "DELETE FROM " VEC0_SHADOW_VECTOR_N_NAME " WHERE rowid = ?",
+        p->schemaName, p->tableName, i);
+    if (!zSql) return SQLITE_NOMEM;
+    rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
+    sqlite3_free(zSql);
+    if (rc != SQLITE_OK) return rc;
+    sqlite3_bind_int64(stmt, 1, chunk_id);
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (rc != SQLITE_DONE) return SQLITE_ERROR;
+  }
+
+  // Delete from each _metadatachunksNN
+  for (int i = 0; i < p->numMetadataColumns; i++) {
+    zSql = sqlite3_mprintf(
+        "DELETE FROM " VEC0_SHADOW_METADATA_N_NAME " WHERE rowid = ?",
+        p->schemaName, p->tableName, i);
+    if (!zSql) return SQLITE_NOMEM;
+    rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
+    sqlite3_free(zSql);
+    if (rc != SQLITE_OK) return rc;
+    sqlite3_bind_int64(stmt, 1, chunk_id);
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (rc != SQLITE_DONE) return SQLITE_ERROR;
+  }
+
+  return SQLITE_OK;
+}
+
+/**
+ * Flush modified in-memory validity and rowids blobs back to the DB.
+ */
+static int vec0_optimize_flush_chunk(vec0_vtab *p, struct vec0_optimize_chunk *c) {
+  int rc;
+  sqlite3_blob *blob = NULL;
+
+  rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowChunksName, "validity",
+                         c->chunk_id, 1, &blob);
+  if (rc != SQLITE_OK) return rc;
+  rc = sqlite3_blob_write(blob, c->validity, c->validity_size, 0);
+  sqlite3_blob_close(blob);
+  if (rc != SQLITE_OK) return rc;
+
+  rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowChunksName, "rowids",
+                         c->chunk_id, 1, &blob);
+  if (rc != SQLITE_OK) return rc;
+  rc = sqlite3_blob_write(blob, c->rowids, c->rowids_size, 0);
+  sqlite3_blob_close(blob);
+  return rc;
+}
+
+/**
+ * Optimize one partition: compact live entries from newer chunks into
+ * older chunks, then delete any emptied chunks.
+ */
+static int vec0_optimize_one_partition(vec0_vtab *p, sqlite3_stmt *stmtChunks) {
+  int rc = SQLITE_OK;
+  int nChunks = 0;
+  int nAlloced = 0;
+  struct vec0_optimize_chunk *chunks = NULL;
+
+  // Step 1: Load all chunks for this partition into memory
+  while ((rc = sqlite3_step(stmtChunks)) == SQLITE_ROW) {
+    if (nChunks >= nAlloced) {
+      nAlloced = nAlloced ? nAlloced * 2 : 8;
+      struct vec0_optimize_chunk *tmp = sqlite3_realloc(chunks, nAlloced * sizeof(*chunks));
+      if (!tmp) { rc = SQLITE_NOMEM; goto cleanup; }
+      chunks = tmp;
+    }
+
+    struct vec0_optimize_chunk *c = &chunks[nChunks];
+    memset(c, 0, sizeof(*c));
+    c->chunk_id = sqlite3_column_int64(stmtChunks, 0);
+    c->modified = 0;
+
+    // Read validity blob
+    const void *vBlob = sqlite3_column_blob(stmtChunks, 1);
+    c->validity_size = sqlite3_column_bytes(stmtChunks, 1);
+    c->validity = sqlite3_malloc(c->validity_size);
+    if (!c->validity) { rc = SQLITE_NOMEM; goto cleanup; }
+    memcpy(c->validity, vBlob, c->validity_size);
+
+    // Read rowids blob
+    const void *rBlob = sqlite3_column_blob(stmtChunks, 2);
+    c->rowids_size = sqlite3_column_bytes(stmtChunks, 2);
+    c->rowids = sqlite3_malloc(c->rowids_size);
+    if (!c->rowids) { rc = SQLITE_NOMEM; goto cleanup; }
+    memcpy(c->rowids, rBlob, c->rowids_size);
+
+    nChunks++;
+  }
+  if (rc != SQLITE_DONE) goto cleanup;
+  rc = SQLITE_OK;
+
+  // Nothing to compact with 0 or 1 chunks
+  if (nChunks <= 1) goto cleanup;
+
+  // Step 2: Two-pointer compaction
+  {
+    int left = 0;              // index of target chunk (oldest with free space)
+    int right = nChunks - 1;   // index of source chunk (newest)
+    int left_free = -1;        // next free slot in left chunk
+    int right_live = -1;       // next live slot in right chunk (scan from end)
+
+    // Find first free slot in left chunk
+    for (int i = 0; i < p->chunk_size; i++) {
+      if (!bitmap_get(chunks[left].validity, i)) { left_free = i; break; }
+    }
+    // If left chunk is full, advance
+    while (left < right && left_free < 0) {
+      left++;
+      for (int i = 0; i < p->chunk_size && left < right; i++) {
+        if (!bitmap_get(chunks[left].validity, i)) { left_free = i; break; }
+      }
+    }
+
+    // Find last live slot in right chunk (scan backwards for efficiency)
+    for (int i = p->chunk_size - 1; i >= 0; i--) {
+      if (bitmap_get(chunks[right].validity, i)) { right_live = i; break; }
+    }
+    // If right chunk is empty, retreat
+    while (left < right && right_live < 0) {
+      right--;
+      for (int i = p->chunk_size - 1; i >= 0; i--) {
+        if (bitmap_get(chunks[right].validity, i)) { right_live = i; break; }
+      }
+    }
+
+    while (left < right) {
+      // Move entry from right to left
+      rc = vec0_optimize_move_entry(p,
+          &chunks[right], right_live,
+          &chunks[left], left_free);
+      if (rc != SQLITE_OK) goto cleanup;
+
+      // Advance left_free to next free slot in current left chunk
+      {
+        int prev = left_free;
+        left_free = -1;
+        for (int i = prev + 1; i < p->chunk_size; i++) {
+          if (!bitmap_get(chunks[left].validity, i)) { left_free = i; break; }
+        }
+      }
+      // If left chunk is now full, advance to next chunk
+      while (left < right && left_free < 0) {
+        left++;
+        if (left >= right) break;
+        for (int i = 0; i < p->chunk_size; i++) {
+          if (!bitmap_get(chunks[left].validity, i)) { left_free = i; break; }
+        }
+      }
+
+      // Retreat right_live to previous live slot in current right chunk
+      {
+        int prev = right_live;
+        right_live = -1;
+        for (int i = prev - 1; i >= 0; i--) {
+          if (bitmap_get(chunks[right].validity, i)) { right_live = i; break; }
+        }
+      }
+      // If right chunk is now empty, retreat to previous chunk
+      while (left < right && right_live < 0) {
+        right--;
+        if (left >= right) break;
+        for (int i = p->chunk_size - 1; i >= 0; i--) {
+          if (bitmap_get(chunks[right].validity, i)) { right_live = i; break; }
+        }
+      }
+    }
+  }
+
+  // Step 3: Flush modified chunks, delete empty ones
+  for (int i = 0; i < nChunks; i++) {
+    // Check if chunk is now empty
+    int allZero = 1;
+    for (int j = 0; j < chunks[i].validity_size; j++) {
+      if (chunks[i].validity[j] != 0) { allZero = 0; break; }
+    }
+
+    if (allZero) {
+      rc = vec0_optimize_delete_chunk(p, chunks[i].chunk_id);
+      if (rc != SQLITE_OK) goto cleanup;
+    } else if (chunks[i].modified) {
+      rc = vec0_optimize_flush_chunk(p, &chunks[i]);
+      if (rc != SQLITE_OK) goto cleanup;
+    }
+  }
+
+cleanup:
+  if (chunks) {
+    for (int i = 0; i < nChunks; i++) {
+      sqlite3_free(chunks[i].validity);
+      sqlite3_free(chunks[i].rowids);
+    }
+    sqlite3_free(chunks);
+  }
+  return rc;
+}
+
+/**
+ * Top-level optimize: wraps everything in a savepoint, iterates partitions.
+ */
+static int vec0_optimize(vec0_vtab *p) {
+  int rc;
+  char *zSql;
+  sqlite3_stmt *stmt = NULL;
+
+  // Free cached statements that may hold references to shadow tables
+  if (p->stmtLatestChunk) {
+    sqlite3_finalize(p->stmtLatestChunk);
+    p->stmtLatestChunk = NULL;
+  }
+  if (p->stmtRowidsUpdatePosition) {
+    sqlite3_finalize(p->stmtRowidsUpdatePosition);
+    p->stmtRowidsUpdatePosition = NULL;
+  }
+
+  if (p->numPartitionColumns == 0) {
+    // No partitions: single pass over all chunks
+    zSql = sqlite3_mprintf(
+        "SELECT chunk_id, validity, rowids FROM " VEC0_SHADOW_CHUNKS_NAME
+        " ORDER BY chunk_id ASC",
+        p->schemaName, p->tableName);
+    if (!zSql) { rc = SQLITE_NOMEM; goto done; }
+    rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
+    sqlite3_free(zSql);
+    if (rc != SQLITE_OK) goto done;
+
+    rc = vec0_optimize_one_partition(p, stmt);
+    sqlite3_finalize(stmt);
+    stmt = NULL;
+    if (rc != SQLITE_OK) goto done;
+  } else {
+    // Partitioned: get distinct partition values, then optimize each
+    sqlite3_str *s = sqlite3_str_new(NULL);
+    sqlite3_str_appendf(s, "SELECT DISTINCT ");
+    for (int i = 0; i < p->numPartitionColumns; i++) {
+      if (i > 0) sqlite3_str_appendall(s, ", ");
+      sqlite3_str_appendf(s, "partition%02d", i);
+    }
+    sqlite3_str_appendf(s, " FROM " VEC0_SHADOW_CHUNKS_NAME,
+                        p->schemaName, p->tableName);
+    zSql = sqlite3_str_finish(s);
+    if (!zSql) { rc = SQLITE_NOMEM; goto done; }
+
+    sqlite3_stmt *stmtPartitions = NULL;
+    rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmtPartitions, NULL);
+    sqlite3_free(zSql);
+    if (rc != SQLITE_OK) goto done;
+
+    while ((rc = sqlite3_step(stmtPartitions)) == SQLITE_ROW) {
+      // Build query for this partition's chunks
+      sqlite3_str *cs = sqlite3_str_new(NULL);
+      sqlite3_str_appendf(cs,
+          "SELECT chunk_id, validity, rowids FROM " VEC0_SHADOW_CHUNKS_NAME
+          " WHERE ",
+          p->schemaName, p->tableName);
+      for (int i = 0; i < p->numPartitionColumns; i++) {
+        if (i > 0) sqlite3_str_appendall(cs, " AND ");
+        sqlite3_str_appendf(cs, "partition%02d = ?", i);
+      }
+      sqlite3_str_appendall(cs, " ORDER BY chunk_id ASC");
+      char *zChunkSql = sqlite3_str_finish(cs);
+      if (!zChunkSql) { sqlite3_finalize(stmtPartitions); rc = SQLITE_NOMEM; goto done; }
+
+      sqlite3_stmt *stmtChunks = NULL;
+      rc = sqlite3_prepare_v2(p->db, zChunkSql, -1, &stmtChunks, NULL);
+      sqlite3_free(zChunkSql);
+      if (rc != SQLITE_OK) { sqlite3_finalize(stmtPartitions); goto done; }
+
+      for (int i = 0; i < p->numPartitionColumns; i++) {
+        sqlite3_bind_value(stmtChunks, i + 1, sqlite3_column_value(stmtPartitions, i));
+      }
+
+      rc = vec0_optimize_one_partition(p, stmtChunks);
+      sqlite3_finalize(stmtChunks);
+      if (rc != SQLITE_OK) { sqlite3_finalize(stmtPartitions); goto done; }
+    }
+    sqlite3_finalize(stmtPartitions);
+    if (rc != SQLITE_DONE) goto done;
+    rc = SQLITE_OK;
+  }
+
+done:
+  // Invalidate stmtLatestChunk since chunks may have been deleted
+  if (p->stmtLatestChunk) {
+    sqlite3_finalize(p->stmtLatestChunk);
+    p->stmtLatestChunk = NULL;
+  }
+
+  return rc;
 }
 
 int vec0Update_UpdateAuxColumn(vec0_vtab *p, int auxiliary_column_idx, sqlite3_value * value, i64 rowid) {
