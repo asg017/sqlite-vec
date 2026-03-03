@@ -73,7 +73,7 @@ jobs:
           LLVM=/opt/homebrew/opt/llvm@18
           make -C tests/fuzz all \
             FUZZ_CC=$LLVM/bin/clang \
-            FUZZ_LDFLAGS="-Wl,-ld_classic"
+            FUZZ_LDFLAGS="-Wl,-ld_classic -nostdlib++ -L$LLVM/lib/c++ -lc++ -Wl,-rpath,$LLVM/lib/c++"
       - name: Run fuzz targets
         env:
           DYLD_LIBRARY_PATH: "/opt/homebrew/opt/llvm@18/lib/c++:${{ env.DYLD_LIBRARY_PATH }}"
