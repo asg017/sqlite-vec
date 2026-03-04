@@ -3659,6 +3659,21 @@ void vec0_free(vec0_vtab *p) {
     sqlite3_free(p->vector_columns[i].name);
     p->vector_columns[i].name = NULL;
   }
+
+  for (int i = 0; i < p->numPartitionColumns; i++) {
+    sqlite3_free(p->paritition_columns[i].name);
+    p->paritition_columns[i].name = NULL;
+  }
+
+  for (int i = 0; i < p->numAuxiliaryColumns; i++) {
+    sqlite3_free(p->auxiliary_columns[i].name);
+    p->auxiliary_columns[i].name = NULL;
+  }
+
+  for (int i = 0; i < p->numMetadataColumns; i++) {
+    sqlite3_free(p->metadata_columns[i].name);
+    p->metadata_columns[i].name = NULL;
+  }
 }
 
 int vec0_num_defined_user_columns(vec0_vtab *p) {
@@ -4742,6 +4757,7 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
       pNew->user_column_idxs[user_column_idx] = numVectorColumns;
       memcpy(&pNew->vector_columns[numVectorColumns], &vecColumn, sizeof(vecColumn));
       numVectorColumns++;
+      pNew->numVectorColumns = numVectorColumns;
       user_column_idx++;
 
       continue;
@@ -4770,6 +4786,7 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
       pNew->user_column_idxs[user_column_idx] = numPartitionColumns;
       memcpy(&pNew->paritition_columns[numPartitionColumns], &partitionColumn, sizeof(partitionColumn));
       numPartitionColumns++;
+      pNew->numPartitionColumns = numPartitionColumns;
       user_column_idx++;
       continue;
     }
@@ -4815,6 +4832,7 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
       pNew->user_column_idxs[user_column_idx] = numAuxiliaryColumns;
       memcpy(&pNew->auxiliary_columns[numAuxiliaryColumns], &auxColumn, sizeof(auxColumn));
       numAuxiliaryColumns++;
+      pNew->numAuxiliaryColumns = numAuxiliaryColumns;
       user_column_idx++;
       continue;
     }
@@ -4842,6 +4860,7 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
       pNew->user_column_idxs[user_column_idx] = numMetadataColumns;
       memcpy(&pNew->metadata_columns[numMetadataColumns], &metadataColumn, sizeof(metadataColumn));
       numMetadataColumns++;
+      pNew->numMetadataColumns = numMetadataColumns;
       user_column_idx++;
       continue;
     }

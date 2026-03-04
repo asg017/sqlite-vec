@@ -55,9 +55,9 @@ jobs:
         with:
           name: fuzz-crashes-linux
           path: |
-            tests/fuzz/crash-*
-            tests/fuzz/leak-*
-            tests/fuzz/timeout-*
+            crash-*
+            leak-*
+            timeout-*
 
   fuzz-macos:
     runs-on: macos-14
@@ -70,9 +70,10 @@ jobs:
         run: make sqlite-vec.h
       - name: Build fuzz targets
         run: |
+          SDK=$(xcrun --sdk macosx --show-sdk-path)
           make -C tests/fuzz all \
             FUZZ_CC=$(xcrun -f clang) \
-            FUZZ_LDFLAGS=""
+            FUZZ_LDFLAGS="-isysroot $SDK"
       - name: Run fuzz targets
         run: |
           DURATION=${{ github.event.inputs.duration || '60' }}
@@ -100,9 +101,9 @@ jobs:
         with:
           name: fuzz-crashes-macos
           path: |
-            tests/fuzz/crash-*
-            tests/fuzz/leak-*
-            tests/fuzz/timeout-*
+            crash-*
+            leak-*
+            timeout-*
 
   fuzz-windows:
     # Best-effort: libFuzzer works on Windows via LLVM but ASAN/UBSAN
