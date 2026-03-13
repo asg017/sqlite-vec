@@ -64,7 +64,7 @@ SQLITE_EXTENSION_INIT1
 #ifndef _WIN32
 #ifndef __EMSCRIPTEN__
 #ifndef __COSMOPOLITAN__
-#ifndef __wasi__
+#if !defined(__wasi__) && !defined(__sun__)
 typedef u_int8_t uint8_t;
 typedef u_int16_t uint16_t;
 typedef u_int64_t uint64_t;
