@@ -533,7 +533,11 @@ static unsigned int __builtin_popcountl(unsigned int x) {
 }
 #else
 #include <intrin.h>
+#ifdef _WIN64
 #define __builtin_popcountl __popcnt64
+#else
+static unsigned int __builtin_popcountl(u64 n) { return __popcnt((u32)n) + __popcnt((u32)(n >> 32)); }
+#endif
 #endif
 #endif
 
