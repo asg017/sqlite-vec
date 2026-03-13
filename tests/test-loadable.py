@@ -423,6 +423,25 @@ def test_vec_distance_cosine():
     check([1, 2, 3], [-9, -8, -7], dtype=np.int8)
     assert vec_distance_cosine("[1.1, 1.0]", "[1.2, 1.2]") == 0.001131898257881403
 
+    vec_distance_cosine_bit = lambda *args: db.execute(
+        "select vec_distance_cosine(vec_bit(?), vec_bit(?))", args
+    ).fetchone()[0]
+    assert isclose(
+        vec_distance_cosine_bit(b"\xff", b"\x01"),
+        npy_cosine([1,1,1,1,1,1,1,1], [0,0,0,0,0,0,0,1]),
+        abs_tol=1e-6
+    )
+    assert isclose(
+        vec_distance_cosine_bit(b"\xab", b"\xab"),
+        npy_cosine([1,0,1,0,1,0,1,1], [1,0,1,0,1,0,1,1]),
+        abs_tol=1e-6
+    )
+    # test 64-bit
+    assert isclose(
+        vec_distance_cosine_bit(b"\xaa" * 8, b"\xff" * 8),
+        npy_cosine([1,0] * 32, [1] * 64),
+        abs_tol=1e-6
+    )
 
 def test_vec_distance_hamming():
     vec_distance_hamming = lambda *args: db.execute(
