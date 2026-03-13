@@ -61,19 +61,25 @@ jobs:
 
   fuzz-macos:
     runs-on: macos-14
+    # Best-effort: Homebrew LLVM 18 runtime dylibs pull in
+    # __ZnwmSt19__type_descriptor_t (typed allocation ABI) which
+    # macOS 14's system libc++ doesn't provide, causing dyld to abort.
+    # Xcode clang doesn't ship libclang_rt.fuzzer_osx.a (no libFuzzer).
+    # TODO: fix macOS fuzzing (pin older compiler-rt, or static runtime).
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      # Use Apple's Xcode clang (avoids Homebrew LLVM libc++ ABI issues
-      # with __ZnwmSt19__type_descriptor_t on macOS 14).
+      - name: Install LLVM 18
+        run: brew install llvm@18
       - run: ./scripts/vendor.sh
       - name: Generate sqlite-vec.h
         run: make sqlite-vec.h
       - name: Build fuzz targets
         run: |
-          SDK=$(xcrun --sdk macosx --show-sdk-path)
+          LLVM=/opt/homebrew/opt/llvm@18
           make -C tests/fuzz all \
-            FUZZ_CC=$(xcrun -f clang) \
-            FUZZ_LDFLAGS="-isysroot $SDK"
+            FUZZ_CC=$LLVM/bin/clang \
+            FUZZ_LDFLAGS="-Wl,-ld_classic"
       - name: Run fuzz targets
         run: |
           DURATION=${{ github.event.inputs.duration || '60' }}
