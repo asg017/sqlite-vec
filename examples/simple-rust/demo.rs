@@ -1,6 +1,6 @@
 use rusqlite::{ffi::sqlite3_auto_extension, Connection, Result};
 use sqlite_vec::sqlite3_vec_init;
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 fn main() -> Result<()> {
     unsafe {
