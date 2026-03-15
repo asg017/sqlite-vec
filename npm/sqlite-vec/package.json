@@ -1,0 +1,71 @@
+{
+
+  "name": "sqlite-vec",
+
+  "version": "0.1.6",
+
+  "description": "A vector search SQLite extension that runs anywhere!",
+
+  "main": "index.js",
+
+  "scripts": {
+
+    "test": "echo \"Error: no test specified\" && exit 1"
+
+  },
+
+  "optionalDependencies": {
+
+    "sqlite-vec-linux-x64": "*",
+
+    "sqlite-vec-linux-arm64": "*",
+
+    "sqlite-vec-macos-x64": "*",
+
+    "sqlite-vec-macos-arm64": "*",
+
+    "sqlite-vec-windows-x64": "*",
+
+    "sqlite-vec-android-arm64": "*"
+
+  },
+
+  "keywords": [
+
+    "sqlite",
+
+    "vector",
+
+    "search",
+
+    "extension",
+
+    "ai",
+
+    "ml",
+
+    "embeddings"
+
+  ],
+
+  "author": "Alex Garcia",
+
+  "license": "MIT OR Apache-2.0",
+
+  "repository": {
+
+    "type": "git",
+
+    "url": "git+https://github.com/asg017/sqlite-vec.git"
+
+  },
+
+  "bugs": {
+
+    "url": "https://github.com/asg017/sqlite-vec/issues"
+
+  },
+
+  "homepage": "https://github.com/asg017/sqlite-vec#readme"
+
+}
