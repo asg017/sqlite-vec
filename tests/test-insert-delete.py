@@ -146,7 +146,11 @@ def test_insert_validates_type(db):
 
 def test_info_table_contents(db, snapshot):
     db.execute("create virtual table v using vec0(emb float[4], chunk_size=8)")
-    assert exec(db, "select key, value from v_info order by key") == snapshot()
+    assert exec(db, "select key, value from v_info where key not like 'CREATE_VERSION%' order by key") == snapshot()
+    # Smoke-check that version keys exist without pinning exact values
+    version_rows = exec(db, "select key from v_info where key like 'CREATE_VERSION%' order by key")
+    keys = [r["key"] for r in version_rows["rows"]]
+    assert keys == ["CREATE_VERSION", "CREATE_VERSION_MAJOR", "CREATE_VERSION_MINOR", "CREATE_VERSION_PATCH"]
 
 
 def test_delete_zeroes_rowid_blob(db):

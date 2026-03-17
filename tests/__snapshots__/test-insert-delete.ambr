@@ -1,24 +1,8 @@
 # serializer version: 1
 # name: test_info_table_contents
   OrderedDict({
-    'sql': 'select key, value from v_info order by key',
+    'sql': "select key, value from v_info where key not like 'CREATE_VERSION%' order by key",
     'rows': list([
-      OrderedDict({
-        'key': 'CREATE_VERSION',
-        'value': 'v0.1.7-alpha.10',
-      }),
-      OrderedDict({
-        'key': 'CREATE_VERSION_MAJOR',
-        'value': 0,
-      }),
-      OrderedDict({
-        'key': 'CREATE_VERSION_MINOR',
-        'value': 1,
-      }),
-      OrderedDict({
-        'key': 'CREATE_VERSION_PATCH',
-        'value': 7,
-      }),
     ]),
   })
 # ---
