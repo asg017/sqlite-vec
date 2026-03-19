@@ -54,6 +54,27 @@ jobs:
         with:
           name: sqlite-vec-windows-x86_64-extension
           path: dist/*
+  build-windows-aarch64-extension:
+    runs-on: windows-11-arm
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: arm64
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: ./scripts/vendor.sh
+        shell: bash
+      - run: make sqlite-vec.h
+      - run: mkdir dist
+      - run: cl.exe /W4 /Ivendor/ /O2 /LD sqlite-vec.c /Fedist\vec0.dll
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-windows-aarch64-extension
+          path: dist/*
   build-linux-aarch64-extension:
     runs-on: ubuntu-22.04-arm
     steps:
@@ -188,6 +209,7 @@ jobs:
         build-macos-x86_64-extension,
         build-macos-aarch64-extension,
         build-windows-x86_64-extension,
+        build-windows-aarch64-extension,
         build-wasm32-emscripten,
         build-android-extensions,
         build-ios-extensions,
@@ -219,6 +241,10 @@ jobs:
         with:
           name: sqlite-vec-windows-x86_64-extension
           path: dist/windows-x86_64
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-windows-aarch64-extension
+          path: dist/windows-aarch64
       - uses: actions/download-artifact@v4
         with:
           name: sqlite-vec-wasm32-emscripten
@@ -284,6 +310,7 @@ jobs:
           npm publish --provenance --access public --tag $TAG .sqlite-dist/npm/sqlite-vec-linux-x64.tar.gz
           npm publish --provenance --access public --tag $TAG .sqlite-dist/npm/sqlite-vec-linux-arm64.tar.gz
           npm publish --provenance --access public --tag $TAG .sqlite-dist/npm/sqlite-vec-windows-x64.tar.gz
+          npm publish --provenance --access public --tag $TAG .sqlite-dist/npm/sqlite-vec-windows-arm64.tar.gz
           npm publish --provenance --access public --tag $TAG .sqlite-dist/npm/sqlite-vec-wasm-demo.tar.gz
           npm publish --provenance --access public --tag $TAG .sqlite-dist/npm/sqlite-vec.tar.gz
         env:

@@ -431,6 +431,7 @@ def test_vec_distance_hamming():
     assert vec_distance_hamming(b"\xff", b"\x00") == 8
     assert vec_distance_hamming(b"\xff", b"\x01") == 7
     assert vec_distance_hamming(b"\xab", b"\xab") == 0
+    assert vec_distance_hamming(b"\x00\x00\x00\x00\xff\xff\xff\xff", b"\x00" * 8) == 32
 
     with pytest.raises(
         sqlite3.OperationalError,
