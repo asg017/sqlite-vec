@@ -35,13 +35,6 @@ ifdef CONFIG_WINDOWS
 LOADABLE_EXTENSION=dll
 endif
 
-
-ifdef python
-PYTHON=$(python)
-else
-PYTHON=python3
-endif
-
 ifndef OMIT_SIMD
 	ifeq ($(shell uname -sm),Darwin x86_64)
 	CFLAGS += -mavx -DSQLITE_VEC_ENABLE_AVX
@@ -188,16 +181,49 @@ publish-release:
 
 # -k test_vec0_update
 test-loadable: loadable
-	$(PYTHON) -m pytest -vv -s -x tests/test-*.py
+	uv run --managed-python --project tests pytest -vv -s -x . tests/test-*.py
 
 test-loadable-snapshot-update: loadable
-	$(PYTHON) -m pytest -vv tests/test-loadable.py --snapshot-update
+	uv run --managed-python --project tests pytest -vv tests/test-loadable.py --snapshot-update
 
 test-loadable-watch:
 	watchexec --exts c,py,Makefile --clear -- make test-loadable
 
 test-unit:
-	$(CC) tests/test-unit.c sqlite-vec.c -I./ -Ivendor -o $(prefix)/test-unit && $(prefix)/test-unit
+	$(CC) -DSQLITE_CORE -DSQLITE_VEC_TEST tests/test-unit.c sqlite-vec.c vendor/sqlite3.c -I./ -Ivendor -o $(prefix)/test-unit && $(prefix)/test-unit
+
+fuzz-build:
+	$(MAKE) -C tests/fuzz all
+
+fuzz-quick: fuzz-build
+	@echo "Running all fuzz targets for 30 seconds each..."
+	@for target in tests/fuzz/targets/*; do \
+	  [ -f "$$target" ] && [ -x "$$target" ] || continue; \
+	  name=$$(basename $$target); \
+	  echo "=== Fuzzing $$name ==="; \
+	  corpus="tests/fuzz/corpus/$$name"; \
+	  mkdir -p "$$corpus"; \
+	  dict="tests/fuzz/$${name//_/-}.dict"; \
+	  dict_flag=""; \
+	  [ -f "$$dict" ] && dict_flag="-dict=$$dict"; \
+	  "$$target" $$dict_flag \
+	    -max_total_time=30 "$$corpus" 2>&1 || true; \
+	done
+
+fuzz-long: fuzz-build
+	@echo "Running all fuzz targets for 5 minutes each..."
+	@for target in tests/fuzz/targets/*; do \
+	  [ -f "$$target" ] && [ -x "$$target" ] || continue; \
+	  name=$$(basename $$target); \
+	  echo "=== Fuzzing $$name ==="; \
+	  corpus="tests/fuzz/corpus/$$name"; \
+	  mkdir -p "$$corpus"; \
+	  dict="tests/fuzz/$${name//_/-}.dict"; \
+	  dict_flag=""; \
+	  [ -f "$$dict" ] && dict_flag="-dict=$$dict"; \
+	  "$$target" $$dict_flag \
+	    -max_total_time=300 "$$corpus" 2>&1 || true; \
+	done
 
 site-dev:
 	npm --prefix site run dev

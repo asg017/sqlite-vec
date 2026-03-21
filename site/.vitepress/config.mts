@@ -167,7 +167,14 @@ function sidebar(): DefaultTheme.SidebarItem[] {
       items: [
         { text: "Vector formats", link: "/features/vector-formats" },
         { text: "KNN queries", link: "/features/knn" },
-        { text: "vec0 Virtual Tables", link: "/features/vec0" },
+        { text: "vec0 Virtual Tables", link: "/features/vec0" , items: [
+            { text: "Constructor", link: "/features/vec0#TODO" },
+            { text: "KNN Queries", link: "/features/vec0#TODO", items: [{text: "a", link:""}] },
+            { text: "Metadata Columns", link: "/features/vec0#metadata" },
+            { text: "Partition Keys", link: "/features/vec0#partition-keys" },
+            { text: "Auxiliary Columns", link: "/features/vec0#aux" },
+          
+        ]},
         //{ text: "Static blobs", link: "/features/static-blobs" },
       ],
     },

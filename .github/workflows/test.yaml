@@ -7,32 +7,30 @@ permissions:
   contents: read
 jobs:
   build-linux-x86_64-extension:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
-        with:
-          enable-cache: true
+      - uses: astral-sh/setup-uv@v7
       - run: ./scripts/vendor.sh
       - run: make loadable static
       - run: uv sync --directory tests
-      - run: make test-loadable python=./tests/.venv/bin/python
+      - run: make test-loadable
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-linux-x86_64-extension
           path: dist/*
   build-macos-x86_64-extension:
-    runs-on: macos-13
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       - run: uv python install 3.12
       - run: ./scripts/vendor.sh
       - run: make loadable static
       - run: uv sync --directory tests
-      - run: make test-loadable python=./tests/.venv/bin/python
+      - run: make test-loadable
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-macos-x86_64-extension
@@ -41,23 +39,23 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       - run: ./scripts/vendor.sh
       - run: make loadable static
       - run: uv sync --directory tests
-      - run: make test-loadable python=./tests/.venv/bin/python
+      - run: make test-loadable
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-macos-aarch64-extension
           path: dist/*
   build-windows-x86_64-extension:
-    runs-on: windows-2019
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
-      - uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       - run: ./scripts/vendor.sh
@@ -66,36 +64,25 @@ jobs:
       - run: mkdir dist
       - run: cl.exe /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c -o dist/vec0.dll
       - run: uv sync --directory tests
-      - run: make test-loadable python=./tests/.venv/Scripts/python.exe
+      - run: make test-loadable
         shell: bash
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-windows-x86_64-extension
           path: dist/*
   build-linux-aarch64-extension:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04-arm
     steps:
-      - uses: green-coding-solutions/eco-ci-energy-estimation@v4
-        with:
-          task: start-measurement
       - uses: actions/checkout@v4
-        with:
-          version: "latest"
-      - run: sudo apt-get install gcc-arm-linux-gnueabihf
+      - uses: astral-sh/setup-uv@v7
       - run: ./scripts/vendor.sh
-      - run: make sqlite-vec.h
-      - run: make CC=arm-linux-gnueabihf-gcc loadable static
+      - run: make loadable static
+      - run: uv sync --directory tests
+      - run: make test-loadable
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-linux-aarch64-extension
           path: dist/*
-      - uses: green-coding-solutions/eco-ci-energy-estimation@v4
-        with:
-          task: get-measurement
-          label: "all"
-      - uses: green-coding-solutions/eco-ci-energy-estimation@v4
-        with:
-          task: display-results
   build-android-extensions:
     runs-on: ubuntu-latest
     strategy:
@@ -209,6 +196,7 @@ jobs:
           name: sqlite-vec-pyodide
           path: vec0.so
   build-ncruces-go:
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

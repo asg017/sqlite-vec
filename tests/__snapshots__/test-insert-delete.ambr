@@ -1,0 +1,47 @@
+# serializer version: 1
+# name: test_info_table_contents
+  OrderedDict({
+    'sql': "select key, value from v_info where key not like 'CREATE_VERSION%' order by key",
+    'rows': list([
+    ]),
+  })
+# ---
+# name: test_insert_creates_chunks_and_vectors[rowids_count]
+  OrderedDict({
+    'sql': 'select count(*) as cnt from v_rowids',
+    'rows': list([
+      OrderedDict({
+        'cnt': 5,
+      }),
+    ]),
+  })
+# ---
+# name: test_insert_creates_chunks_and_vectors[vector_chunks_count]
+  OrderedDict({
+    'sql': 'select count(*) as cnt from v_vector_chunks00',
+    'rows': list([
+      OrderedDict({
+        'cnt': 1,
+      }),
+    ]),
+  })
+# ---
+# name: test_insert_text_primary_key[rowids]
+  OrderedDict({
+    'sql': 'select rowid, id, chunk_id, chunk_offset from v_rowids order by rowid',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'id': 'doc_a',
+        'chunk_id': 1,
+        'chunk_offset': 0,
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'id': 'doc_b',
+        'chunk_id': 1,
+        'chunk_offset': 1,
+      }),
+    ]),
+  })
+# ---

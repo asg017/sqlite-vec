@@ -1,0 +1,167 @@
+name: "Fuzz"
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Nightly at 2am UTC for longer fuzzing sessions
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: "Fuzz duration per target (seconds)"
+        default: "60"
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LLVM 18
+        run: |
+          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 18
+          echo "FUZZ_CC=clang-18" >> $GITHUB_ENV
+      - run: ./scripts/vendor.sh
+      - name: Generate sqlite-vec.h
+        run: make sqlite-vec.h
+      - name: Build fuzz targets
+        run: make -C tests/fuzz all FUZZ_CC=$FUZZ_CC FUZZ_LDFLAGS=
+      - name: Run fuzz targets
+        run: |
+          DURATION=${{ github.event.inputs.duration || '60' }}
+          EXIT_CODE=0
+          for target in tests/fuzz/targets/*; do
+            [ -f "$target" ] && [ -x "$target" ] || continue
+            name=$(basename "$target")
+            echo "::group::Fuzzing $name ($DURATION seconds)"
+            corpus="tests/fuzz/corpus/$name"
+            mkdir -p "$corpus"
+            dict="tests/fuzz/${name//_/-}.dict"
+            dict_flag=""
+            [ -f "$dict" ] && dict_flag="-dict=$dict"
+            if ! ASAN_OPTIONS=detect_leaks=1 "$target" $dict_flag \
+              -max_total_time="$DURATION" "$corpus" 2>&1; then
+              echo "::error::Fuzz target $name found a crash!"
+              EXIT_CODE=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $EXIT_CODE
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes-linux
+          path: |
+            crash-*
+            leak-*
+            timeout-*
+
+  fuzz-macos:
+    runs-on: macos-14
+    # Best-effort: Homebrew LLVM 18 runtime dylibs pull in
+    # __ZnwmSt19__type_descriptor_t (typed allocation ABI) which
+    # macOS 14's system libc++ doesn't provide, causing dyld to abort.
+    # Xcode clang doesn't ship libclang_rt.fuzzer_osx.a (no libFuzzer).
+    # TODO: fix macOS fuzzing (pin older compiler-rt, or static runtime).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LLVM 18
+        run: brew install llvm@18
+      - run: ./scripts/vendor.sh
+      - name: Generate sqlite-vec.h
+        run: make sqlite-vec.h
+      - name: Build fuzz targets
+        run: |
+          LLVM=/opt/homebrew/opt/llvm@18
+          make -C tests/fuzz all \
+            FUZZ_CC=$LLVM/bin/clang \
+            FUZZ_LDFLAGS="-Wl,-ld_classic"
+      - name: Run fuzz targets
+        run: |
+          DURATION=${{ github.event.inputs.duration || '60' }}
+          EXIT_CODE=0
+          for target in tests/fuzz/targets/*; do
+            [ -f "$target" ] && [ -x "$target" ] || continue
+            name=$(basename "$target")
+            echo "::group::Fuzzing $name ($DURATION seconds)"
+            corpus="tests/fuzz/corpus/$name"
+            mkdir -p "$corpus"
+            dict="tests/fuzz/${name//_/-}.dict"
+            dict_flag=""
+            [ -f "$dict" ] && dict_flag="-dict=$dict"
+            if ! "$target" $dict_flag \
+              -max_total_time="$DURATION" "$corpus" 2>&1; then
+              echo "::error::Fuzz target $name found a crash!"
+              EXIT_CODE=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $EXIT_CODE
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes-macos
+          path: |
+            crash-*
+            leak-*
+            timeout-*
+
+  fuzz-windows:
+    # Best-effort: libFuzzer works on Windows via LLVM but ASAN/UBSAN
+    # support is less reliable. Leak detection is not available.
+    runs-on: windows-2022
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LLVM
+        run: choco install llvm -y
+      - run: bash ./scripts/vendor.sh
+        shell: bash
+      - name: Generate sqlite-vec.h
+        shell: bash
+        run: make sqlite-vec.h
+      - name: Build fuzz targets
+        shell: bash
+        run: |
+          export PATH="/c/Program Files/LLVM/bin:$PATH"
+          cd tests/fuzz
+          mkdir -p targets
+          for src in *.c; do
+            name="${src%.c}"
+            target_name="${name//-/_}"
+            echo "Building $target_name from $src"
+            clang -fsanitize=address,fuzzer \
+              -I ../../ -I ../../vendor -DSQLITE_CORE -g \
+              ../../vendor/sqlite3.c ../../sqlite-vec.c \
+              "$src" -o "targets/${target_name}.exe" || {
+              echo "Warning: failed to build $target_name (best-effort)"
+            }
+          done
+      - name: Run fuzz targets
+        shell: bash
+        run: |
+          export PATH="/c/Program Files/LLVM/bin:$PATH"
+          DURATION=${{ github.event.inputs.duration || '60' }}
+          for target in tests/fuzz/targets/*.exe; do
+            [ -f "$target" ] || continue
+            name=$(basename "$target" .exe)
+            echo "=== Fuzzing $name ($DURATION seconds) ==="
+            corpus="tests/fuzz/corpus/$name"
+            mkdir -p "$corpus"
+            "$target" -max_total_time="$DURATION" "$corpus" 2>&1 || {
+              echo "Warning: $name found an issue or failed"
+            }
+          done
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes-windows
+          path: |
+            tests/fuzz/crash-*
+            tests/fuzz/leak-*

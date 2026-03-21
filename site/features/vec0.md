@@ -1,6 +1,6 @@
 # `vec0` Virtual Table
 
-## Metadata in `vec0` Virtual Tables
+## Metadata in `vec0` Virtual Tables {#vec0_metadata}
 
 There are three ways to store non-vector columns in `vec0` virtual tables:
 metadata columns, partition keys, and auxiliary columns. Each option has its
