@@ -392,6 +392,92 @@
     ]),
   })
 # ---
+# name: test_renames
+  OrderedDict({
+    'sql': 'select rowid, * from v',
+    'rows': list([
+      OrderedDict({
+        'rowid': 1,
+        'vector': b'\x00\x00\x80?',
+        'name': 'alex',
+      }),
+      OrderedDict({
+        'rowid': 2,
+        'vector': b'\x00\x00\x00@',
+        'name': 'brian',
+      }),
+      OrderedDict({
+        'rowid': 3,
+        'vector': b'\x00\x00@@',
+        'name': 'craig',
+      }),
+    ]),
+  })
+# ---
+# name: test_renames.1
+  dict({
+    'v_auxiliary': OrderedDict({
+      'sql': 'select * from v_auxiliary',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'value00': 'alex',
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'value00': 'brian',
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'value00': 'craig',
+        }),
+      ]),
+    }),
+    'v_chunks': OrderedDict({
+      'sql': 'select * from v_chunks',
+      'rows': list([
+        OrderedDict({
+          'chunk_id': 1,
+          'size': 8,
+          'validity': b'\x07',
+          'rowids': b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+    'v_rowids': OrderedDict({
+      'sql': 'select * from v_rowids',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 0,
+        }),
+        OrderedDict({
+          'rowid': 2,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 1,
+        }),
+        OrderedDict({
+          'rowid': 3,
+          'id': None,
+          'chunk_id': 1,
+          'chunk_offset': 2,
+        }),
+      ]),
+    }),
+    'v_vector_chunks00': OrderedDict({
+      'sql': 'select * from v_vector_chunks00',
+      'rows': list([
+        OrderedDict({
+          'rowid': 1,
+          'vectors': b'\x00\x00\x80?\x00\x00\x00@\x00\x00@@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        }),
+      ]),
+    }),
+  })
+# ---
 # name: test_types
   OrderedDict({
     'sql': 'select * from v',
