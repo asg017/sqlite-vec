@@ -8944,11 +8944,17 @@ int vec0Update_Delete_ClearMetadata(vec0_vtab *p, int metadata_idx, i64 rowid, i
         }
         sqlite3_bind_int64(stmt, 1, rowid);
         rc = sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
         if(rc != SQLITE_DONE) {
           rc = SQLITE_ERROR;
           goto done;
         }
-        sqlite3_finalize(stmt);
+        // Fix for https://github.com/asg017/sqlite-vec/issues/274
+        // sqlite3_step returns SQLITE_DONE (101) on DML success, but the
+        // `done:` epilogue treats anything other than SQLITE_OK as an error.
+        // Without this, SQLITE_DONE propagates up to vec0Update_Delete,
+        // which aborts the DELETE scan and silently drops remaining rows.
+        rc = SQLITE_OK;
       }
       break;
     }
