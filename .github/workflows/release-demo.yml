@@ -1,0 +1,118 @@
+name: "Release Demo (DiskANN)"
+on:
+  push:
+    branches: [diskann-yolo2]
+permissions:
+  contents: write
+jobs:
+  build-linux-x86_64-extension:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/vendor.sh
+      - run: make loadable static
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-linux-x86_64-extension
+          path: dist/*
+  build-linux-aarch64-extension:
+    runs-on: ubuntu-22.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/vendor.sh
+      - run: make loadable static
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-linux-aarch64-extension
+          path: dist/*
+  build-macos-x86_64-extension:
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/vendor.sh
+      - run: make loadable static
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-macos-x86_64-extension
+          path: dist/*
+  build-macos-aarch64-extension:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/vendor.sh
+      - run: make loadable static
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-macos-aarch64-extension
+          path: dist/*
+  build-windows-x86_64-extension:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: ./scripts/vendor.sh
+        shell: bash
+      - run: make sqlite-vec.h
+      - run: mkdir dist
+      - run: cl.exe /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c -o dist/vec0.dll
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-vec-windows-x86_64-extension
+          path: dist/*
+  dist:
+    runs-on: ubuntu-latest
+    needs:
+      [
+        build-linux-x86_64-extension,
+        build-linux-aarch64-extension,
+        build-macos-x86_64-extension,
+        build-macos-aarch64-extension,
+        build-windows-x86_64-extension,
+      ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-linux-x86_64-extension
+          path: dist/linux-x86_64
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-linux-aarch64-extension
+          path: dist/linux-aarch64
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-macos-x86_64-extension
+          path: dist/macos-x86_64
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-macos-aarch64-extension
+          path: dist/macos-aarch64
+      - uses: actions/download-artifact@v4
+        with:
+          name: sqlite-vec-windows-x86_64-extension
+          path: dist/windows-x86_64
+      - run: make sqlite-vec.h
+      - run: |
+          ./scripts/vendor.sh
+          make amalgamation
+          mkdir -p amalgamation
+          cp dist/sqlite-vec.c sqlite-vec.h amalgamation/
+          rm dist/sqlite-vec.c
+      - uses: asg017/setup-sqlite-dist@73e37b2ffb0b51e64a64eb035da38c958b9ff6c6
+      - run: sqlite-dist build --set-version $(cat VERSION)
+      - name: Create release and upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | head -c 10)
+          TAG="diskann-${SHORT_SHA}"
+          zip -j "amalgamation/sqlite-vec-amalgamation.zip" amalgamation/sqlite-vec.c amalgamation/sqlite-vec.h
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --target "${{ github.sha }}" \
+            --prerelease \
+            amalgamation/sqlite-vec-amalgamation.zip \
+            .sqlite-dist/pip/*

@@ -73,6 +73,7 @@ enum Vec0IndexType {
   VEC0_INDEX_TYPE_RESCORE = 2,
 #endif
   VEC0_INDEX_TYPE_IVF = 3,
+  VEC0_INDEX_TYPE_DISKANN = 4,
 };
 
 enum Vec0RescoreQuantizerType {
@@ -114,6 +115,20 @@ struct Vec0RescoreConfig {
 };
 #endif
 
+enum Vec0DiskannQuantizerType {
+  VEC0_DISKANN_QUANTIZER_BINARY = 1,
+  VEC0_DISKANN_QUANTIZER_INT8   = 2,
+};
+
+struct Vec0DiskannConfig {
+  enum Vec0DiskannQuantizerType quantizer_type;
+  int n_neighbors;
+  int search_list_size;
+  int search_list_size_search;
+  int search_list_size_insert;
+  float alpha;
+  int buffer_threshold;
+};
 
 struct VectorColumnDefinition {
   char *name;
@@ -126,6 +141,7 @@ struct VectorColumnDefinition {
   struct Vec0RescoreConfig rescore;
 #endif
   struct Vec0IvfConfig ivf;
+  struct Vec0DiskannConfig diskann;
 };
 
 int vec0_parse_vector_column(const char *source, int source_length,
@@ -135,6 +151,48 @@ int vec0_parse_partition_key_definition(const char *source, int source_length,
                                         char **out_column_name,
                                         int *out_column_name_length,
                                         int *out_column_type);
+
+size_t diskann_quantized_vector_byte_size(
+    enum Vec0DiskannQuantizerType quantizer_type, size_t dimensions);
+
+int diskann_validity_byte_size(int n_neighbors);
+size_t diskann_neighbor_ids_byte_size(int n_neighbors);
+size_t diskann_neighbor_qvecs_byte_size(
+    int n_neighbors, enum Vec0DiskannQuantizerType quantizer_type,
+    size_t dimensions);
+int diskann_node_init(
+    int n_neighbors, enum Vec0DiskannQuantizerType quantizer_type,
+    size_t dimensions,
+    unsigned char **outValidity, int *outValiditySize,
+    unsigned char **outNeighborIds, int *outNeighborIdsSize,
+    unsigned char **outNeighborQvecs, int *outNeighborQvecsSize);
+int diskann_validity_get(const unsigned char *validity, int i);
+void diskann_validity_set(unsigned char *validity, int i, int value);
+int diskann_validity_count(const unsigned char *validity, int n_neighbors);
+long long diskann_neighbor_id_get(const unsigned char *neighbor_ids, int i);
+void diskann_neighbor_id_set(unsigned char *neighbor_ids, int i, long long rowid);
+const unsigned char *diskann_neighbor_qvec_get(
+    const unsigned char *qvecs, int i,
+    enum Vec0DiskannQuantizerType quantizer_type, size_t dimensions);
+void diskann_neighbor_qvec_set(
+    unsigned char *qvecs, int i, const unsigned char *src_qvec,
+    enum Vec0DiskannQuantizerType quantizer_type, size_t dimensions);
+void diskann_node_set_neighbor(
+    unsigned char *validity, unsigned char *neighbor_ids, unsigned char *qvecs, int i,
+    long long neighbor_rowid, const unsigned char *neighbor_qvec,
+    enum Vec0DiskannQuantizerType quantizer_type, size_t dimensions);
+void diskann_node_clear_neighbor(
+    unsigned char *validity, unsigned char *neighbor_ids, unsigned char *qvecs, int i,
+    enum Vec0DiskannQuantizerType quantizer_type, size_t dimensions);
+int diskann_quantize_vector(
+    const float *src, size_t dimensions,
+    enum Vec0DiskannQuantizerType quantizer_type,
+    unsigned char *out);
+
+int diskann_prune_select(
+    const float *inter_distances, const float *p_distances,
+    int num_candidates, float alpha, int max_neighbors,
+    int *outSelected, int *outCount);
 
 #ifdef SQLITE_VEC_TEST
 float _test_distance_l2_sqr_float(const float *a, const float *b, size_t dims);
@@ -151,6 +209,33 @@ size_t _test_rescore_quantized_byte_size_int8(size_t dimensions);
 void ivf_quantize_int8(const float *src, int8_t *dst, int D);
 void ivf_quantize_binary(const float *src, uint8_t *dst, int D);
 #endif
+// DiskANN candidate list (opaque struct, use accessors)
+struct DiskannCandidateList {
+  void *items;  // opaque
+  int count;
+  int capacity;
+};
+
+int _test_diskann_candidate_list_init(struct DiskannCandidateList *list, int capacity);
+void _test_diskann_candidate_list_free(struct DiskannCandidateList *list);
+int _test_diskann_candidate_list_insert(struct DiskannCandidateList *list, long long rowid, float distance);
+int _test_diskann_candidate_list_next_unvisited(const struct DiskannCandidateList *list);
+int _test_diskann_candidate_list_count(const struct DiskannCandidateList *list);
+long long _test_diskann_candidate_list_rowid(const struct DiskannCandidateList *list, int i);
+float _test_diskann_candidate_list_distance(const struct DiskannCandidateList *list, int i);
+void _test_diskann_candidate_list_set_visited(struct DiskannCandidateList *list, int i);
+
+// DiskANN visited set (opaque struct, use accessors)
+struct DiskannVisitedSet {
+  void *slots;  // opaque
+  int capacity;
+  int count;
+};
+
+int _test_diskann_visited_set_init(struct DiskannVisitedSet *set, int capacity);
+void _test_diskann_visited_set_free(struct DiskannVisitedSet *set);
+int _test_diskann_visited_set_contains(const struct DiskannVisitedSet *set, long long rowid);
+int _test_diskann_visited_set_insert(struct DiskannVisitedSet *set, long long rowid);
 #endif
 
 #endif /* SQLITE_VEC_INTERNAL_H */

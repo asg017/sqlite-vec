@@ -19,9 +19,16 @@ RESCORE_CONFIGS = \
 	"rescore-bit-os16:type=rescore,quantizer=bit,oversample=16" \
 	"rescore-int8-os8:type=rescore,quantizer=int8,oversample=8"
 
-ALL_CONFIGS = $(BASELINES) $(RESCORE_CONFIGS) $(IVF_CONFIGS)
+# --- DiskANN configs ---
+DISKANN_CONFIGS = \
+	"diskann-R48-binary:type=diskann,R=48,L=128,quantizer=binary" \
+	"diskann-R72-binary:type=diskann,R=72,L=128,quantizer=binary" \
+	"diskann-R72-int8:type=diskann,R=72,L=128,quantizer=int8" \
+	"diskann-R72-L256:type=diskann,R=72,L=256,quantizer=binary"
 
-.PHONY: seed ground-truth bench-smoke bench-rescore bench-ivf bench-10k bench-50k bench-100k bench-all \
+ALL_CONFIGS = $(BASELINES) $(RESCORE_CONFIGS) $(IVF_CONFIGS) $(DISKANN_CONFIGS)
+
+.PHONY: seed ground-truth bench-smoke bench-rescore bench-ivf bench-diskann bench-10k bench-50k bench-100k bench-all \
         report clean
 
 # --- Data preparation ---
@@ -37,7 +44,8 @@ ground-truth: seed
 bench-smoke: seed
 	$(BENCH) --subset-size 5000 -k 10 -n 20 -o runs/smoke \
 		"brute-float:type=baseline,variant=float" \
-		"ivf-quick:type=ivf,nlist=16,nprobe=4"
+		"ivf-quick:type=ivf,nlist=16,nprobe=4" \
+		"diskann-quick:type=diskann,R=48,L=64,quantizer=binary"
 
 bench-rescore: seed
 	$(BENCH) --subset-size 10000 -k 10 -o runs/rescore \
@@ -61,6 +69,12 @@ bench-ivf: seed
 	$(BENCH) --subset-size 10000 -k 10 -o runs/ivf $(BASELINES) $(IVF_CONFIGS)
 	$(BENCH) --subset-size 50000 -k 10 -o runs/ivf $(BASELINES) $(IVF_CONFIGS)
 	$(BENCH) --subset-size 100000 -k 10 -o runs/ivf $(BASELINES) $(IVF_CONFIGS)
+
+# --- DiskANN across sizes ---
+bench-diskann: seed
+	$(BENCH) --subset-size 10000 -k 10 -o runs/diskann $(BASELINES) $(DISKANN_CONFIGS)
+	$(BENCH) --subset-size 50000 -k 10 -o runs/diskann $(BASELINES) $(DISKANN_CONFIGS)
+	$(BENCH) --subset-size 100000 -k 10 -o runs/diskann $(BASELINES) $(DISKANN_CONFIGS)
 
 # --- Report ---
 report:

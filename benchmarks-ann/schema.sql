@@ -3,6 +3,31 @@
 -- "baseline"; index-specific branches add their own types (registered
 -- via INDEX_REGISTRY in bench.py).
 
+CREATE TABLE IF NOT EXISTS runs (
+  run_id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  config_name  TEXT NOT NULL,
+  index_type   TEXT NOT NULL,
+  subset_size  INTEGER NOT NULL,
+  phase        TEXT NOT NULL DEFAULT 'both',  -- 'build', 'query', or 'both'
+  status       TEXT NOT NULL DEFAULT 'pending',
+  k            INTEGER,
+  n            INTEGER,
+  db_path      TEXT,
+  insert_time_s REAL,
+  train_time_s REAL,
+  total_build_time_s REAL,
+  rows         INTEGER,
+  file_size_mb REAL,
+  mean_ms      REAL,
+  median_ms    REAL,
+  p99_ms       REAL,
+  total_query_ms REAL,
+  qps          REAL,
+  recall       REAL,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  finished_at  TEXT
+);
+
 CREATE TABLE IF NOT EXISTS build_results (
   config_name  TEXT NOT NULL,
   index_type   TEXT NOT NULL,
