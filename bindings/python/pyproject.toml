@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools", "setuptools_scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sqlite-vec"
+description = "A vector search SQLite extension."
+dynamic = ["version"]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "numpy"
+]
