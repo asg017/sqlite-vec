@@ -760,6 +760,202 @@ void test_distance_hamming() {
   printf("  All distance_hamming tests passed.\n");
 }
 
+#ifdef SQLITE_VEC_ENABLE_RESCORE
+
+void test_rescore_quantize_float_to_bit() {
+  printf("Starting %s...\n", __func__);
+  uint8_t dst[16];
+
+  // All positive -> all bits 1
+  {
+    float src[8] = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f};
+    memset(dst, 0, sizeof(dst));
+    _test_rescore_quantize_float_to_bit(src, dst, 8);
+    assert(dst[0] == 0xFF);
+  }
+
+  // All negative -> all bits 0
+  {
+    float src[8] = {-1.0f, -2.0f, -3.0f, -4.0f, -5.0f, -6.0f, -7.0f, -8.0f};
+    memset(dst, 0xFF, sizeof(dst));
+    _test_rescore_quantize_float_to_bit(src, dst, 8);
+    assert(dst[0] == 0x00);
+  }
+
+  // Alternating positive/negative
+  {
+    float src[8] = {1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f};
+    _test_rescore_quantize_float_to_bit(src, dst, 8);
+    // bits 0,2,4,6 set => 0b01010101 = 0x55
+    assert(dst[0] == 0x55);
+  }
+
+  // Zero values -> bit is set (>= 0.0f)
+  {
+    float src[8] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    _test_rescore_quantize_float_to_bit(src, dst, 8);
+    assert(dst[0] == 0xFF);
+  }
+
+  // 128 dimensions -> 16 bytes output
+  {
+    float src[128];
+    for (int i = 0; i < 128; i++) src[i] = (i % 2 == 0) ? 1.0f : -1.0f;
+    memset(dst, 0, 16);
+    _test_rescore_quantize_float_to_bit(src, dst, 128);
+    // Even indices set: bits 0,2,4,6 in each byte => 0x55
+    for (int i = 0; i < 16; i++) {
+      assert(dst[i] == 0x55);
+    }
+  }
+
+  printf("  All rescore_quantize_float_to_bit tests passed.\n");
+}
+
+void test_rescore_quantize_float_to_int8() {
+  printf("Starting %s...\n", __func__);
+  int8_t dst[256];
+
+  // Uniform vector -> all zeros (range=0)
+  {
+    float src[8] = {5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f};
+    _test_rescore_quantize_float_to_int8(src, dst, 8);
+    for (int i = 0; i < 8; i++) {
+      assert(dst[i] == 0);
+    }
+  }
+
+  // [0.0, 1.0] -> should map to [-128, 127]
+  {
+    float src[2] = {0.0f, 1.0f};
+    _test_rescore_quantize_float_to_int8(src, dst, 2);
+    assert(dst[0] == -128);
+    assert(dst[1] == 127);
+  }
+
+  // [-1.0, 0.0] -> should map to [-128, 127]
+  {
+    float src[2] = {-1.0f, 0.0f};
+    _test_rescore_quantize_float_to_int8(src, dst, 2);
+    assert(dst[0] == -128);
+    assert(dst[1] == 127);
+  }
+
+  // Single-element: range=0 -> 0
+  {
+    float src[1] = {42.0f};
+    _test_rescore_quantize_float_to_int8(src, dst, 1);
+    assert(dst[0] == 0);
+  }
+
+  // Verify range: all outputs in [-128, 127], min near -128, max near 127
+  {
+    float src[4] = {-100.0f, 0.0f, 100.0f, 50.0f};
+    _test_rescore_quantize_float_to_int8(src, dst, 4);
+    for (int i = 0; i < 4; i++) {
+      assert(dst[i] >= -128 && dst[i] <= 127);
+    }
+    // Min maps to -128 (exact), max maps to ~127 (may lose 1 to float rounding)
+    assert(dst[0] == -128);
+    assert(dst[2] >= 126 && dst[2] <= 127);
+    // Middle value (50) should be positive
+    assert(dst[3] > 0);
+  }
+
+  printf("  All rescore_quantize_float_to_int8 tests passed.\n");
+}
+
+void test_rescore_quantized_byte_size() {
+  printf("Starting %s...\n", __func__);
+
+  // Bit quantizer: dims/8
+  assert(_test_rescore_quantized_byte_size_bit(128) == 16);
+  assert(_test_rescore_quantized_byte_size_bit(8) == 1);
+  assert(_test_rescore_quantized_byte_size_bit(1024) == 128);
+
+  // Int8 quantizer: dims
+  assert(_test_rescore_quantized_byte_size_int8(128) == 128);
+  assert(_test_rescore_quantized_byte_size_int8(8) == 8);
+  assert(_test_rescore_quantized_byte_size_int8(1024) == 1024);
+
+  printf("  All rescore_quantized_byte_size tests passed.\n");
+}
+
+void test_vec0_parse_vector_column_rescore() {
+  printf("Starting %s...\n", __func__);
+  struct VectorColumnDefinition col;
+  int rc;
+
+  // Basic bit quantizer
+  {
+    const char *input = "emb float[128] indexed by rescore(quantizer=bit)";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_OK);
+    assert(col.index_type == VEC0_INDEX_TYPE_RESCORE);
+    assert(col.rescore.quantizer_type == VEC0_RESCORE_QUANTIZER_BIT);
+    assert(col.rescore.oversample == 8); // default
+    assert(col.dimensions == 128);
+    sqlite3_free(col.name);
+  }
+
+  // Int8 quantizer
+  {
+    const char *input = "emb float[128] indexed by rescore(quantizer=int8)";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_OK);
+    assert(col.index_type == VEC0_INDEX_TYPE_RESCORE);
+    assert(col.rescore.quantizer_type == VEC0_RESCORE_QUANTIZER_INT8);
+    sqlite3_free(col.name);
+  }
+
+  // Bit quantizer with oversample
+  {
+    const char *input = "emb float[128] indexed by rescore(quantizer=bit, oversample=16)";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_OK);
+    assert(col.index_type == VEC0_INDEX_TYPE_RESCORE);
+    assert(col.rescore.quantizer_type == VEC0_RESCORE_QUANTIZER_BIT);
+    assert(col.rescore.oversample == 16);
+    sqlite3_free(col.name);
+  }
+
+  // Error: non-float element type
+  {
+    const char *input = "emb int8[128] indexed by rescore(quantizer=bit)";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_ERROR);
+  }
+
+  // Error: dims not divisible by 8 for bit quantizer
+  {
+    const char *input = "emb float[100] indexed by rescore(quantizer=bit)";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_ERROR);
+  }
+
+  // Error: missing quantizer
+  {
+    const char *input = "emb float[128] indexed by rescore(oversample=8)";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_ERROR);
+  }
+
+  // With distance_metric=cosine
+  {
+    const char *input = "emb float[128] distance_metric=cosine indexed by rescore(quantizer=int8)";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_OK);
+    assert(col.index_type == VEC0_INDEX_TYPE_RESCORE);
+    assert(col.distance_metric == VEC0_DISTANCE_METRIC_COSINE);
+    assert(col.rescore.quantizer_type == VEC0_RESCORE_QUANTIZER_INT8);
+    sqlite3_free(col.name);
+  }
+
+  printf("  All vec0_parse_vector_column_rescore tests passed.\n");
+}
+
+#endif /* SQLITE_VEC_ENABLE_RESCORE */
+
 int main() {
   printf("Starting unit tests...\n");
 #ifdef SQLITE_VEC_ENABLE_AVX
@@ -767,6 +963,9 @@ int main() {
 #endif
 #ifdef SQLITE_VEC_ENABLE_NEON
   printf("SQLITE_VEC_ENABLE_NEON=1\n");
+#endif
+#ifdef SQLITE_VEC_ENABLE_RESCORE
+  printf("SQLITE_VEC_ENABLE_RESCORE=1\n");
 #endif
 #if !defined(SQLITE_VEC_ENABLE_AVX) && !defined(SQLITE_VEC_ENABLE_NEON)
   printf("SIMD: none\n");
@@ -778,5 +977,11 @@ int main() {
   test_distance_l2_sqr_float();
   test_distance_cosine_float();
   test_distance_hamming();
+#ifdef SQLITE_VEC_ENABLE_RESCORE
+  test_rescore_quantize_float_to_bit();
+  test_rescore_quantize_float_to_int8();
+  test_rescore_quantized_byte_size();
+  test_vec0_parse_vector_column_rescore();
+#endif
   printf("All unit tests passed.\n");
 }

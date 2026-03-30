@@ -65,7 +65,22 @@ enum Vec0DistanceMetrics {
 
 enum Vec0IndexType {
   VEC0_INDEX_TYPE_FLAT = 1,
+#ifdef SQLITE_VEC_ENABLE_RESCORE
+  VEC0_INDEX_TYPE_RESCORE = 2,
+#endif
 };
+
+#ifdef SQLITE_VEC_ENABLE_RESCORE
+enum Vec0RescoreQuantizerType {
+  VEC0_RESCORE_QUANTIZER_BIT = 1,
+  VEC0_RESCORE_QUANTIZER_INT8 = 2,
+};
+
+struct Vec0RescoreConfig {
+  enum Vec0RescoreQuantizerType quantizer_type;
+  int oversample;
+};
+#endif
 
 struct VectorColumnDefinition {
   char *name;
@@ -74,6 +89,9 @@ struct VectorColumnDefinition {
   enum VectorElementType element_type;
   enum Vec0DistanceMetrics distance_metric;
   enum Vec0IndexType index_type;
+#ifdef SQLITE_VEC_ENABLE_RESCORE
+  struct Vec0RescoreConfig rescore;
+#endif
 };
 
 int vec0_parse_vector_column(const char *source, int source_length,
@@ -88,6 +106,13 @@ int vec0_parse_partition_key_definition(const char *source, int source_length,
 float _test_distance_l2_sqr_float(const float *a, const float *b, size_t dims);
 float _test_distance_cosine_float(const float *a, const float *b, size_t dims);
 float _test_distance_hamming(const unsigned char *a, const unsigned char *b, size_t dims);
+
+#ifdef SQLITE_VEC_ENABLE_RESCORE
+void _test_rescore_quantize_float_to_bit(const float *src, uint8_t *dst, size_t dim);
+void _test_rescore_quantize_float_to_int8(const float *src, int8_t *dst, size_t dim);
+size_t _test_rescore_quantized_byte_size_bit(size_t dimensions);
+size_t _test_rescore_quantized_byte_size_int8(size_t dimensions);
+#endif
 #endif
 
 #endif /* SQLITE_VEC_INTERNAL_H */

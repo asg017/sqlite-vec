@@ -202,7 +202,7 @@ test-loadable-watch:
 	watchexec --exts c,py,Makefile --clear -- make test-loadable
 
 test-unit:
-	$(CC) -DSQLITE_CORE -DSQLITE_VEC_TEST tests/test-unit.c sqlite-vec.c vendor/sqlite3.c -I./ -Ivendor -o $(prefix)/test-unit && $(prefix)/test-unit
+	$(CC) -DSQLITE_CORE -DSQLITE_VEC_TEST -DSQLITE_VEC_ENABLE_RESCORE tests/test-unit.c sqlite-vec.c vendor/sqlite3.c -I./ -Ivendor -o $(prefix)/test-unit && $(prefix)/test-unit
 
 fuzz-build:
 	$(MAKE) -C tests/fuzz all

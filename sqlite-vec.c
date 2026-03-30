@@ -112,6 +112,10 @@ typedef size_t usize;
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
 #define min(a, b) (((a) <= (b)) ? (a) : (b))
 
+#ifndef SQLITE_VEC_ENABLE_RESCORE
+#define SQLITE_VEC_ENABLE_RESCORE 1
+#endif
+
 enum VectorElementType {
   // clang-format off
   SQLITE_VEC_ELEMENT_TYPE_FLOAT32 = 223 + 0,
@@ -2532,7 +2536,22 @@ static f32 vec0_distance_full(
 
 enum Vec0IndexType {
   VEC0_INDEX_TYPE_FLAT = 1,
+#if SQLITE_VEC_ENABLE_RESCORE
+  VEC0_INDEX_TYPE_RESCORE = 2,
+#endif
 };
+
+#if SQLITE_VEC_ENABLE_RESCORE
+enum Vec0RescoreQuantizerType {
+  VEC0_RESCORE_QUANTIZER_BIT = 1,
+  VEC0_RESCORE_QUANTIZER_INT8 = 2,
+};
+
+struct Vec0RescoreConfig {
+  enum Vec0RescoreQuantizerType quantizer_type;
+  int oversample;
+};
+#endif
 
 struct VectorColumnDefinition {
   char *name;
@@ -2541,6 +2560,9 @@ struct VectorColumnDefinition {
   enum VectorElementType element_type;
   enum Vec0DistanceMetrics distance_metric;
   enum Vec0IndexType index_type;
+#if SQLITE_VEC_ENABLE_RESCORE
+  struct Vec0RescoreConfig rescore;
+#endif
 };
 
 struct Vec0PartitionColumnDefinition {
@@ -2577,6 +2599,111 @@ size_t vector_column_byte_size(struct VectorColumnDefinition column) {
   return vector_byte_size(column.element_type, column.dimensions);
 }
 
+#if SQLITE_VEC_ENABLE_RESCORE
+/**
+ * @brief Parse rescore options from an "INDEXED BY rescore(...)" clause.
+ *
+ * @param scanner Scanner positioned right after the opening '(' of rescore(...)
+ * @param outConfig Output rescore config
+ * @param pzErr Error message output
+ * @return int SQLITE_OK on success, SQLITE_ERROR on error.
+ */
+static int vec0_parse_rescore_options(struct Vec0Scanner *scanner,
+                                      struct Vec0RescoreConfig *outConfig,
+                                      char **pzErr) {
+  struct Vec0Token token;
+  int rc;
+  int hasQuantizer = 0;
+  outConfig->oversample = 8;
+  outConfig->quantizer_type = 0;
+
+  while (1) {
+    rc = vec0_scanner_next(scanner, &token);
+    if (rc == VEC0_TOKEN_RESULT_EOF) {
+      break;
+    }
+    // ')' closes rescore options
+    if (rc == VEC0_TOKEN_RESULT_SOME && token.token_type == TOKEN_TYPE_RPAREN) {
+      break;
+    }
+    if (rc != VEC0_TOKEN_RESULT_SOME || token.token_type != TOKEN_TYPE_IDENTIFIER) {
+      *pzErr = sqlite3_mprintf("Expected option name in rescore(...)");
+      return SQLITE_ERROR;
+    }
+
+    char *key = token.start;
+    int keyLength = token.end - token.start;
+
+    // expect '='
+    rc = vec0_scanner_next(scanner, &token);
+    if (rc != VEC0_TOKEN_RESULT_SOME || token.token_type != TOKEN_TYPE_EQ) {
+      *pzErr = sqlite3_mprintf("Expected '=' after option name in rescore(...)");
+      return SQLITE_ERROR;
+    }
+
+    // value
+    rc = vec0_scanner_next(scanner, &token);
+    if (rc != VEC0_TOKEN_RESULT_SOME) {
+      *pzErr = sqlite3_mprintf("Expected value after '=' in rescore(...)");
+      return SQLITE_ERROR;
+    }
+
+    if (sqlite3_strnicmp(key, "quantizer", keyLength) == 0) {
+      if (token.token_type != TOKEN_TYPE_IDENTIFIER) {
+        *pzErr = sqlite3_mprintf("Expected identifier for quantizer value in rescore(...)");
+        return SQLITE_ERROR;
+      }
+      int valLen = token.end - token.start;
+      if (sqlite3_strnicmp(token.start, "bit", valLen) == 0) {
+        outConfig->quantizer_type = VEC0_RESCORE_QUANTIZER_BIT;
+      } else if (sqlite3_strnicmp(token.start, "int8", valLen) == 0) {
+        outConfig->quantizer_type = VEC0_RESCORE_QUANTIZER_INT8;
+      } else {
+        *pzErr = sqlite3_mprintf("Unknown quantizer type '%.*s' in rescore(...). Expected 'bit' or 'int8'.", valLen, token.start);
+        return SQLITE_ERROR;
+      }
+      hasQuantizer = 1;
+    } else if (sqlite3_strnicmp(key, "oversample", keyLength) == 0) {
+      if (token.token_type != TOKEN_TYPE_DIGIT) {
+        *pzErr = sqlite3_mprintf("Expected integer for oversample value in rescore(...)");
+        return SQLITE_ERROR;
+      }
+      outConfig->oversample = atoi(token.start);
+      if (outConfig->oversample <= 0 || outConfig->oversample > 128) {
+        *pzErr = sqlite3_mprintf("oversample in rescore(...) must be between 1 and 128, got %d", outConfig->oversample);
+        return SQLITE_ERROR;
+      }
+    } else {
+      *pzErr = sqlite3_mprintf("Unknown option '%.*s' in rescore(...)", keyLength, key);
+      return SQLITE_ERROR;
+    }
+
+    // optional comma between options
+    rc = vec0_scanner_next(scanner, &token);
+    if (rc == VEC0_TOKEN_RESULT_EOF) {
+      break;
+    }
+    if (rc == VEC0_TOKEN_RESULT_SOME && token.token_type == TOKEN_TYPE_RPAREN) {
+      break;
+    }
+    if (rc == VEC0_TOKEN_RESULT_SOME && token.token_type == TOKEN_TYPE_COMMA) {
+      continue;
+    }
+    // If it's not a comma or rparen, it might be the next key — push back isn't
+    // possible with this scanner, so we'll treat unexpected tokens as errors
+    *pzErr = sqlite3_mprintf("Unexpected token in rescore(...) options");
+    return SQLITE_ERROR;
+  }
+
+  if (!hasQuantizer) {
+    *pzErr = sqlite3_mprintf("rescore(...) requires a 'quantizer' option (quantizer=bit or quantizer=int8)");
+    return SQLITE_ERROR;
+  }
+
+  return SQLITE_OK;
+}
+#endif /* SQLITE_VEC_ENABLE_RESCORE */
+
 /**
  * @brief Parse an vec0 vtab argv[i] column definition and see if
  * it's a vector column defintion, ex `contents_embedding float[768]`.
@@ -2601,6 +2728,10 @@ int vec0_parse_vector_column(const char *source, int source_length,
   enum VectorElementType elementType;
   enum Vec0DistanceMetrics distanceMetric = VEC0_DISTANCE_METRIC_L2;
   enum Vec0IndexType indexType = VEC0_INDEX_TYPE_FLAT;
+#if SQLITE_VEC_ENABLE_RESCORE
+  struct Vec0RescoreConfig rescoreConfig;
+  memset(&rescoreConfig, 0, sizeof(rescoreConfig));
+#endif
   int dimensions;
 
   vec0_scanner_init(&scanner, source, source_length);
@@ -2704,6 +2835,7 @@ int vec0_parse_vector_column(const char *source, int source_length,
         return SQLITE_ERROR;
       }
     }
+    // INDEXED BY flat() | rescore(...)
     else if (sqlite3_strnicmp(key, "indexed", keyLength) == 0) {
       // expect "by"
       rc = vec0_scanner_next(&scanner, &token);
@@ -2733,7 +2865,32 @@ int vec0_parse_vector_column(const char *source, int source_length,
             token.token_type != TOKEN_TYPE_RPAREN) {
           return SQLITE_ERROR;
         }
-      } else {
+      }
+#if SQLITE_VEC_ENABLE_RESCORE
+      else if (sqlite3_strnicmp(token.start, "rescore", indexNameLen) == 0) {
+        indexType = VEC0_INDEX_TYPE_RESCORE;
+        if (elementType != SQLITE_VEC_ELEMENT_TYPE_FLOAT32) {
+          return SQLITE_ERROR;
+        }
+        // expect '('
+        rc = vec0_scanner_next(&scanner, &token);
+        if (rc != VEC0_TOKEN_RESULT_SOME || token.token_type != TOKEN_TYPE_LPAREN) {
+          return SQLITE_ERROR;
+        }
+        char *rescoreErr = NULL;
+        rc = vec0_parse_rescore_options(&scanner, &rescoreConfig, &rescoreErr);
+        if (rc != SQLITE_OK) {
+          if (rescoreErr) sqlite3_free(rescoreErr);
+          return SQLITE_ERROR;
+        }
+        // validate dimensions for bit quantizer
+        if (rescoreConfig.quantizer_type == VEC0_RESCORE_QUANTIZER_BIT &&
+            (dimensions % CHAR_BIT) != 0) {
+          return SQLITE_ERROR;
+        }
+      }
+#endif
+      else {
         // unknown index type
         return SQLITE_ERROR;
       }
@@ -2753,6 +2910,9 @@ int vec0_parse_vector_column(const char *source, int source_length,
   outColumn->element_type = elementType;
   outColumn->dimensions = dimensions;
   outColumn->index_type = indexType;
+#if SQLITE_VEC_ENABLE_RESCORE
+  outColumn->rescore = rescoreConfig;
+#endif
   return SQLITE_OK;
 }
 
@@ -3093,6 +3253,19 @@ struct vec0_vtab {
   // The first numVectorColumns entries must be freed with sqlite3_free()
   char *shadowVectorChunksNames[VEC0_MAX_VECTOR_COLUMNS];
 
+#if SQLITE_VEC_ENABLE_RESCORE
+  // Name of all rescore chunk shadow tables, ie `_rescore_chunks00`
+  // Only populated for vector columns with rescore enabled.
+  // Must be freed with sqlite3_free()
+  char *shadowRescoreChunksNames[VEC0_MAX_VECTOR_COLUMNS];
+
+  // Name of all rescore vector shadow tables, ie `_rescore_vectors00`
+  // Rowid-keyed table for fast random-access float vector reads during rescore.
+  // Only populated for vector columns with rescore enabled.
+  // Must be freed with sqlite3_free()
+  char *shadowRescoreVectorsNames[VEC0_MAX_VECTOR_COLUMNS];
+#endif
+
   // Name of all metadata chunk shadow tables, ie `_metadatachunks00`
   // Only the first numMetadataColumns entries will be available.
   // The first numMetadataColumns entries must be freed with sqlite3_free()
@@ -3162,6 +3335,18 @@ struct vec0_vtab {
   sqlite3_stmt *stmtRowidsGetChunkPosition;
 };
 
+#if SQLITE_VEC_ENABLE_RESCORE
+// Forward declarations for rescore functions (defined in sqlite-vec-rescore.c,
+// included later after all helpers they depend on are defined).
+static int rescore_create_tables(vec0_vtab *p, sqlite3 *db, char **pzErr);
+static int rescore_drop_tables(vec0_vtab *p);
+static int rescore_new_chunk(vec0_vtab *p, i64 chunk_rowid);
+static int rescore_on_insert(vec0_vtab *p, i64 chunk_rowid, i64 chunk_offset,
+                             i64 rowid, void *vectorDatas[]);
+static int rescore_on_delete(vec0_vtab *p, i64 chunk_id, u64 chunk_offset, i64 rowid);
+static int rescore_delete_chunk(vec0_vtab *p, i64 chunk_id);
+#endif
+
 /**
  * @brief Finalize all the sqlite3_stmt members in a vec0_vtab.
  *
@@ -3200,6 +3385,14 @@ void vec0_free(vec0_vtab *p) {
   for (int i = 0; i < p->numVectorColumns; i++) {
     sqlite3_free(p->shadowVectorChunksNames[i]);
     p->shadowVectorChunksNames[i] = NULL;
+
+#if SQLITE_VEC_ENABLE_RESCORE
+    sqlite3_free(p->shadowRescoreChunksNames[i]);
+    p->shadowRescoreChunksNames[i] = NULL;
+
+    sqlite3_free(p->shadowRescoreVectorsNames[i]);
+    p->shadowRescoreVectorsNames[i] = NULL;
+#endif
 
     sqlite3_free(p->vector_columns[i].name);
     p->vector_columns[i].name = NULL;
@@ -3492,6 +3685,41 @@ int vec0_get_vector_data(vec0_vtab *pVtab, i64 rowid, int vector_column_idx,
   sqlite3_blob *vectorBlob = NULL;
   assert((vector_column_idx >= 0) &&
          (vector_column_idx < pVtab->numVectorColumns));
+
+#if SQLITE_VEC_ENABLE_RESCORE
+  // Rescore columns store float vectors in _rescore_vectors (rowid-keyed)
+  if (p->vector_columns[vector_column_idx].index_type == VEC0_INDEX_TYPE_RESCORE) {
+    size = vector_column_byte_size(p->vector_columns[vector_column_idx]);
+    rc = sqlite3_blob_open(p->db, p->schemaName,
+                           p->shadowRescoreVectorsNames[vector_column_idx],
+                           "vector", rowid, 0, &vectorBlob);
+    if (rc != SQLITE_OK) {
+      vtab_set_error(&pVtab->base,
+                     "Could not fetch vector data for %lld from rescore vectors",
+                     rowid);
+      rc = SQLITE_ERROR;
+      goto cleanup;
+    }
+    buf = sqlite3_malloc(size);
+    if (!buf) {
+      rc = SQLITE_NOMEM;
+      goto cleanup;
+    }
+    rc = sqlite3_blob_read(vectorBlob, buf, size, 0);
+    if (rc != SQLITE_OK) {
+      sqlite3_free(buf);
+      buf = NULL;
+      rc = SQLITE_ERROR;
+      goto cleanup;
+    }
+    *outVector = buf;
+    if (outVectorSize) {
+      *outVectorSize = size;
+    }
+    rc = SQLITE_OK;
+    goto cleanup;
+  }
+#endif /* SQLITE_VEC_ENABLE_RESCORE */
 
   rc = vec0_get_chunk_position(pVtab, rowid, NULL, &chunk_id, &chunk_offset);
   if (rc == SQLITE_EMPTY) {
@@ -4096,6 +4324,14 @@ int vec0_new_chunk(vec0_vtab *p, sqlite3_value ** partitionKeyValues, i64 *chunk
       continue;
     }
     int vector_column_idx = p->user_column_idxs[i];
+
+#if SQLITE_VEC_ENABLE_RESCORE
+    // Rescore columns don't use _vector_chunks for float storage
+    if (p->vector_columns[vector_column_idx].index_type == VEC0_INDEX_TYPE_RESCORE) {
+      continue;
+    }
+#endif
+
     i64 vectorsSize =
         p->chunk_size * vector_column_byte_size(p->vector_columns[vector_column_idx]);
 
@@ -4125,6 +4361,14 @@ int vec0_new_chunk(vec0_vtab *p, sqlite3_value ** partitionKeyValues, i64 *chunk
       return rc;
     }
   }
+
+#if SQLITE_VEC_ENABLE_RESCORE
+  // Create new rescore chunks for each rescore-enabled vector column
+  rc = rescore_new_chunk(p, rowid);
+  if (rc != SQLITE_OK) {
+    return rc;
+  }
+#endif
 
   // Step 3: Create new metadata chunks for each metadata column
   for (int i = 0; i < vec0_num_defined_user_columns(p); i++) {
@@ -4487,6 +4731,35 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     goto error;
   }
 
+#if SQLITE_VEC_ENABLE_RESCORE
+  {
+    int hasRescore = 0;
+    for (int i = 0; i < numVectorColumns; i++) {
+      if (pNew->vector_columns[i].index_type == VEC0_INDEX_TYPE_RESCORE) {
+        hasRescore = 1;
+        break;
+      }
+    }
+    if (hasRescore) {
+      if (numAuxiliaryColumns > 0) {
+        *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR
+            "Auxiliary columns are not supported with rescore indexes");
+        goto error;
+      }
+      if (numMetadataColumns > 0) {
+        *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR
+            "Metadata columns are not supported with rescore indexes");
+        goto error;
+      }
+      if (numPartitionColumns > 0) {
+        *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR
+            "Partition key columns are not supported with rescore indexes");
+        goto error;
+      }
+    }
+  }
+#endif
+
   sqlite3_str *createStr = sqlite3_str_new(NULL);
   sqlite3_str_appendall(createStr, "CREATE TABLE x(");
   if (pkColumnName) {
@@ -4577,6 +4850,20 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     if (!pNew->shadowVectorChunksNames[i]) {
       goto error;
     }
+#if SQLITE_VEC_ENABLE_RESCORE
+    if (pNew->vector_columns[i].index_type == VEC0_INDEX_TYPE_RESCORE) {
+      pNew->shadowRescoreChunksNames[i] =
+          sqlite3_mprintf("%s_rescore_chunks%02d", tableName, i);
+      if (!pNew->shadowRescoreChunksNames[i]) {
+        goto error;
+      }
+      pNew->shadowRescoreVectorsNames[i] =
+          sqlite3_mprintf("%s_rescore_vectors%02d", tableName, i);
+      if (!pNew->shadowRescoreVectorsNames[i]) {
+        goto error;
+      }
+    }
+#endif
   }
   for (int i = 0; i < pNew->numMetadataColumns; i++) {
     pNew->shadowMetadataChunksNames[i] =
@@ -4700,6 +4987,11 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     sqlite3_finalize(stmt);
 
     for (int i = 0; i < pNew->numVectorColumns; i++) {
+#if SQLITE_VEC_ENABLE_RESCORE
+      // Rescore columns don't use _vector_chunks
+      if (pNew->vector_columns[i].index_type == VEC0_INDEX_TYPE_RESCORE)
+        continue;
+#endif
       char *zSql = sqlite3_mprintf(VEC0_SHADOW_VECTOR_N_CREATE,
                                    pNew->schemaName, pNew->tableName, i);
       if (!zSql) {
@@ -4717,6 +5009,13 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
       }
       sqlite3_finalize(stmt);
     }
+
+#if SQLITE_VEC_ENABLE_RESCORE
+    rc = rescore_create_tables(pNew, db, pzErr);
+    if (rc != SQLITE_OK) {
+      goto error;
+    }
+#endif
 
     // See SHADOW_TABLE_ROWID_QUIRK in vec0_new_chunk() — same "rowid PRIMARY KEY"
     // without INTEGER type issue applies here.
@@ -4852,6 +5151,10 @@ static int vec0Destroy(sqlite3_vtab *pVtab) {
   sqlite3_finalize(stmt);
 
   for (int i = 0; i < p->numVectorColumns; i++) {
+#if SQLITE_VEC_ENABLE_RESCORE
+    if (p->vector_columns[i].index_type == VEC0_INDEX_TYPE_RESCORE)
+      continue;
+#endif
     zSql = sqlite3_mprintf("DROP TABLE \"%w\".\"%w\"", p->schemaName,
                            p->shadowVectorChunksNames[i]);
     rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, 0);
@@ -4862,6 +5165,13 @@ static int vec0Destroy(sqlite3_vtab *pVtab) {
     }
     sqlite3_finalize(stmt);
   }
+
+#if SQLITE_VEC_ENABLE_RESCORE
+  rc = rescore_drop_tables(p);
+  if (rc != SQLITE_OK) {
+    goto done;
+  }
+#endif
 
   if(p->numAuxiliaryColumns > 0) {
     zSql = sqlite3_mprintf("DROP TABLE " VEC0_SHADOW_AUXILIARY_NAME, p->schemaName, p->tableName);
@@ -6624,6 +6934,10 @@ cleanup:
   return rc;
 }
 
+#if SQLITE_VEC_ENABLE_RESCORE
+#include "sqlite-vec-rescore.c"
+#endif
+
 int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
                    const char *idxStr, int argc, sqlite3_value **argv) {
   assert(argc == (strlen(idxStr)-1) / 4);
@@ -6855,6 +7169,21 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
     }
   }
   #endif
+
+#if SQLITE_VEC_ENABLE_RESCORE
+  // Dispatch to rescore KNN path if this vector column has rescore enabled
+  if (vector_column->index_type == VEC0_INDEX_TYPE_RESCORE) {
+    rc = rescore_knn(p, pCur, vector_column, vectorColumnIdx, arrayRowidsIn,
+                     aMetadataIn, idxStr, argc, argv, queryVector, k, knn_data);
+    if (rc != SQLITE_OK) {
+      goto cleanup;
+    }
+    pCur->knn_data = knn_data;
+    pCur->query_plan = VEC0_QUERY_PLAN_KNN;
+    rc = SQLITE_OK;
+    goto cleanup;
+  }
+#endif
 
   rc = vec0_chunks_iter(p, idxStr, argc, argv, &stmtChunks);
   if (rc != SQLITE_OK) {
@@ -7680,6 +8009,12 @@ int vec0Update_InsertWriteFinalStep(vec0_vtab *p, i64 chunk_rowid,
 
   // Go insert the vector data into the vector chunk shadow tables
   for (int i = 0; i < p->numVectorColumns; i++) {
+#if SQLITE_VEC_ENABLE_RESCORE
+    // Rescore columns store float vectors in _rescore_vectors instead
+    if (p->vector_columns[i].index_type == VEC0_INDEX_TYPE_RESCORE)
+      continue;
+#endif
+
     sqlite3_blob *blobVectors;
     rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowVectorChunksNames[i],
                            "vectors", chunk_rowid, 1, &blobVectors);
@@ -8082,6 +8417,13 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
     goto cleanup;
   }
 
+#if SQLITE_VEC_ENABLE_RESCORE
+  rc = rescore_on_insert(p, chunk_rowid, chunk_offset, rowid, vectorDatas);
+  if (rc != SQLITE_OK) {
+    goto cleanup;
+  }
+#endif
+
   if(p->numAuxiliaryColumns > 0) {
     sqlite3_stmt *stmt;
     sqlite3_str * s = sqlite3_str_new(NULL);
@@ -8272,6 +8614,11 @@ int vec0Update_Delete_ClearVectors(vec0_vtab *p, i64 chunk_id,
                                     u64 chunk_offset) {
   int rc, brc;
   for (int i = 0; i < p->numVectorColumns; i++) {
+#if SQLITE_VEC_ENABLE_RESCORE
+    // Rescore columns don't use _vector_chunks
+    if (p->vector_columns[i].index_type == VEC0_INDEX_TYPE_RESCORE)
+      continue;
+#endif
     sqlite3_blob *blobVectors = NULL;
     size_t n = vector_column_byte_size(p->vector_columns[i]);
 
@@ -8383,6 +8730,10 @@ int vec0Update_Delete_DeleteChunkIfEmpty(vec0_vtab *p, i64 chunk_id,
 
   // Delete from each _vector_chunksNN
   for (int i = 0; i < p->numVectorColumns; i++) {
+#if SQLITE_VEC_ENABLE_RESCORE
+    if (p->vector_columns[i].index_type == VEC0_INDEX_TYPE_RESCORE)
+      continue;
+#endif
     zSql = sqlite3_mprintf(
         "DELETE FROM " VEC0_SHADOW_VECTOR_N_NAME " WHERE rowid = ?",
         p->schemaName, p->tableName, i);
@@ -8398,6 +8749,12 @@ int vec0Update_Delete_DeleteChunkIfEmpty(vec0_vtab *p, i64 chunk_id,
     if (rc != SQLITE_DONE)
       return SQLITE_ERROR;
   }
+
+#if SQLITE_VEC_ENABLE_RESCORE
+  rc = rescore_delete_chunk(p, chunk_id);
+  if (rc != SQLITE_OK)
+    return rc;
+#endif
 
   // Delete from each _metadatachunksNN
   for (int i = 0; i < p->numMetadataColumns; i++) {
@@ -8606,6 +8963,14 @@ int vec0Update_Delete(sqlite3_vtab *pVTab, sqlite3_value *idValue) {
     return rc;
   }
 
+#if SQLITE_VEC_ENABLE_RESCORE
+  // 4b. zero out quantized data in rescore chunk tables, delete from rescore vectors
+  rc = rescore_on_delete(p, chunk_id, chunk_offset, rowid);
+  if (rc != SQLITE_OK) {
+    return rc;
+  }
+#endif
+
   // 5. delete from _rowids table
   rc = vec0Update_Delete_DeleteRowids(p, rowid);
   if (rc != SQLITE_OK) {
@@ -8663,8 +9028,11 @@ int vec0Update_UpdateAuxColumn(vec0_vtab *p, int auxiliary_column_idx, sqlite3_v
 }
 
 int vec0Update_UpdateVectorColumn(vec0_vtab *p, i64 chunk_id, i64 chunk_offset,
-                                  int i, sqlite3_value *valueVector) {
+                                  int i, sqlite3_value *valueVector, i64 rowid) {
   int rc;
+#if !SQLITE_VEC_ENABLE_RESCORE
+  UNUSED_PARAMETER(rowid);
+#endif
 
   sqlite3_blob *blobVectors = NULL;
 
@@ -8707,6 +9075,59 @@ int vec0Update_UpdateVectorColumn(vec0_vtab *p, i64 chunk_id, i64 chunk_offset,
     rc = SQLITE_ERROR;
     goto cleanup;
   }
+
+#if SQLITE_VEC_ENABLE_RESCORE
+  if (p->vector_columns[i].index_type == VEC0_INDEX_TYPE_RESCORE) {
+    // For rescore columns, update _rescore_vectors and _rescore_chunks
+    struct VectorColumnDefinition *col = &p->vector_columns[i];
+    size_t qsize = rescore_quantized_byte_size(col);
+    size_t fsize = vector_column_byte_size(*col);
+
+    // 1. Update quantized chunk
+    {
+      void *qbuf = sqlite3_malloc(qsize);
+      if (!qbuf) { rc = SQLITE_NOMEM; goto cleanup; }
+      switch (col->rescore.quantizer_type) {
+      case VEC0_RESCORE_QUANTIZER_BIT:
+        rescore_quantize_float_to_bit((const float *)vector, (uint8_t *)qbuf, col->dimensions);
+        break;
+      case VEC0_RESCORE_QUANTIZER_INT8:
+        rescore_quantize_float_to_int8((const float *)vector, (int8_t *)qbuf, col->dimensions);
+        break;
+      }
+      sqlite3_blob *blobQ = NULL;
+      rc = sqlite3_blob_open(p->db, p->schemaName,
+                             p->shadowRescoreChunksNames[i], "vectors",
+                             chunk_id, 1, &blobQ);
+      if (rc != SQLITE_OK) { sqlite3_free(qbuf); goto cleanup; }
+      rc = sqlite3_blob_write(blobQ, qbuf, qsize, chunk_offset * qsize);
+      sqlite3_free(qbuf);
+      int brc2 = sqlite3_blob_close(blobQ);
+      if (rc != SQLITE_OK) goto cleanup;
+      if (brc2 != SQLITE_OK) { rc = brc2; goto cleanup; }
+    }
+
+    // 2. Update float vector in _rescore_vectors (keyed by user rowid)
+    {
+      char *zSql = sqlite3_mprintf(
+          "UPDATE \"%w\".\"%w\" SET vector = ? WHERE rowid = ?",
+          p->schemaName, p->shadowRescoreVectorsNames[i]);
+      if (!zSql) { rc = SQLITE_NOMEM; goto cleanup; }
+      sqlite3_stmt *stmtUp;
+      rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmtUp, NULL);
+      sqlite3_free(zSql);
+      if (rc != SQLITE_OK) goto cleanup;
+      sqlite3_bind_blob(stmtUp, 1, vector, fsize, SQLITE_TRANSIENT);
+      sqlite3_bind_int64(stmtUp, 2, rowid);
+      rc = sqlite3_step(stmtUp);
+      sqlite3_finalize(stmtUp);
+      if (rc != SQLITE_DONE) { rc = SQLITE_ERROR; goto cleanup; }
+    }
+
+    rc = SQLITE_OK;
+    goto cleanup;
+  }
+#endif
 
   rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowVectorChunksNames[i],
                          "vectors", chunk_id, 1, &blobVectors);
@@ -8839,7 +9260,7 @@ int vec0Update_Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv) {
     }
 
     rc = vec0Update_UpdateVectorColumn(p, chunk_id, chunk_offset, vector_idx,
-                                       valueVector);
+                                       valueVector, rowid);
     if (rc != SQLITE_OK) {
       return SQLITE_ERROR;
     }
@@ -8997,9 +9418,15 @@ static sqlite3_module vec0Module = {
 #else
 #define SQLITE_VEC_DEBUG_BUILD_NEON ""
 #endif
+#if SQLITE_VEC_ENABLE_RESCORE
+#define SQLITE_VEC_DEBUG_BUILD_RESCORE "rescore"
+#else
+#define SQLITE_VEC_DEBUG_BUILD_RESCORE ""
+#endif
 
 #define SQLITE_VEC_DEBUG_BUILD                                                 \
-  SQLITE_VEC_DEBUG_BUILD_AVX " " SQLITE_VEC_DEBUG_BUILD_NEON
+  SQLITE_VEC_DEBUG_BUILD_AVX " " SQLITE_VEC_DEBUG_BUILD_NEON " "              \
+  SQLITE_VEC_DEBUG_BUILD_RESCORE
 
 #define SQLITE_VEC_DEBUG_STRING                                                \
   "Version: " SQLITE_VEC_VERSION "\n"                                          \

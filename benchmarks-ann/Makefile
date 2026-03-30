@@ -21,9 +21,14 @@ BASELINES = \
 # ANNOY_CONFIGS = \
 # 	"annoy-t50:type=annoy,n_trees=50"
 
-ALL_CONFIGS = $(BASELINES)
+RESCORE_CONFIGS = \
+	"rescore-bit-os8:type=rescore,quantizer=bit,oversample=8" \
+	"rescore-bit-os16:type=rescore,quantizer=bit,oversample=16" \
+	"rescore-int8-os8:type=rescore,quantizer=int8,oversample=8"
 
-.PHONY: seed ground-truth bench-smoke bench-10k bench-50k bench-100k bench-all \
+ALL_CONFIGS = $(BASELINES) $(RESCORE_CONFIGS)
+
+.PHONY: seed ground-truth bench-smoke bench-rescore bench-10k bench-50k bench-100k bench-all \
         report clean
 
 # --- Data preparation ---
@@ -39,6 +44,10 @@ ground-truth: seed
 bench-smoke: seed
 	$(BENCH) --subset-size 5000 -k 10 -n 20 -o runs/smoke \
 		$(BASELINES)
+
+bench-rescore: seed
+	$(BENCH) --subset-size 10000 -k 10 -o runs/rescore \
+		$(RESCORE_CONFIGS)
 
 # --- Standard sizes ---
 bench-10k: seed
