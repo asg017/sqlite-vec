@@ -6,7 +6,7 @@ across different vec0 configurations.
 
 Config format: name:type=<index_type>,key=val,key=val
 
-  Available types: none, vec0-flat, rescore, ivf, diskann
+  Available types: none, vec0-flat, quantized, rescore, ivf, diskann
 
 Usage:
   python bench.py --subset-size 10000 \
@@ -15,7 +15,7 @@ Usage:
     "flat-int8:type=vec0-flat,variant=int8"
 """
 import argparse
-from datetime import datetime, timezone
+import json
 import os
 import sqlite3
 import statistics
@@ -23,8 +23,35 @@ import time
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 EXT_PATH = os.path.join(_SCRIPT_DIR, "..", "dist", "vec0")
-BASE_DB = os.path.join(_SCRIPT_DIR, "seed", "base.db")
 INSERT_BATCH_SIZE = 1000
+
+_DATASETS_DIR = os.path.join(_SCRIPT_DIR, "datasets")
+
+DATASETS = {
+    "cohere1m": {"base_db": os.path.join(_DATASETS_DIR, "cohere1m", "base.db"), "dimensions": 768},
+    "cohere10m": {"base_db": os.path.join(_DATASETS_DIR, "cohere10m", "base.db"), "dimensions": 768},
+    "nyt": {"base_db": os.path.join(_DATASETS_DIR, "nyt", "base.db"), "dimensions": 256},
+    "nyt-768": {"base_db": os.path.join(_DATASETS_DIR, "nyt-768", "base.db"), "dimensions": 768},
+    "nyt-1024": {"base_db": os.path.join(_DATASETS_DIR, "nyt-1024", "base.db"), "dimensions": 1024},
+    "nyt-384": {"base_db": os.path.join(_DATASETS_DIR, "nyt-384", "base.db"), "dimensions": 384},
+}
+
+
+# ============================================================================
+# Timing helpers
+# ============================================================================
+
+
+def now_ns():
+    return time.time_ns()
+
+
+def ns_to_s(ns):
+    return ns / 1_000_000_000
+
+
+def ns_to_ms(ns):
+    return ns / 1_000_000
 
 
 # ============================================================================
@@ -36,7 +63,9 @@ INSERT_BATCH_SIZE = 1000
 #   "create_table_sql":  fn(params) -> SQL string
 #   "insert_sql":        fn(params) -> SQL string  (or None for default)
 #   "post_insert_hook":  fn(conn, params) -> train_time_s  (or None)
+#   "train_sql":         fn(params) -> SQL string  (or None if no training)
 #   "run_query":         fn(conn, params, query, k) -> [(id, distance), ...]  (or None for default MATCH)
+#   "query_sql":         fn(params) -> SQL string  (or None for default MATCH)
 #   "describe":          fn(params) -> str  (one-line description)
 #
 # To add a new index type, add an entry here. Example (in your branch):
@@ -59,6 +88,7 @@ INDEX_REGISTRY = {}
 
 
 def _none_create_table_sql(params):
+    # none uses raw tables — no dimension in DDL
     variant = params["variant"]
     if variant == "int8":
         return (
@@ -138,7 +168,7 @@ def _none_run_query(conn, params, query, k):
 
     return conn.execute(
         "SELECT id, vec_distance_cosine(:query, embedding) as distance "
-        "FROM vec_items ORDER BY 2 LIMIT :k",
+        "FROM vec_items WHERE distance IS NOT NULL ORDER BY 2 LIMIT :k",
         {"query": query, "k": k},
     ).fetchall()
 
@@ -155,7 +185,9 @@ INDEX_REGISTRY["none"] = {
     "create_table_sql": _none_create_table_sql,
     "insert_sql": _none_insert_sql,
     "post_insert_hook": None,
+    "train_sql": None,
     "run_query": _none_run_query,
+    "query_sql": None,
     "describe": _none_describe,
 }
 
@@ -166,17 +198,18 @@ INDEX_REGISTRY["none"] = {
 
 
 def _vec0flat_create_table_sql(params):
+    D = params.get("_dimensions", 768)
     variant = params["variant"]
     extra = ""
     if variant == "int8":
-        extra = ", embedding_int8 int8[768]"
+        extra = f", embedding_int8 int8[{D}]"
     elif variant == "bit":
-        extra = ", embedding_bq bit[768]"
+        extra = f", embedding_bq bit[{D}]"
     return (
         f"CREATE VIRTUAL TABLE vec_items USING vec0("
         f"  chunk_size=256,"
         f"  id integer primary key,"
-        f"  embedding float[768] distance_metric=cosine"
+        f"  embedding float[{D}] distance_metric=cosine"
         f"  {extra})"
     )
 
@@ -228,6 +261,32 @@ def _vec0flat_run_query(conn, params, query, k):
     return None  # use default MATCH
 
 
+def _vec0flat_query_sql(params):
+    variant = params["variant"]
+    oversample = params.get("oversample", 8)
+    if variant == "int8":
+        return (
+            "WITH coarse AS ("
+            "  SELECT id, embedding FROM vec_items"
+            "  WHERE embedding_int8 MATCH vec_quantize_int8(:query, 'unit')"
+            f"  LIMIT :k * {oversample}"
+            ") "
+            "SELECT id, vec_distance_cosine(embedding, :query) as distance "
+            "FROM coarse ORDER BY 2 LIMIT :k"
+        )
+    elif variant == "bit":
+        return (
+            "WITH coarse AS ("
+            "  SELECT id, embedding FROM vec_items"
+            "  WHERE embedding_bq MATCH vec_quantize_binary(:query)"
+            f"  LIMIT :k * {oversample}"
+            ") "
+            "SELECT id, vec_distance_cosine(embedding, :query) as distance "
+            "FROM coarse ORDER BY 2 LIMIT :k"
+        )
+    return None
+
+
 def _vec0flat_describe(params):
     v = params["variant"]
     if v in ("int8", "bit"):
@@ -240,8 +299,98 @@ INDEX_REGISTRY["vec0-flat"] = {
     "create_table_sql": _vec0flat_create_table_sql,
     "insert_sql": _vec0flat_insert_sql,
     "post_insert_hook": None,
+    "train_sql": None,
     "run_query": _vec0flat_run_query,
+    "query_sql": _vec0flat_query_sql,
     "describe": _vec0flat_describe,
+}
+
+
+# ============================================================================
+# Quantized-only implementation (no rescoring)
+# ============================================================================
+
+
+def _quantized_create_table_sql(params):
+    D = params.get("_dimensions", 768)
+    quantizer = params["quantizer"]
+    if quantizer == "int8":
+        col = f"embedding int8[{D}]"
+    elif quantizer == "bit":
+        col = f"embedding bit[{D}]"
+    else:
+        raise ValueError(f"Unknown quantizer: {quantizer}")
+    return (
+        f"CREATE VIRTUAL TABLE vec_items USING vec0("
+        f"  chunk_size=256,"
+        f"  id integer primary key,"
+        f"  {col})"
+    )
+
+
+def _quantized_insert_sql(params):
+    quantizer = params["quantizer"]
+    if quantizer == "int8":
+        return (
+            "INSERT INTO vec_items(id, embedding) "
+            "SELECT id, vec_quantize_int8(vector, 'unit') "
+            "FROM base.train WHERE id >= :lo AND id < :hi"
+        )
+    elif quantizer == "bit":
+        return (
+            "INSERT INTO vec_items(id, embedding) "
+            "SELECT id, vec_quantize_binary(vector) "
+            "FROM base.train WHERE id >= :lo AND id < :hi"
+        )
+    return None
+
+
+def _quantized_run_query(conn, params, query, k):
+    """Search quantized column only — no rescoring."""
+    quantizer = params["quantizer"]
+    if quantizer == "int8":
+        return conn.execute(
+            "SELECT id, distance FROM vec_items "
+            "WHERE embedding MATCH vec_quantize_int8(:query, 'unit') AND k = :k",
+            {"query": query, "k": k},
+        ).fetchall()
+    elif quantizer == "bit":
+        return conn.execute(
+            "SELECT id, distance FROM vec_items "
+            "WHERE embedding MATCH vec_quantize_binary(:query) AND k = :k",
+            {"query": query, "k": k},
+        ).fetchall()
+    return None
+
+
+def _quantized_query_sql(params):
+    quantizer = params["quantizer"]
+    if quantizer == "int8":
+        return (
+            "SELECT id, distance FROM vec_items "
+            "WHERE embedding MATCH vec_quantize_int8(:query, 'unit') AND k = :k"
+        )
+    elif quantizer == "bit":
+        return (
+            "SELECT id, distance FROM vec_items "
+            "WHERE embedding MATCH vec_quantize_binary(:query) AND k = :k"
+        )
+    return None
+
+
+def _quantized_describe(params):
+    return f"quantized  {params['quantizer']}"
+
+
+INDEX_REGISTRY["quantized"] = {
+    "defaults": {"quantizer": "bit"},
+    "create_table_sql": _quantized_create_table_sql,
+    "insert_sql": _quantized_insert_sql,
+    "post_insert_hook": None,
+    "train_sql": None,
+    "run_query": _quantized_run_query,
+    "query_sql": _quantized_query_sql,
+    "describe": _quantized_describe,
 }
 
 
@@ -251,13 +400,14 @@ INDEX_REGISTRY["vec0-flat"] = {
 
 
 def _rescore_create_table_sql(params):
+    D = params.get("_dimensions", 768)
     quantizer = params.get("quantizer", "bit")
     oversample = params.get("oversample", 8)
     return (
         f"CREATE VIRTUAL TABLE vec_items USING vec0("
         f"  chunk_size=256,"
         f"  id integer primary key,"
-        f"  embedding float[768] distance_metric=cosine"
+        f"  embedding float[{D}] distance_metric=cosine"
         f"  indexed by rescore(quantizer={quantizer}, oversample={oversample}))"
     )
 
@@ -273,7 +423,9 @@ INDEX_REGISTRY["rescore"] = {
     "create_table_sql": _rescore_create_table_sql,
     "insert_sql": None,
     "post_insert_hook": None,
+    "train_sql": None,
     "run_query": None,  # default MATCH query works — rescore is automatic
+    "query_sql": None,
     "describe": _rescore_describe,
 }
 
@@ -284,20 +436,25 @@ INDEX_REGISTRY["rescore"] = {
 
 
 def _ivf_create_table_sql(params):
+    D = params.get("_dimensions", 768)
+    quantizer = params.get("quantizer", "none")
+    oversample = params.get("oversample", 1)
+    parts = [f"nlist={params['nlist']}", f"nprobe={params['nprobe']}"]
+    if quantizer != "none":
+        parts.append(f"quantizer={quantizer}")
+    if oversample > 1:
+        parts.append(f"oversample={oversample}")
+    ivf_args = ", ".join(parts)
     return (
         f"CREATE VIRTUAL TABLE vec_items USING vec0("
-        f"  id integer primary key,"
-        f"  embedding float[768] distance_metric=cosine"
-        f"    indexed by ivf("
-        f"      nlist={params['nlist']},"
-        f"      nprobe={params['nprobe']}"
-        f"    )"
-        f")"
+        f"id integer primary key, "
+        f"embedding float[{D}] distance_metric=cosine "
+        f"indexed by ivf({ivf_args}))"
     )
 
 
 def _ivf_post_insert_hook(conn, params):
-    print("  Training k-means centroids...", flush=True)
+    print("  Training k-means centroids (built-in)...", flush=True)
     t0 = time.perf_counter()
     conn.execute("INSERT INTO vec_items(id) VALUES ('compute-centroids')")
     conn.commit()
@@ -306,16 +463,118 @@ def _ivf_post_insert_hook(conn, params):
     return elapsed
 
 
+def _ivf_faiss_kmeans_hook(conn, params):
+    """Run FAISS k-means externally, then load centroids via set-centroid commands.
+
+    Called BEFORE any inserts — centroids are loaded first so vectors get
+    assigned to partitions on insert (no assign-vectors step needed).
+    """
+    import subprocess
+    import tempfile
+
+    nlist = params["nlist"]
+    ntrain = params.get("train_sample", 0) or params.get("faiss_kmeans", 10000)
+    niter = params.get("faiss_niter", 20)
+    base_db = params.get("_base_db")  # injected by build_index
+
+    print(f"  Training k-means via FAISS ({nlist} clusters, {ntrain} vectors, {niter} iters)...",
+          flush=True)
+
+    centroids_db_path = tempfile.mktemp(suffix=".db")
+    t0 = time.perf_counter()
+
+    result = subprocess.run(
+        [
+            "uv", "run", "--with", "faiss-cpu", "--with", "numpy",
+            "python", os.path.join(_SCRIPT_DIR, "faiss_kmeans.py"),
+            "--base-db", base_db,
+            "--ntrain", str(ntrain),
+            "--nclusters", str(nlist),
+            "--niter", str(niter),
+            "-o", centroids_db_path,
+        ],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        print(f"  FAISS stderr: {result.stderr}", flush=True)
+        raise RuntimeError(f"faiss_kmeans.py failed: {result.stderr}")
+
+    faiss_elapsed = time.perf_counter() - t0
+    print(f"  FAISS k-means done in {faiss_elapsed:.1f}s", flush=True)
+
+    # Load centroids into vec0 via set-centroid commands
+    print(f"  Loading {nlist} centroids into vec0...", flush=True)
+    cdb = sqlite3.connect(centroids_db_path)
+    centroids = cdb.execute(
+        "SELECT centroid_id, centroid FROM centroids ORDER BY centroid_id"
+    ).fetchall()
+    meta = dict(cdb.execute("SELECT key, value FROM meta").fetchall())
+    cdb.close()
+    os.remove(centroids_db_path)
+
+    for cid, blob in centroids:
+        conn.execute(
+            "INSERT INTO vec_items(id, embedding) VALUES (?, ?)",
+            (f"set-centroid:{cid}", blob),
+        )
+    conn.commit()
+
+    elapsed = time.perf_counter() - t0
+    print(f"  Centroids loaded in {elapsed:.1f}s total", flush=True)
+
+    # Stash meta for results tracking
+    params["_faiss_meta"] = {
+        "ntrain": meta.get("ntrain"),
+        "nclusters": meta.get("nclusters"),
+        "niter": meta.get("niter"),
+        "faiss_elapsed_s": meta.get("elapsed_s"),
+        "total_elapsed_s": round(elapsed, 3),
+        "trainer": "faiss",
+    }
+
+    return elapsed
+
+
+def _ivf_pre_query_hook(conn, params):
+    """Override nprobe at runtime via command dispatch."""
+    nprobe = params.get("nprobe")
+    if nprobe:
+        conn.execute(
+            "INSERT INTO vec_items(id) VALUES (?)",
+            (f"nprobe={nprobe}",),
+        )
+        conn.commit()
+        print(f"  Set nprobe={nprobe}")
+
+
 def _ivf_describe(params):
-    return f"ivf  nlist={params['nlist']:<4} nprobe={params['nprobe']}"
+    ts = params.get("train_sample", 0)
+    q = params.get("quantizer", "none")
+    os_val = params.get("oversample", 1)
+    fk = params.get("faiss_kmeans", 0)
+    desc = f"ivf  nlist={params['nlist']:<4} nprobe={params['nprobe']}"
+    if q != "none":
+        desc += f"  q={q}"
+        if os_val > 1:
+            desc += f" os={os_val}"
+    if fk:
+        desc += f"  faiss"
+    if ts:
+        desc += f"  ts={ts}"
+    return desc
 
 
 INDEX_REGISTRY["ivf"] = {
-    "defaults": {"nlist": 128, "nprobe": 16},
+    "defaults": {"nlist": 128, "nprobe": 16, "train_sample": 0,
+                 "quantizer": "none", "oversample": 1,
+                 "faiss_kmeans": 0, "faiss_niter": 20},
     "create_table_sql": _ivf_create_table_sql,
     "insert_sql": None,
     "post_insert_hook": _ivf_post_insert_hook,
+    "pre_query_hook": _ivf_pre_query_hook,
+    "train_sql": lambda _: "INSERT INTO vec_items(id) VALUES ('compute-centroids')",
     "run_query": None,
+    "query_sql": None,
     "describe": _ivf_describe,
 }
 
@@ -326,24 +585,35 @@ INDEX_REGISTRY["ivf"] = {
 
 
 def _diskann_create_table_sql(params):
+    D = params.get("_dimensions", 768)
+    parts = [
+        f"neighbor_quantizer={params['quantizer']}",
+        f"n_neighbors={params['R']}",
+    ]
+    L_insert = params.get("L_insert", 0)
+    L_search = params.get("L_search", 0)
+    if L_insert or L_search:
+        li = L_insert or params["L"]
+        ls = L_search or params["L"]
+        parts.append(f"search_list_size_insert={li}")
+        parts.append(f"search_list_size_search={ls}")
+    else:
+        parts.append(f"search_list_size={params['L']}")
     bt = params["buffer_threshold"]
-    extra = f", buffer_threshold={bt}" if bt > 0 else ""
+    if bt > 0:
+        parts.append(f"buffer_threshold={bt}")
+    diskann_args = ", ".join(parts)
     return (
         f"CREATE VIRTUAL TABLE vec_items USING vec0("
-        f"  id integer primary key,"
-        f"  embedding float[768] distance_metric=cosine"
-        f"    INDEXED BY diskann("
-        f"      neighbor_quantizer={params['quantizer']},"
-        f"      n_neighbors={params['R']},"
-        f"      search_list_size={params['L']}"
-        f"      {extra}"
-        f"    )"
-        f")"
+        f"id integer primary key, "
+        f"embedding float[{D}] distance_metric=cosine "
+        f"indexed by diskann({diskann_args}))"
     )
 
 
 def _diskann_pre_query_hook(conn, params):
-    L_search = params.get("L_search")
+    """Override search_list_size_search at runtime via command dispatch."""
+    L_search = params.get("L_search", 0)
     if L_search:
         conn.execute(
             "INSERT INTO vec_items(id) VALUES (?)",
@@ -354,20 +624,27 @@ def _diskann_pre_query_hook(conn, params):
 
 
 def _diskann_describe(params):
-    desc = f"diskann  q={params['quantizer']:<6} R={params['R']:<3} L={params['L']}"
-    L_search = params.get("L_search")
-    if L_search:
-        desc += f"  L_search={L_search}"
-    return desc
+    L_insert = params.get("L_insert", 0)
+    L_search = params.get("L_search", 0)
+    if L_insert or L_search:
+        li = L_insert or params["L"]
+        ls = L_search or params["L"]
+        l_str = f"Li={li} Ls={ls}"
+    else:
+        l_str = f"L={params['L']}"
+    return f"diskann  q={params['quantizer']:<6} R={params['R']:<3} {l_str}"
 
 
 INDEX_REGISTRY["diskann"] = {
-    "defaults": {"R": 72, "L": 128, "quantizer": "binary", "buffer_threshold": 0},
+    "defaults": {"R": 72, "L": 128, "L_insert": 0, "L_search": 0,
+                 "quantizer": "binary", "buffer_threshold": 0},
     "create_table_sql": _diskann_create_table_sql,
     "insert_sql": None,
     "post_insert_hook": None,
     "pre_query_hook": _diskann_pre_query_hook,
+    "train_sql": None,
     "run_query": None,
+    "query_sql": None,
     "describe": _diskann_describe,
 }
 
@@ -377,8 +654,9 @@ INDEX_REGISTRY["diskann"] = {
 # ============================================================================
 
 INT_KEYS = {
-    "R", "L", "L_search", "buffer_threshold", "nlist", "nprobe", "oversample",
-    "n_trees", "search_k",
+    "R", "L", "L_insert", "L_search", "buffer_threshold",
+    "nlist", "nprobe", "oversample", "n_trees", "search_k",
+    "train_sample", "faiss_kmeans", "faiss_niter",
 }
 
 
@@ -414,6 +692,12 @@ def parse_config(spec):
     return name, params
 
 
+def params_to_json(params):
+    """Serialize params to JSON, excluding internal keys."""
+    return json.dumps({k: v for k, v in sorted(params.items())
+                       if not k.startswith("_") and k != "index_type"})
+
+
 # ============================================================================
 # Shared helpers
 # ============================================================================
@@ -428,31 +712,59 @@ def load_query_vectors(base_db_path, n):
     return [(r[0], r[1]) for r in rows]
 
 
-def insert_loop(conn, sql, subset_size, label=""):
-    t0 = time.perf_counter()
-    for lo in range(0, subset_size, INSERT_BATCH_SIZE):
+def insert_loop(conn, sql, subset_size, label="", results_db=None, run_id=None,
+                start_from=0):
+    loop_start_ns = now_ns()
+    for lo in range(start_from, subset_size, INSERT_BATCH_SIZE):
         hi = min(lo + INSERT_BATCH_SIZE, subset_size)
+        batch_start_ns = now_ns()
         conn.execute(sql, {"lo": lo, "hi": hi})
         conn.commit()
+        batch_end_ns = now_ns()
         done = hi
+
+        if results_db is not None and run_id is not None:
+            elapsed_total_ns = batch_end_ns - loop_start_ns
+            elapsed_total_s = ns_to_s(elapsed_total_ns)
+            rate = done / elapsed_total_s if elapsed_total_s > 0 else 0
+            results_db.execute(
+                "INSERT INTO insert_batches "
+                "(run_id, batch_lo, batch_hi, rows_in_batch, "
+                " started_ns, ended_ns, duration_ns, "
+                " cumulative_rows, rate_rows_per_s) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (
+                    run_id, lo, hi, hi - lo,
+                    batch_start_ns, batch_end_ns,
+                    batch_end_ns - batch_start_ns,
+                    done, round(rate, 1),
+                ),
+            )
+
+        if results_db is not None and run_id is not None:
+            results_db.commit()
+
         if done % 5000 == 0 or done == subset_size:
-            elapsed = time.perf_counter() - t0
-            rate = done / elapsed if elapsed > 0 else 0
+            elapsed_total_ns = batch_end_ns - loop_start_ns
+            elapsed_total_s = ns_to_s(elapsed_total_ns)
+            rate = done / elapsed_total_s if elapsed_total_s > 0 else 0
             print(
                 f"    [{label}] {done:>8}/{subset_size}  "
-                f"{elapsed:.1f}s  {rate:.0f} rows/s",
+                f"{elapsed_total_s:.1f}s  {rate:.0f} rows/s",
                 flush=True,
             )
-    return time.perf_counter() - t0
+
+    return time.perf_counter()  # not used for timing anymore, kept for compat
 
 
-def create_bench_db(db_path, ext_path, base_db):
+def create_bench_db(db_path, ext_path, base_db, page_size=4096):
     if os.path.exists(db_path):
         os.remove(db_path)
     conn = sqlite3.connect(db_path)
     conn.enable_load_extension(True)
     conn.load_extension(ext_path)
-    conn.execute("PRAGMA page_size=8192")
+    if page_size != 4096:
+        conn.execute(f"PRAGMA page_size={page_size}")
     conn.execute(f"ATTACH DATABASE '{base_db}' AS base")
     return conn
 
@@ -475,49 +787,212 @@ DEFAULT_INSERT_SQL = (
     "SELECT id, vector FROM base.train WHERE id >= :lo AND id < :hi"
 )
 
+DEFAULT_QUERY_SQL = (
+    "SELECT id, distance FROM vec_items "
+    "WHERE embedding MATCH :query AND k = :k"
+)
+
+
+# ============================================================================
+# Results DB helpers
+# ============================================================================
+
+_RESULTS_SCHEMA_PATH = os.path.join(_SCRIPT_DIR, "results_schema.sql")
+
+
+def open_results_db(out_dir, dataset, subset_size, results_db_name="results.db"):
+    """Open/create the results DB in WAL mode."""
+    sub_dir = os.path.join(out_dir, dataset, str(subset_size))
+    os.makedirs(sub_dir, exist_ok=True)
+    db_path = os.path.join(sub_dir, results_db_name)
+    db = sqlite3.connect(db_path, timeout=60)
+    db.execute("PRAGMA journal_mode=WAL")
+    db.execute("PRAGMA busy_timeout=60000")
+    # Migrate existing DBs: add phase column before running schema
+    cols = {r[1] for r in db.execute("PRAGMA table_info(runs)").fetchall()}
+    if cols and "phase" not in cols:
+        db.execute("ALTER TABLE runs ADD COLUMN phase TEXT NOT NULL DEFAULT 'both'")
+        db.commit()
+    with open(_RESULTS_SCHEMA_PATH) as f:
+        db.executescript(f.read())
+    return db, sub_dir
+
+
+def create_run(results_db, config_name, index_type, params, dataset,
+               subset_size, k, n_queries, phase="both"):
+    """Insert a new run row and return the run_id."""
+    cur = results_db.execute(
+        "INSERT INTO runs "
+        "(config_name, index_type, params, dataset, subset_size, "
+        " k, n_queries, phase, status, created_at_ns) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (
+            config_name, index_type, params_to_json(params), dataset,
+            subset_size, k, n_queries, phase, "pending", now_ns(),
+        ),
+    )
+    results_db.commit()
+    return cur.lastrowid
+
+
+def update_run_status(results_db, run_id, status):
+    results_db.execute(
+        "UPDATE runs SET status=? WHERE run_id=?", (status, run_id)
+    )
+    results_db.commit()
+
 
 # ============================================================================
 # Build
 # ============================================================================
 
 
-def build_index(base_db, ext_path, name, params, subset_size, out_dir):
-    db_path = os.path.join(out_dir, f"{name}.{subset_size}.db")
-    conn = create_bench_db(db_path, ext_path, base_db)
+def build_index(base_db, ext_path, name, params, subset_size, sub_dir,
+                results_db=None, run_id=None, k=None):
+    db_path = os.path.join(sub_dir, f"{name}.{subset_size}.db")
+    params["_base_db"] = base_db  # expose to hooks (e.g. FAISS k-means)
+    page_size = int(params.get("page_size", 4096))
+    conn = create_bench_db(db_path, ext_path, base_db, page_size=page_size)
 
     reg = INDEX_REGISTRY[params["index_type"]]
 
-    conn.execute(reg["create_table_sql"](params))
+    create_sql = reg["create_table_sql"](params)
+    conn.execute(create_sql)
 
     label = params["index_type"]
     print(f"  Inserting {subset_size} vectors...")
 
     sql_fn = reg.get("insert_sql")
-    sql = sql_fn(params) if sql_fn else None
-    if sql is None:
-        sql = DEFAULT_INSERT_SQL
+    insert_sql = sql_fn(params) if sql_fn else None
+    if insert_sql is None:
+        insert_sql = DEFAULT_INSERT_SQL
 
-    insert_time = insert_loop(conn, sql, subset_size, label)
+    train_sql_fn = reg.get("train_sql")
+    train_sql = train_sql_fn(params) if train_sql_fn else None
 
-    train_time = 0.0
+    query_sql_fn = reg.get("query_sql")
+    query_sql = query_sql_fn(params) if query_sql_fn else None
+    if query_sql is None:
+        query_sql = DEFAULT_QUERY_SQL
+
+    # -- Insert + Training phases --
+    train_sample = params.get("train_sample", 0)
     hook = reg.get("post_insert_hook")
-    if hook:
-        train_time = hook(conn, params)
+    faiss_kmeans = params.get("faiss_kmeans", 0)
+
+    train_started_ns = None
+    train_ended_ns = None
+    train_duration_ns = None
+    train_time_s = 0.0
+
+    if faiss_kmeans:
+        # FAISS mode: train on base.db first, load centroids, then insert all
+        if results_db and run_id:
+            update_run_status(results_db, run_id, "training")
+        train_started_ns = now_ns()
+        train_time_s = _ivf_faiss_kmeans_hook(conn, params)
+        train_ended_ns = now_ns()
+        train_duration_ns = train_ended_ns - train_started_ns
+
+        # Now insert all vectors (they get assigned on insert)
+        if results_db and run_id:
+            update_run_status(results_db, run_id, "inserting")
+        insert_started_ns = now_ns()
+        insert_loop(conn, insert_sql, subset_size, label,
+                    results_db=results_db, run_id=run_id)
+        insert_ended_ns = now_ns()
+        insert_duration_ns = insert_ended_ns - insert_started_ns
+
+    elif train_sample and hook and train_sample < subset_size:
+        # Built-in k-means: insert sample, train, insert rest
+        if results_db and run_id:
+            update_run_status(results_db, run_id, "inserting")
+        insert_started_ns = now_ns()
+
+        print(f"  Inserting {train_sample} vectors (training sample)...")
+        insert_loop(conn, insert_sql, train_sample, label,
+                    results_db=results_db, run_id=run_id)
+        insert_paused_ns = now_ns()
+
+        # -- Training on sample --
+        if results_db and run_id:
+            update_run_status(results_db, run_id, "training")
+        train_started_ns = now_ns()
+        train_time_s = hook(conn, params)
+        train_ended_ns = now_ns()
+        train_duration_ns = train_ended_ns - train_started_ns
+
+        # -- Insert remaining vectors --
+        if results_db and run_id:
+            update_run_status(results_db, run_id, "inserting")
+        print(f"  Inserting remaining {subset_size - train_sample} vectors...")
+        insert_loop(conn, insert_sql, subset_size, label,
+                    results_db=results_db, run_id=run_id,
+                    start_from=train_sample)
+        insert_ended_ns = now_ns()
+
+        # Insert time = total wall time minus training time
+        insert_duration_ns = (insert_paused_ns - insert_started_ns) + \
+                             (insert_ended_ns - train_ended_ns)
+    else:
+        # Standard flow: insert all, then train
+        if results_db and run_id:
+            update_run_status(results_db, run_id, "inserting")
+        insert_started_ns = now_ns()
+
+        insert_loop(conn, insert_sql, subset_size, label,
+                    results_db=results_db, run_id=run_id)
+        insert_ended_ns = now_ns()
+        insert_duration_ns = insert_ended_ns - insert_started_ns
+
+        if hook:
+            if results_db and run_id:
+                update_run_status(results_db, run_id, "training")
+            train_started_ns = now_ns()
+            train_time_s = hook(conn, params)
+            train_ended_ns = now_ns()
+            train_duration_ns = train_ended_ns - train_started_ns
 
     row_count = conn.execute("SELECT count(*) FROM vec_items").fetchone()[0]
     conn.close()
-    file_size_mb = os.path.getsize(db_path) / (1024 * 1024)
+    file_size_bytes = os.path.getsize(db_path)
+
+    build_duration_ns = insert_duration_ns + (train_duration_ns or 0)
+    insert_time_s = ns_to_s(insert_duration_ns)
+
+    # If FAISS was used for training, record its meta as train_sql
+    faiss_meta = params.get("_faiss_meta")
+    if faiss_meta:
+        train_sql = json.dumps(faiss_meta)
+
+    # Write run_results (build portion)
+    if results_db and run_id:
+        results_db.execute(
+            "INSERT INTO run_results "
+            "(run_id, insert_started_ns, insert_ended_ns, insert_duration_ns, "
+            " train_started_ns, train_ended_ns, train_duration_ns, "
+            " build_duration_ns, db_file_size_bytes, db_file_path, "
+            " create_sql, insert_sql, train_sql, query_sql, k) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                run_id, insert_started_ns, insert_ended_ns, insert_duration_ns,
+                train_started_ns, train_ended_ns, train_duration_ns,
+                build_duration_ns, file_size_bytes, db_path,
+                create_sql, insert_sql, train_sql, query_sql, k,
+            ),
+        )
+        results_db.commit()
 
     return {
         "db_path": db_path,
-        "insert_time_s": round(insert_time, 3),
-        "train_time_s": round(train_time, 3),
-        "total_time_s": round(insert_time + train_time, 3),
-        "insert_per_vec_ms": round((insert_time / row_count) * 1000, 2)
+        "insert_time_s": round(insert_time_s, 3),
+        "train_time_s": round(train_time_s, 3),
+        "total_time_s": round(insert_time_s + train_time_s, 3),
+        "insert_per_vec_ms": round((insert_time_s / row_count) * 1000, 2)
         if row_count
         else 0,
         "rows": row_count,
-        "file_size_mb": round(file_size_mb, 2),
+        "file_size_mb": round(file_size_bytes / (1024 * 1024), 2),
     }
 
 
@@ -535,7 +1010,7 @@ def _default_match_query(conn, query, k):
 
 
 def measure_knn(db_path, ext_path, base_db, params, subset_size, k=10, n=50,
-                pre_query_hook=None):
+                results_db=None, run_id=None, pre_query_hook=None, warmup=0):
     conn = sqlite3.connect(db_path)
     conn.enable_load_extension(True)
     conn.load_extension(ext_path)
@@ -549,10 +1024,25 @@ def measure_knn(db_path, ext_path, base_db, params, subset_size, k=10, n=50,
     reg = INDEX_REGISTRY[params["index_type"]]
     query_fn = reg.get("run_query")
 
+    # Warmup: run random queries to populate OS page cache
+    if warmup > 0:
+        import random
+        warmup_vecs = [qv for _, qv in query_vectors]
+        print(f"  Warming up with {warmup} queries...", flush=True)
+        for _ in range(warmup):
+            wq = random.choice(warmup_vecs)
+            if query_fn:
+                query_fn(conn, params, wq, k)
+            else:
+                _default_match_query(conn, wq, k)
+
+    if results_db and run_id:
+        update_run_status(results_db, run_id, "querying")
+
     times_ms = []
     recalls = []
-    for qid, query in query_vectors:
-        t0 = time.perf_counter()
+    for i, (qid, query) in enumerate(query_vectors):
+        started_ns = now_ns()
 
         results = None
         if query_fn:
@@ -560,9 +1050,13 @@ def measure_knn(db_path, ext_path, base_db, params, subset_size, k=10, n=50,
         if results is None:
             results = _default_match_query(conn, query, k)
 
-        elapsed_ms = (time.perf_counter() - t0) * 1000
-        times_ms.append(elapsed_ms)
-        result_ids = set(r[0] for r in results)
+        ended_ns = now_ns()
+        duration_ms = ns_to_ms(ended_ns - started_ns)
+        times_ms.append(duration_ms)
+
+        result_ids_list = [r[0] for r in results]
+        result_distances_list = [r[1] for r in results]
+        result_ids = set(result_ids_list)
 
         # Ground truth: use pre-computed neighbors table for full dataset,
         # otherwise brute-force over the subset
@@ -580,89 +1074,60 @@ def measure_knn(db_path, ext_path, base_db, params, subset_size, k=10, n=50,
                 ")",
                 {"query": query, "k": k, "n": subset_size},
             ).fetchall()
-        gt_ids = set(r[0] for r in gt_rows)
+        gt_ids_list = [r[0] for r in gt_rows]
+        gt_ids = set(gt_ids_list)
 
         if gt_ids:
-            recalls.append(len(result_ids & gt_ids) / len(gt_ids))
+            q_recall = len(result_ids & gt_ids) / len(gt_ids)
         else:
-            recalls.append(0.0)
+            q_recall = 0.0
+        recalls.append(q_recall)
+
+        if results_db and run_id:
+            results_db.execute(
+                "INSERT INTO queries "
+                "(run_id, k, query_vector_id, started_ns, ended_ns, duration_ms, "
+                " result_ids, result_distances, ground_truth_ids, recall) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (
+                    run_id, k, qid, started_ns, ended_ns, round(duration_ms, 4),
+                    json.dumps(result_ids_list),
+                    json.dumps(result_distances_list),
+                    json.dumps(gt_ids_list),
+                    round(q_recall, 6),
+                ),
+            )
+            results_db.commit()
 
     conn.close()
 
+    mean_ms = round(statistics.mean(times_ms), 2)
+    median_ms = round(statistics.median(times_ms), 2)
+    p99_ms = (round(sorted(times_ms)[int(len(times_ms) * 0.99)], 2)
+              if len(times_ms) > 1
+              else round(times_ms[0], 2))
+    total_ms = round(sum(times_ms), 2)
+    recall = round(statistics.mean(recalls), 4)
+    qps = round(len(times_ms) / (total_ms / 1000), 1) if total_ms > 0 else 0
+
+    # Update run_results with query aggregates
+    if results_db and run_id:
+        results_db.execute(
+            "UPDATE run_results SET "
+            "query_mean_ms=?, query_median_ms=?, query_p99_ms=?, "
+            "query_total_ms=?, qps=?, recall=? "
+            "WHERE run_id=?",
+            (mean_ms, median_ms, p99_ms, total_ms, qps, recall, run_id),
+        )
+        update_run_status(results_db, run_id, "done")
+
     return {
-        "mean_ms": round(statistics.mean(times_ms), 2),
-        "median_ms": round(statistics.median(times_ms), 2),
-        "p99_ms": round(sorted(times_ms)[int(len(times_ms) * 0.99)], 2)
-        if len(times_ms) > 1
-        else round(times_ms[0], 2),
-        "total_ms": round(sum(times_ms), 2),
-        "recall": round(statistics.mean(recalls), 4),
+        "mean_ms": mean_ms,
+        "median_ms": median_ms,
+        "p99_ms": p99_ms,
+        "total_ms": total_ms,
+        "recall": recall,
     }
-
-
-# ============================================================================
-# Results persistence
-# ============================================================================
-
-
-def open_results_db(results_path):
-    db = sqlite3.connect(results_path)
-    db.executescript(open(os.path.join(_SCRIPT_DIR, "schema.sql")).read())
-    # Migrate existing DBs that predate the runs table
-    cols = {r[1] for r in db.execute("PRAGMA table_info(runs)").fetchall()}
-    if "phase" not in cols:
-        db.execute("ALTER TABLE runs ADD COLUMN phase TEXT NOT NULL DEFAULT 'both'")
-        db.commit()
-    return db
-
-
-def create_run(db, config_name, index_type, subset_size, phase, k=None, n=None):
-    cur = db.execute(
-        "INSERT INTO runs (config_name, index_type, subset_size, phase, status, k, n) "
-        "VALUES (?, ?, ?, ?, 'pending', ?, ?)",
-        (config_name, index_type, subset_size, phase, k, n),
-    )
-    db.commit()
-    return cur.lastrowid
-
-
-def update_run(db, run_id, **kwargs):
-    sets = ", ".join(f"{k} = ?" for k in kwargs)
-    vals = list(kwargs.values()) + [run_id]
-    db.execute(f"UPDATE runs SET {sets} WHERE run_id = ?", vals)
-    db.commit()
-
-
-def save_results(results_path, rows):
-    db = sqlite3.connect(results_path)
-    db.executescript(open(os.path.join(_SCRIPT_DIR, "schema.sql")).read())
-    for r in rows:
-        db.execute(
-            "INSERT OR REPLACE INTO build_results "
-            "(config_name, index_type, subset_size, db_path, "
-            " insert_time_s, train_time_s, total_time_s, rows, file_size_mb) "
-            "VALUES (?,?,?,?,?,?,?,?,?)",
-            (
-                r["name"], r["index_type"], r["n_vectors"], r["db_path"],
-                r["insert_time_s"], r["train_time_s"], r["total_time_s"],
-                r["rows"], r["file_size_mb"],
-            ),
-        )
-        db.execute(
-            "INSERT OR REPLACE INTO bench_results "
-            "(config_name, index_type, subset_size, k, n, "
-            " mean_ms, median_ms, p99_ms, total_ms, qps, recall, db_path) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-            (
-                r["name"], r["index_type"], r["n_vectors"], r["k"], r["n_queries"],
-                r["mean_ms"], r["median_ms"], r["p99_ms"], r["total_ms"],
-                round(r["n_queries"] / (r["total_ms"] / 1000), 1)
-                if r["total_ms"] > 0 else 0,
-                r["recall"], r["db_path"],
-            ),
-        )
-    db.commit()
-    db.close()
 
 
 # ============================================================================
@@ -699,22 +1164,38 @@ def main():
         epilog=__doc__,
     )
     parser.add_argument("configs", nargs="+", help="config specs (name:type=X,key=val,...)")
-    parser.add_argument("--subset-size", type=int, required=True)
+    parser.add_argument("--subset-size", type=int, default=None,
+                        help="number of vectors to use (default: all)")
     parser.add_argument("-k", type=int, default=10, help="KNN k (default 10)")
     parser.add_argument("-n", type=int, default=50, help="number of queries (default 50)")
     parser.add_argument("--phase", choices=["build", "query", "both"], default="both",
                         help="build=build only, query=query existing index, both=default")
-    parser.add_argument("--base-db", default=BASE_DB)
+    parser.add_argument("--dataset", default="cohere1m",
+                        choices=list(DATASETS.keys()),
+                        help="dataset name (default: cohere1m)")
     parser.add_argument("--ext", default=EXT_PATH)
-    parser.add_argument("-o", "--out-dir", default="runs")
-    parser.add_argument("--results-db", default=None,
-                        help="path to results DB (default: <out-dir>/results.db)")
+    parser.add_argument("-o", "--out-dir", default=os.path.join(_SCRIPT_DIR, "runs"))
+    parser.add_argument("--warmup", type=int, default=0,
+                        help="run N random warmup queries before measuring (default: 0)")
+    parser.add_argument("--results-db-name", default="results.db",
+                        help="results DB filename (default: results.db)")
     args = parser.parse_args()
 
-    os.makedirs(args.out_dir, exist_ok=True)
-    results_db_path = args.results_db or os.path.join(args.out_dir, "results.db")
+    dataset_cfg = DATASETS[args.dataset]
+    base_db = dataset_cfg["base_db"]
+    dimensions = dataset_cfg["dimensions"]
+
+    if args.subset_size is None:
+        _tmp = sqlite3.connect(base_db)
+        args.subset_size = _tmp.execute("SELECT COUNT(*) FROM train").fetchone()[0]
+        _tmp.close()
+        print(f"Using full dataset: {args.subset_size} vectors")
+
+    results_db, sub_dir = open_results_db(args.out_dir, args.dataset, args.subset_size,
+                                          results_db_name=args.results_db_name)
     configs = [parse_config(c) for c in args.configs]
-    results_db = open_results_db(results_db_path)
+    for _, params in configs:
+        params["_dimensions"] = dimensions
 
     all_results = []
     for i, (name, params) in enumerate(configs, 1):
@@ -722,31 +1203,30 @@ def main():
         desc = reg["describe"](params)
         print(f"\n[{i}/{len(configs)}] {name}  ({desc.strip()})  [phase={args.phase}]")
 
-        db_path = os.path.join(args.out_dir, f"{name}.{args.subset_size}.db")
+        db_path = os.path.join(sub_dir, f"{name}.{args.subset_size}.db")
 
         if args.phase == "build":
-            run_id = create_run(results_db, name, params["index_type"],
-                                args.subset_size, "build")
-            update_run(results_db, run_id, status="inserting")
+            run_id = create_run(
+                results_db, name, params["index_type"], params,
+                args.dataset, args.subset_size, args.k, args.n, phase="build",
+            )
 
-            build = build_index(
-                args.base_db, args.ext, name, params, args.subset_size, args.out_dir
-            )
-            train_str = f" + {build['train_time_s']}s train" if build["train_time_s"] > 0 else ""
-            print(
-                f"  Build: {build['insert_time_s']}s insert{train_str}  "
-                f"{build['file_size_mb']} MB"
-            )
-            update_run(results_db, run_id,
-                        status="built",
-                        db_path=build["db_path"],
-                        insert_time_s=build["insert_time_s"],
-                        train_time_s=build["train_time_s"],
-                        total_build_time_s=build["total_time_s"],
-                        rows=build["rows"],
-                        file_size_mb=build["file_size_mb"],
-                        finished_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"))
-            print(f"  Index DB: {build['db_path']}")
+            try:
+                build = build_index(
+                    base_db, args.ext, name, params, args.subset_size, sub_dir,
+                    results_db=results_db, run_id=run_id, k=args.k,
+                )
+                train_str = f" + {build['train_time_s']}s train" if build["train_time_s"] > 0 else ""
+                print(
+                    f"  Build: {build['insert_time_s']}s insert{train_str}  "
+                    f"{build['file_size_mb']} MB"
+                )
+                update_run_status(results_db, run_id, "built")
+                print(f"  Index DB: {build['db_path']}")
+            except Exception as e:
+                update_run_status(results_db, run_id, "error")
+                print(f"  ERROR: {e}")
+                raise
 
         elif args.phase == "query":
             if not os.path.exists(db_path):
@@ -755,30 +1235,35 @@ def main():
                     f"Build it first with: --phase build"
                 )
 
-            run_id = create_run(results_db, name, params["index_type"],
-                                args.subset_size, "query", k=args.k, n=args.n)
-            update_run(results_db, run_id, status="querying")
-
-            pre_hook = reg.get("pre_query_hook")
-            print(f"  Measuring KNN (k={args.k}, n={args.n})...")
-            knn = measure_knn(
-                db_path, args.ext, args.base_db,
-                params, args.subset_size, k=args.k, n=args.n,
-                pre_query_hook=pre_hook,
+            run_id = create_run(
+                results_db, name, params["index_type"], params,
+                args.dataset, args.subset_size, args.k, args.n, phase="query",
             )
-            print(f"  KNN: mean={knn['mean_ms']}ms  recall@{args.k}={knn['recall']}")
 
-            qps = round(args.n / (knn["total_ms"] / 1000), 1) if knn["total_ms"] > 0 else 0
-            update_run(results_db, run_id,
-                        status="done",
-                        db_path=db_path,
-                        mean_ms=knn["mean_ms"],
-                        median_ms=knn["median_ms"],
-                        p99_ms=knn["p99_ms"],
-                        total_query_ms=knn["total_ms"],
-                        qps=qps,
-                        recall=knn["recall"],
-                        finished_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"))
+            try:
+                # Create a run_results row so measure_knn can UPDATE it
+                file_size_bytes = os.path.getsize(db_path)
+                results_db.execute(
+                    "INSERT INTO run_results "
+                    "(run_id, db_file_size_bytes, db_file_path, k) "
+                    "VALUES (?,?,?,?)",
+                    (run_id, file_size_bytes, db_path, args.k),
+                )
+                results_db.commit()
+
+                pre_hook = reg.get("pre_query_hook")
+                print(f"  Measuring KNN (k={args.k}, n={args.n})...")
+                knn = measure_knn(
+                    db_path, args.ext, base_db,
+                    params, args.subset_size, k=args.k, n=args.n,
+                    results_db=results_db, run_id=run_id,
+                    pre_query_hook=pre_hook, warmup=args.warmup,
+                )
+                print(f"  KNN: mean={knn['mean_ms']}ms  recall@{args.k}={knn['recall']}")
+            except Exception as e:
+                update_run_status(results_db, run_id, "error")
+                print(f"  ERROR: {e}")
+                raise
 
             file_size_mb = os.path.getsize(db_path) / (1024 * 1024)
             all_results.append({
@@ -803,43 +1288,35 @@ def main():
             })
 
         else:  # both
-            run_id = create_run(results_db, name, params["index_type"],
-                                args.subset_size, "both", k=args.k, n=args.n)
-            update_run(results_db, run_id, status="inserting")
-
-            build = build_index(
-                args.base_db, args.ext, name, params, args.subset_size, args.out_dir
+            run_id = create_run(
+                results_db, name, params["index_type"], params,
+                args.dataset, args.subset_size, args.k, args.n, phase="both",
             )
-            train_str = f" + {build['train_time_s']}s train" if build["train_time_s"] > 0 else ""
-            print(
-                f"  Build: {build['insert_time_s']}s insert{train_str}  "
-                f"{build['file_size_mb']} MB"
-            )
-            update_run(results_db, run_id, status="querying",
-                        db_path=build["db_path"],
-                        insert_time_s=build["insert_time_s"],
-                        train_time_s=build["train_time_s"],
-                        total_build_time_s=build["total_time_s"],
-                        rows=build["rows"],
-                        file_size_mb=build["file_size_mb"])
 
-            print(f"  Measuring KNN (k={args.k}, n={args.n})...")
-            knn = measure_knn(
-                build["db_path"], args.ext, args.base_db,
-                params, args.subset_size, k=args.k, n=args.n,
-            )
-            print(f"  KNN: mean={knn['mean_ms']}ms  recall@{args.k}={knn['recall']}")
+            try:
+                build = build_index(
+                    base_db, args.ext, name, params, args.subset_size, sub_dir,
+                    results_db=results_db, run_id=run_id, k=args.k,
+                )
+                train_str = f" + {build['train_time_s']}s train" if build["train_time_s"] > 0 else ""
+                print(
+                    f"  Build: {build['insert_time_s']}s insert{train_str}  "
+                    f"{build['file_size_mb']} MB"
+                )
 
-            qps = round(args.n / (knn["total_ms"] / 1000), 1) if knn["total_ms"] > 0 else 0
-            update_run(results_db, run_id,
-                        status="done",
-                        mean_ms=knn["mean_ms"],
-                        median_ms=knn["median_ms"],
-                        p99_ms=knn["p99_ms"],
-                        total_query_ms=knn["total_ms"],
-                        qps=qps,
-                        recall=knn["recall"],
-                        finished_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"))
+                pre_hook = reg.get("pre_query_hook")
+                print(f"  Measuring KNN (k={args.k}, n={args.n})...")
+                knn = measure_knn(
+                    build["db_path"], args.ext, base_db,
+                    params, args.subset_size, k=args.k, n=args.n,
+                    results_db=results_db, run_id=run_id,
+                    pre_query_hook=pre_hook, warmup=args.warmup,
+                )
+                print(f"  KNN: mean={knn['mean_ms']}ms  recall@{args.k}={knn['recall']}")
+            except Exception as e:
+                update_run_status(results_db, run_id, "error")
+                print(f"  ERROR: {e}")
+                raise
 
             all_results.append({
                 "name": name,
@@ -862,14 +1339,11 @@ def main():
                 "recall": knn["recall"],
             })
 
-    results_db.close()
-
     if all_results:
         print_report(all_results)
-        save_results(results_db_path, all_results)
-        print(f"\nResults saved to {results_db_path}")
-    elif args.phase == "build":
-        print(f"\nBuild complete. Results tracked in {results_db_path}")
+
+    print(f"\nResults DB: {os.path.join(sub_dir, 'results.db')}")
+    results_db.close()
 
 
 if __name__ == "__main__":

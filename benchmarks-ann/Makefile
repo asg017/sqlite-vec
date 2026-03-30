@@ -1,5 +1,5 @@
 BENCH = python bench.py
-BASE_DB = seed/base.db
+BASE_DB = cohere1m/base.db
 EXT = ../dist/vec0
 
 # --- Baseline (brute-force) configs ---
@@ -33,7 +33,7 @@ ALL_CONFIGS = $(BASELINES) $(RESCORE_CONFIGS) $(IVF_CONFIGS) $(DISKANN_CONFIGS)
 
 # --- Data preparation ---
 seed:
-	$(MAKE) -C seed
+	$(MAKE) -C cohere1m
 
 ground-truth: seed
 	python ground_truth.py --subset-size 10000
@@ -42,43 +42,43 @@ ground-truth: seed
 
 # --- Quick smoke test ---
 bench-smoke: seed
-	$(BENCH) --subset-size 5000 -k 10 -n 20 -o runs/smoke \
+	$(BENCH) --subset-size 5000 -k 10 -n 20 --dataset cohere1m -o runs \
 		"brute-float:type=baseline,variant=float" \
 		"ivf-quick:type=ivf,nlist=16,nprobe=4" \
 		"diskann-quick:type=diskann,R=48,L=64,quantizer=binary"
 
 bench-rescore: seed
-	$(BENCH) --subset-size 10000 -k 10 -o runs/rescore \
+	$(BENCH) --subset-size 10000 -k 10 --dataset cohere1m -o runs \
 		$(RESCORE_CONFIGS)
 
 
 # --- Standard sizes ---
 bench-10k: seed
-	$(BENCH) --subset-size 10000 -k 10 -o runs/10k $(ALL_CONFIGS)
+	$(BENCH) --subset-size 10000 -k 10 --dataset cohere1m -o runs $(ALL_CONFIGS)
 
 bench-50k: seed
-	$(BENCH) --subset-size 50000 -k 10 -o runs/50k $(ALL_CONFIGS)
+	$(BENCH) --subset-size 50000 -k 10 --dataset cohere1m -o runs $(ALL_CONFIGS)
 
 bench-100k: seed
-	$(BENCH) --subset-size 100000 -k 10 -o runs/100k $(ALL_CONFIGS)
+	$(BENCH) --subset-size 100000 -k 10 --dataset cohere1m -o runs $(ALL_CONFIGS)
 
 bench-all: bench-10k bench-50k bench-100k
 
 # --- IVF across sizes ---
 bench-ivf: seed
-	$(BENCH) --subset-size 10000 -k 10 -o runs/ivf $(BASELINES) $(IVF_CONFIGS)
-	$(BENCH) --subset-size 50000 -k 10 -o runs/ivf $(BASELINES) $(IVF_CONFIGS)
-	$(BENCH) --subset-size 100000 -k 10 -o runs/ivf $(BASELINES) $(IVF_CONFIGS)
+	$(BENCH) --subset-size 10000 -k 10 --dataset cohere1m -o runs $(BASELINES) $(IVF_CONFIGS)
+	$(BENCH) --subset-size 50000 -k 10 --dataset cohere1m -o runs $(BASELINES) $(IVF_CONFIGS)
+	$(BENCH) --subset-size 100000 -k 10 --dataset cohere1m -o runs $(BASELINES) $(IVF_CONFIGS)
 
 # --- DiskANN across sizes ---
 bench-diskann: seed
-	$(BENCH) --subset-size 10000 -k 10 -o runs/diskann $(BASELINES) $(DISKANN_CONFIGS)
-	$(BENCH) --subset-size 50000 -k 10 -o runs/diskann $(BASELINES) $(DISKANN_CONFIGS)
-	$(BENCH) --subset-size 100000 -k 10 -o runs/diskann $(BASELINES) $(DISKANN_CONFIGS)
+	$(BENCH) --subset-size 10000 -k 10 --dataset cohere1m -o runs $(BASELINES) $(DISKANN_CONFIGS)
+	$(BENCH) --subset-size 50000 -k 10 --dataset cohere1m -o runs $(BASELINES) $(DISKANN_CONFIGS)
+	$(BENCH) --subset-size 100000 -k 10 --dataset cohere1m -o runs $(BASELINES) $(DISKANN_CONFIGS)
 
 # --- Report ---
 report:
-	@echo "Use: sqlite3 runs/<dir>/results.db 'SELECT * FROM bench_results ORDER BY recall DESC'"
+	@echo "Use: sqlite3 runs/cohere1m/<size>/results.db 'SELECT run_id, config_name, status, recall FROM runs JOIN run_results USING(run_id)'"
 
 # --- Cleanup ---
 clean:
