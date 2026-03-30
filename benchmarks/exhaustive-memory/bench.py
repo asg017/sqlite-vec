@@ -248,59 +248,6 @@ def bench_libsql(base, query, page_size, k) -> BenchResult:
     return BenchResult(f"libsql ({page_size})", build_time, times)
 
 
-def register_np(db, array, name):
-    ptr = array.__array_interface__["data"][0]
-    nvectors, dimensions = array.__array_interface__["shape"]
-    element_type = array.__array_interface__["typestr"]
-
-    assert element_type == "<f4"
-
-    name_escaped = db.execute("select printf('%w', ?)", [name]).fetchone()[0]
-
-    db.execute(
-        "insert into temp.vec_static_blobs(name, data) select ?, vec_static_blob_from_raw(?, ?, ?, ?)",
-        [name, ptr, element_type, dimensions, nvectors],
-    )
-
-    db.execute(
-        f'create virtual table "{name_escaped}" using vec_static_blob_entries({name_escaped})'
-    )
-
-def bench_sqlite_vec_static(base, query, k) -> BenchResult:
-    print(f"sqlite-vec static...")
-
-    db = sqlite3.connect(":memory:")
-    db.enable_load_extension(True)
-    db.load_extension("../../dist/vec0")
-
-
-
-    t = time.time()
-    register_np(db, base, "base")
-    build_time = time.time() - t
-
-    times = []
-    results = []
-    for (
-        idx,
-        q,
-    ) in enumerate(query):
-        t0 = time.time()
-        result = db.execute(
-            """
-              select
-                rowid
-              from base
-              where vector match ?
-                and k = ?
-              order by distance
-            """,
-            [q.tobytes(), k],
-        ).fetchall()
-        assert len(result) == k
-        times.append(time.time() - t0)
-    return BenchResult(f"sqlite-vec static", build_time, times)
-
 def bench_faiss(base, query, k) -> BenchResult:
     import faiss
     dimensions = base.shape[1]
@@ -438,8 +385,6 @@ def suite(name, base, query, k, benchmarks):
     for b in benchmarks:
         if b == "faiss":
             results.append(bench_faiss(base, query, k=k))
-        elif b == "vec-static":
-          results.append(bench_sqlite_vec_static(base, query, k=k))
         elif b.startswith("vec-scalar"):
             _, page_size = b.split('.')
             results.append(bench_sqlite_vec_scalar(base, query, page_size, k=k))
@@ -541,7 +486,7 @@ def parse_args():
         help="Number of queries to use. Defaults all",
     )
     parser.add_argument(
-        "-x", help="type of runs to make", default="faiss,vec-scalar.4096,vec-static,vec-vec0.4096.16,usearch,duckdb,hnswlib,numpy"
+        "-x", help="type of runs to make", default="faiss,vec-scalar.4096,vec-vec0.4096.16,usearch,duckdb,hnswlib,numpy"
     )
 
     args = parser.parse_args()
