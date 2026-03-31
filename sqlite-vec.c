@@ -22,59 +22,8 @@ SQLITE_EXTENSION_INIT1
 #include "sqlite3.h"
 #endif
 
-#ifndef UINT32_TYPE
-#ifdef HAVE_UINT32_T
-#define UINT32_TYPE uint32_t
-#else
-#define UINT32_TYPE unsigned int
-#endif
-#endif
-#ifndef UINT16_TYPE
-#ifdef HAVE_UINT16_T
-#define UINT16_TYPE uint16_t
-#else
-#define UINT16_TYPE unsigned short int
-#endif
-#endif
-#ifndef INT16_TYPE
-#ifdef HAVE_INT16_T
-#define INT16_TYPE int16_t
-#else
-#define INT16_TYPE short int
-#endif
-#endif
-#ifndef UINT8_TYPE
-#ifdef HAVE_UINT8_T
-#define UINT8_TYPE uint8_t
-#else
-#define UINT8_TYPE unsigned char
-#endif
-#endif
-#ifndef INT8_TYPE
-#ifdef HAVE_INT8_T
-#define INT8_TYPE int8_t
-#else
-#define INT8_TYPE signed char
-#endif
-#endif
-#ifndef LONGDOUBLE_TYPE
-#define LONGDOUBLE_TYPE long double
-#endif
-
 #ifndef SQLITE_VEC_ENABLE_DISKANN
 #define SQLITE_VEC_ENABLE_DISKANN 1
-#endif
-
-#ifndef _WIN32
-#ifndef __EMSCRIPTEN__
-#ifndef __COSMOPOLITAN__
-#ifndef __wasi__
-typedef u_int8_t uint8_t;
-typedef u_int16_t uint16_t;
-typedef u_int64_t uint64_t;
-#endif
-#endif
-#endif
 #endif
 
 typedef int8_t i8;
