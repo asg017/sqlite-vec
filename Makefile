@@ -42,6 +42,11 @@ ifndef OMIT_SIMD
 	ifeq ($(shell uname -sm),Darwin arm64)
 	CFLAGS += -mcpu=apple-m1 -DSQLITE_VEC_ENABLE_NEON
 	endif
+	ifeq ($(shell uname -s),Linux)
+	ifneq ($(filter avx,$(shell grep -o 'avx[^ ]*' /proc/cpuinfo 2>/dev/null | head -1)),)
+	CFLAGS += -mavx -DSQLITE_VEC_ENABLE_AVX
+	endif
+	endif
 endif
 
 ifdef USE_BREW_SQLITE
@@ -155,6 +160,13 @@ clean:
 	rm -rf dist
 
 
+TARGET_AMALGAMATION=$(prefix)/sqlite-vec.c
+
+amalgamation: $(TARGET_AMALGAMATION)
+
+$(TARGET_AMALGAMATION): sqlite-vec.c $(wildcard sqlite-vec-*.c) scripts/amalgamate.py $(prefix)
+	python3 scripts/amalgamate.py sqlite-vec.c > $@
+
 FORMAT_FILES=sqlite-vec.h sqlite-vec.c
 format: $(FORMAT_FILES)
 	clang-format -i $(FORMAT_FILES)
@@ -174,7 +186,7 @@ evidence-of:
 test:
 	sqlite3 :memory: '.read test.sql'
 
-.PHONY: version loadable static test clean gh-release evidence-of install uninstall
+.PHONY: version loadable static test clean gh-release evidence-of install uninstall amalgamation
 
 publish-release:
 	./scripts/publish-release.sh

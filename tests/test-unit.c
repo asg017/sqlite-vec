@@ -500,6 +500,83 @@ void test_vec0_parse_vector_column() {
     assert(rc == SQLITE_ERROR);
   }
 
+  // indexed by flat()
+  {
+    const char *input = "emb float[768] indexed by flat()";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_OK);
+    assert(col.index_type == VEC0_INDEX_TYPE_FLAT);
+    assert(col.dimensions == 768);
+    sqlite3_free(col.name);
+  }
+
+  // indexed by flat() with distance_metric
+  {
+    const char *input = "emb float[768] distance_metric=cosine indexed by flat()";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_OK);
+    assert(col.index_type == VEC0_INDEX_TYPE_FLAT);
+    assert(col.distance_metric == VEC0_DISTANCE_METRIC_COSINE);
+    sqlite3_free(col.name);
+  }
+
+  // indexed by flat() on int8
+  {
+    const char *input = "emb int8[256] indexed by flat()";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_OK);
+    assert(col.index_type == VEC0_INDEX_TYPE_FLAT);
+    assert(col.element_type == SQLITE_VEC_ELEMENT_TYPE_INT8);
+    sqlite3_free(col.name);
+  }
+
+  // indexed by flat() on bit
+  {
+    const char *input = "emb bit[64] indexed by flat()";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_OK);
+    assert(col.index_type == VEC0_INDEX_TYPE_FLAT);
+    assert(col.element_type == SQLITE_VEC_ELEMENT_TYPE_BIT);
+    sqlite3_free(col.name);
+  }
+
+  // default index_type is FLAT
+  {
+    const char *input = "emb float[768]";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_OK);
+    assert(col.index_type == VEC0_INDEX_TYPE_FLAT);
+    sqlite3_free(col.name);
+  }
+
+  // Error: indexed by (missing type name)
+  {
+    const char *input = "emb float[768] indexed by";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_ERROR);
+  }
+
+  // Error: indexed by unknown()
+  {
+    const char *input = "emb float[768] indexed by unknown()";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_ERROR);
+  }
+
+  // Error: indexed by flat (missing parens)
+  {
+    const char *input = "emb float[768] indexed by flat";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_ERROR);
+  }
+
+  // Error: indexed flat() (missing "by")
+  {
+    const char *input = "emb float[768] indexed flat()";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_ERROR);
+  }
+
   printf("  All vec0_parse_vector_column tests passed.\n");
 }
 
@@ -654,6 +731,30 @@ void test_distance_hamming() {
     unsigned char b[] = {0x00, 0xFF};
     d = _test_distance_hamming(a, b, 16);
     assert(d == 16.0f);
+  }
+
+  // Large vector (256 bits = 32 bytes) — exercises NEON path on ARM
+  {
+    unsigned char a[32];
+    unsigned char b[32];
+    memset(a, 0xFF, 32);
+    memset(b, 0x00, 32);
+    d = _test_distance_hamming(a, b, 256);
+    assert(d == 256.0f);
+  }
+
+  // Large vector (1024 bits = 128 bytes) — exercises 64-byte NEON loop
+  {
+    unsigned char a[128];
+    unsigned char b[128];
+    memset(a, 0x00, 128);
+    memset(b, 0x00, 128);
+    // Set every other byte to 0xFF in a, 0x00 in b -> 8 bits per byte * 64 bytes = 512
+    for (int i = 0; i < 128; i += 2) {
+      a[i] = 0xFF;
+    }
+    d = _test_distance_hamming(a, b, 1024);
+    assert(d == 512.0f);
   }
 
   printf("  All distance_hamming tests passed.\n");

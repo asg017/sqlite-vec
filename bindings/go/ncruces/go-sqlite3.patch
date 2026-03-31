@@ -6,7 +6,6 @@ index ed2aaec..4cc0b0e 100755
  	-Wl,--initial-memory=327680 \
  	-D_HAVE_SQLITE_CONFIG_H \
  	-DSQLITE_CUSTOM_INCLUDE=sqlite_opt.h \
-+  -DSQLITE_VEC_OMIT_FS=1 \
  	$(awk '{print "-Wl,--export="$0}' exports.txt)
 
  "$BINARYEN/wasm-ctor-eval" -g -c _initialize sqlite3.wasm -o sqlite3.tmp

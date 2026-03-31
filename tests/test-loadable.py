@@ -119,149 +119,7 @@ FUNCTIONS = [
 MODULES = [
     "vec0",
     "vec_each",
-    # "vec_static_blob_entries",
-    # "vec_static_blobs",
 ]
-
-
-def register_numpy(db, name: str, array):
-    ptr = array.__array_interface__["data"][0]
-    nvectors, dimensions = array.__array_interface__["shape"]
-    element_type = array.__array_interface__["typestr"]
-
-    assert element_type == "<f4"
-
-    name_escaped = db.execute("select printf('%w', ?)", [name]).fetchone()[0]
-
-    db.execute(
-        """
-          insert into temp.vec_static_blobs(name, data)
-          select ?, vec_static_blob_from_raw(?, ?, ?, ?)
-        """,
-        [name, ptr, element_type, dimensions, nvectors],
-    )
-
-    db.execute(
-        f'create virtual table "{name_escaped}" using vec_static_blob_entries({name_escaped})'
-    )
-
-
-def test_vec_static_blob_entries():
-    db = connect(EXT_PATH, extra_entrypoint="sqlite3_vec_static_blobs_init")
-
-    x = np.array([[0.1, 0.2, 0.3, 0.4], [0.9, 0.8, 0.7, 0.6]], dtype=np.float32)
-    y = np.array([[0.2, 0.3], [0.9, 0.8], [0.6, 0.5]], dtype=np.float32)
-    z = np.array(
-        [
-            [0.1, 0.1, 0.1, 0.1],
-            [0.2, 0.2, 0.2, 0.2],
-            [0.3, 0.3, 0.3, 0.3],
-            [0.4, 0.4, 0.4, 0.4],
-            [0.5, 0.5, 0.5, 0.5],
-        ],
-        dtype=np.float32,
-    )
-
-    register_numpy(db, "x", x)
-    register_numpy(db, "y", y)
-    register_numpy(db, "z", z)
-    assert execute_all(
-        db, "select *, dimensions, count from temp.vec_static_blobs;"
-    ) == [
-        {
-            "count": 2,
-            "data": None,
-            "dimensions": 4,
-            "name": "x",
-        },
-        {
-            "count": 3,
-            "data": None,
-            "dimensions": 2,
-            "name": "y",
-        },
-        {
-            "count": 5,
-            "data": None,
-            "dimensions": 4,
-            "name": "z",
-        },
-    ]
-
-    assert execute_all(db, "select vec_to_json(vector) from x;") == [
-        {
-            "vec_to_json(vector)": "[0.100000,0.200000,0.300000,0.400000]",
-        },
-        {
-            "vec_to_json(vector)": "[0.900000,0.800000,0.700000,0.600000]",
-        },
-    ]
-    assert execute_all(db, "select (vector) from y limit 2;") == [
-        {
-            "vector": b"\xcd\xccL>\x9a\x99\x99>",
-        },
-        {
-            "vector": b"fff?\xcd\xccL?",
-        },
-    ]
-    assert execute_all(db, "select rowid, (vector) from z") == [
-        {
-            "rowid": 0,
-            "vector": b"\xcd\xcc\xcc=\xcd\xcc\xcc=\xcd\xcc\xcc=\xcd\xcc\xcc=",
-        },
-        {
-            "rowid": 1,
-            "vector": b"\xcd\xccL>\xcd\xccL>\xcd\xccL>\xcd\xccL>",
-        },
-        {
-            "rowid": 2,
-            "vector": b"\x9a\x99\x99>\x9a\x99\x99>\x9a\x99\x99>\x9a\x99\x99>",
-        },
-        {
-            "rowid": 3,
-            "vector": b"\xcd\xcc\xcc>\xcd\xcc\xcc>\xcd\xcc\xcc>\xcd\xcc\xcc>",
-        },
-        {
-            "rowid": 4,
-            "vector": b"\x00\x00\x00?\x00\x00\x00?\x00\x00\x00?\x00\x00\x00?",
-        },
-    ]
-    assert execute_all(
-        db,
-        "select rowid, vec_to_json(vector) as v from z where vector match ? and k = 3 order by distance;",
-        [np.array([0.3, 0.3, 0.3, 0.3], dtype=np.float32)],
-    ) == [
-        {
-            "rowid": 2,
-            "v": "[0.300000,0.300000,0.300000,0.300000]",
-        },
-        {
-            "rowid": 3,
-            "v": "[0.400000,0.400000,0.400000,0.400000]",
-        },
-        {
-            "rowid": 1,
-            "v": "[0.200000,0.200000,0.200000,0.200000]",
-        },
-    ]
-    assert execute_all(
-        db,
-        "select rowid, vec_to_json(vector) as v from z where vector match ? and k = 3 order by distance;",
-        [np.array([0.6, 0.6, 0.6, 0.6], dtype=np.float32)],
-    ) == [
-        {
-            "rowid": 4,
-            "v": "[0.500000,0.500000,0.500000,0.500000]",
-        },
-        {
-            "rowid": 3,
-            "v": "[0.400000,0.400000,0.400000,0.400000]",
-        },
-        {
-            "rowid": 2,
-            "v": "[0.300000,0.300000,0.300000,0.300000]",
-        },
-    ]
 
 
 def test_limits():
@@ -1618,231 +1476,6 @@ def test_vec_each():
       vec_each_f32(None)
 
 
-import io
-
-
-def to_npy(arr):
-    buf = io.BytesIO()
-    np.save(buf, arr)
-    buf.seek(0)
-    return buf.read()
-
-
-def test_vec_npy_each():
-    db = connect(EXT_PATH, extra_entrypoint="sqlite3_vec_numpy_init")
-    vec_npy_each = lambda *args: execute_all(
-        db, "select rowid, * from vec_npy_each(?)", args
-    )
-    assert vec_npy_each(to_npy(np.array([1.1, 2.2, 3.3], dtype=np.float32))) == [
-        {
-            "rowid": 0,
-            "vector": _f32([1.1, 2.2, 3.3]),
-        },
-    ]
-    assert vec_npy_each(to_npy(np.array([[1.1, 2.2, 3.3]], dtype=np.float32))) == [
-        {
-            "rowid": 0,
-            "vector": _f32([1.1, 2.2, 3.3]),
-        },
-    ]
-    assert vec_npy_each(
-        to_npy(np.array([[1.1, 2.2, 3.3], [9.9, 8.8, 7.7]], dtype=np.float32))
-    ) == [
-        {
-            "rowid": 0,
-            "vector": _f32([1.1, 2.2, 3.3]),
-        },
-        {
-            "rowid": 1,
-            "vector": _f32([9.9, 8.8, 7.7]),
-        },
-    ]
-
-    assert vec_npy_each(to_npy(np.array([], dtype=np.float32))) == []
-
-
-def test_vec_npy_each_errors():
-    db = connect(EXT_PATH, extra_entrypoint="sqlite3_vec_numpy_init")
-    vec_npy_each = lambda *args: execute_all(
-        db, "select rowid, * from vec_npy_each(?)", args
-    )
-
-    full = b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-
-    # EVIDENCE-OF: V03312_20150 numpy validation too short
-    with _raises("numpy array too short"):
-        vec_npy_each(b"")
-    # EVIDENCE-OF: V11954_28792 numpy validate magic
-    with _raises("numpy array does not contain the 'magic' header"):
-        vec_npy_each(b"\x93NUMPX\x01\x00v\x00")
-
-    with _raises("numpy array header length is invalid"):
-        vec_npy_each(b"\x93NUMPY\x01\x00v\x00")
-
-    with _raises("numpy header did not start with '{'"):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00c'descr': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-
-    with _raises("expected key in numpy header"):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{                                                                                                                    \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-
-    with _raises("expected a string as key in numpy header"):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{False: '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-
-    with _raises("expected a ':' after key in numpy header"):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{'descr'                                                                                                           \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-    with _raises("expected a ':' after key in numpy header"):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{'descr' False                                                                                                           \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-
-    with _raises("expected a string value after 'descr' key"):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{'descr':                                                                                                  \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-
-    with _raises("Only '<f4' values are supported in sqlite-vec numpy functions"):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{'descr': '=f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-
-    with _raises(
-        "Only fortran_order = False is supported in sqlite-vec numpy functions"
-    ):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': True, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-
-    with _raises(
-        "Error parsing numpy array: Expected left parenthesis '(' after shape key"
-    ):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{'shape':  2, 'descr': '<f4', 'fortran_order': False, }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-
-    with _raises(
-        "Error parsing numpy array: Expected an initial number in shape value"
-    ):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{'shape':  (, 'descr': '<f4', 'fortran_order': False, }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-
-    with _raises("Error parsing numpy array: Expected comma after first shape value"):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{'shape':  (2), 'descr': '<f4', 'fortran_order': False, }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-
-    with _raises(
-        "Error parsing numpy array: unexpected header EOF while parsing shape"
-    ):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{'shape':  (2,                                                                                             \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-
-    with _raises("Error parsing numpy array: unknown type in shape value"):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{'shape':  (2, 'nope'                                                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-
-    with _raises(
-        "Error parsing numpy array: expected right parenthesis after shape value"
-    ):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{'shape':  (2,4 (                                                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-
-    with _raises("Error parsing numpy array: unknown key in numpy header"):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{'no': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-
-    with _raises("Error parsing numpy array: unknown extra token after value"):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{'descr': '<f4' 'asdf', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-
-    with _raises("numpy array error: Expected a data size of 32, found 31"):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3"
-        )
-
-    # with _raises("XXX"):
-    #    vec_npy_each(b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@")
-
-
-import tempfile
-
-
-def test_vec_npy_each_errors_files():
-    db = connect(EXT_PATH, extra_entrypoint="sqlite3_vec_numpy_init")
-
-    def vec_npy_each(data):
-        with tempfile.NamedTemporaryFile(delete_on_close=False) as f:
-            f.write(data)
-            f.close()
-            try:
-                return execute_all(
-                    db, "select rowid, * from vec_npy_each(vec_npy_file(?))", [f.name]
-                )
-            finally:
-                f.close()
-
-    with _raises("Could not open numpy file"):
-        db.execute('select * from vec_npy_each(vec_npy_file("not exist"))')
-
-    with _raises("numpy array file too short"):
-        vec_npy_each(b"\x93NUMPY\x01\x00v")
-
-    with _raises("numpy array file does not contain the 'magic' header"):
-        vec_npy_each(b"\x93XUMPY\x01\x00v\x00")
-
-    with _raises("numpy array file header length is invalid"):
-        vec_npy_each(b"\x93NUMPY\x01\x00v\x00")
-
-    with _raises(
-        "Error parsing numpy array: Only fortran_order = False is supported in sqlite-vec numpy functions"
-    ):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': True, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3@"
-        )
-
-    with _raises("numpy array file error: Expected a data size of 32, found 31"):
-        vec_npy_each(
-            b"\x93NUMPY\x01\x00v\x00{'descr': '<f4', 'fortran_order': False, 'shape': (2, 4), }                                                          \n\xcd\xcc\x8c?\xcd\xcc\x0c@33S@\xcd\xcc\x8c@ff\x1eA\xcd\xcc\x0cAff\xf6@33\xd3"
-        )
-
-    assert vec_npy_each(to_npy(np.array([1.1, 2.2, 3.3], dtype=np.float32))) == [
-        {
-            "rowid": 0,
-            "vector": _f32([1.1, 2.2, 3.3]),
-        },
-    ]
-    assert vec_npy_each(
-        to_npy(np.array([[1.1, 2.2, 3.3], [4.4, 5.5, 6.6]], dtype=np.float32))
-    ) == [
-        {
-            "rowid": 0,
-            "vector": _f32([1.1, 2.2, 3.3]),
-        },
-        {
-            "rowid": 1,
-            "vector": _f32([4.4, 5.5, 6.6]),
-        },
-    ]
-    assert vec_npy_each(to_npy(np.array([], dtype=np.float32))) == []
-    x1025 = vec_npy_each(to_npy(np.array([[0.1, 0.2, 0.3]] * 1025, dtype=np.float32)))
-    assert len(x1025) == 1025
-
-    # np.array([[.1, .2, 3]] * 99, dtype=np.float32).shape
-
-
 def test_vec0_constructor():
     vec_constructor_error_prefix = "vec0 constructor error: {}"
     vec_col_error_prefix = "vec0 constructor error: could not parse vector column '{}'"
@@ -1921,6 +1554,54 @@ def test_vec0_constructor():
         sqlite3.DatabaseError,
     ):
         db.execute("create virtual table v using vec0(4)")
+
+
+def test_vec0_indexed_by_flat():
+    db.execute("drop table if exists t_ibf")
+    db.execute("drop table if exists t_ibf2")
+    db.execute("drop table if exists t_ibf3")
+    db.execute("drop table if exists t_ibf4")
+
+    # indexed by flat() should succeed and behave identically to no index clause
+    db.execute("create virtual table t_ibf using vec0(emb float[4] indexed by flat())")
+    db.execute(
+        "insert into t_ibf(rowid, emb) values (1, X'00000000000000000000000000000000')"
+    )
+    rows = db.execute("select rowid from t_ibf where emb match X'00000000000000000000000000000000' and k = 1").fetchall()
+    assert len(rows) == 1
+    assert rows[0][0] == 1
+    db.execute("drop table t_ibf")
+
+    # indexed by flat() with distance_metric
+    db.execute(
+        "create virtual table t_ibf2 using vec0(emb float[4] distance_metric=cosine indexed by flat())"
+    )
+    db.execute("drop table t_ibf2")
+
+    # indexed by flat() on int8
+    db.execute("create virtual table t_ibf3 using vec0(emb int8[4] indexed by flat())")
+    db.execute("drop table t_ibf3")
+
+    # indexed by flat() on bit
+    db.execute("create virtual table t_ibf4 using vec0(emb bit[8] indexed by flat())")
+    db.execute("drop table t_ibf4")
+
+    # Error: unknown index type
+    with _raises(
+        "vec0 constructor error: could not parse vector column 'emb float[4] indexed by unknown()'",
+        sqlite3.DatabaseError,
+    ):
+        db.execute("create virtual table v using vec0(emb float[4] indexed by unknown())")
+
+    # Error: indexed by (missing type)
+    with _raises(
+        "vec0 constructor error: could not parse vector column 'emb float[4] indexed by'",
+        sqlite3.DatabaseError,
+    ):
+        db.execute("create virtual table v using vec0(emb float[4] indexed by)")
+
+    if db.in_transaction:
+        db.rollback()
 
 
 def test_vec0_create_errors():

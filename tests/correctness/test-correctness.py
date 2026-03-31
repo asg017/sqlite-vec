@@ -48,7 +48,6 @@ import json
 db = sqlite3.connect(":memory:")
 db.enable_load_extension(True)
 db.load_extension("../../dist/vec0")
-db.execute("select load_extension('../../dist/vec0', 'sqlite3_vec_fs_read_init')")
 db.enable_load_extension(False)
 
 results = db.execute(
@@ -75,15 +74,19 @@ print(b)
 
 db.execute('PRAGMA page_size=16384')
 
-print("Loading into sqlite-vec vec0 table...")
-t0 = time.time()
-db.execute("create virtual table v using vec0(a float[3072], chunk_size=16)")
-db.execute('insert into v select rowid, vector from vec_npy_each(vec_npy_file("dbpedia_openai_3_large_00.npy"))')
-print(time.time() - t0)
-
 print("loading numpy array...")
 t0 = time.time()
 base = np.load('dbpedia_openai_3_large_00.npy')
+print(time.time() - t0)
+
+print("Loading into sqlite-vec vec0 table...")
+t0 = time.time()
+db.execute("create virtual table v using vec0(a float[3072], chunk_size=16)")
+with db:
+    db.executemany(
+        "insert into v(rowid, a) values (?, ?)",
+        [(i, row.tobytes()) for i, row in enumerate(base)],
+    )
 print(time.time() - t0)
 
 np.random.seed(1)
