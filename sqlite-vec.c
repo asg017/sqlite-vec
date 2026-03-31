@@ -734,10 +734,13 @@ static unsigned int __builtin_popcountl(unsigned int x) {
 #endif
 #endif
 
-static f32 distance_hamming_u64(u64 *a, u64 *b, size_t n) {
+static f32 distance_hamming_u64(const u8 *a, const u8 *b, size_t n) {
   int same = 0;
   for (unsigned long i = 0; i < n; i++) {
-    same += __builtin_popcountl(a[i] ^ b[i]);
+    u64 va, vb;
+    memcpy(&va, a + i * sizeof(u64), sizeof(u64));
+    memcpy(&vb, b + i * sizeof(u64), sizeof(u64));
+    same += __builtin_popcountl(va ^ vb);
   }
   return (f32)same;
 }
@@ -761,7 +764,7 @@ static f32 distance_hamming(const void *a, const void *b, const void *d) {
 #endif
 
   if ((dimensions % 64) == 0) {
-    return distance_hamming_u64((u64 *)a, (u64 *)b, n_bytes / sizeof(u64));
+    return distance_hamming_u64((const u8 *)a, (const u8 *)b, n_bytes / sizeof(u64));
   }
   return distance_hamming_u8((u8 *)a, (u8 *)b, n_bytes);
 }
