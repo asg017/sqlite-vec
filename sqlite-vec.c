@@ -4625,16 +4625,10 @@ int vec0_new_chunk(vec0_vtab *p, sqlite3_value ** partitionKeyValues, i64 *chunk
     }
     int vector_column_idx = p->user_column_idxs[i];
 
-#if SQLITE_VEC_ENABLE_RESCORE
-    // Rescore and IVF columns don't use _vector_chunks for float storage
-    if (p->vector_columns[vector_column_idx].index_type == VEC0_INDEX_TYPE_RESCORE
-#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
-        || p->vector_columns[vector_column_idx].index_type == VEC0_INDEX_TYPE_IVF
-#endif
-    ) {
+    // Non-FLAT columns (rescore, IVF, DiskANN) don't use _vector_chunks
+    if (p->vector_columns[vector_column_idx].index_type != VEC0_INDEX_TYPE_FLAT) {
       continue;
     }
-#endif
 
     i64 vectorsSize =
         p->chunk_size * vector_column_byte_size(p->vector_columns[vector_column_idx]);
@@ -5418,11 +5412,9 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     sqlite3_finalize(stmt);
 
     for (int i = 0; i < pNew->numVectorColumns; i++) {
-#if SQLITE_VEC_ENABLE_RESCORE
-      // Non-FLAT columns don't use _vector_chunks
+      // Non-FLAT columns (rescore, IVF, DiskANN) don't use _vector_chunks
       if (pNew->vector_columns[i].index_type != VEC0_INDEX_TYPE_FLAT)
         continue;
-#endif
       char *zSql = sqlite3_mprintf(VEC0_SHADOW_VECTOR_N_CREATE,
                                    pNew->schemaName, pNew->tableName, i);
       if (!zSql) {
@@ -5711,10 +5703,9 @@ static int vec0Destroy(sqlite3_vtab *pVtab) {
       continue;
     }
 #endif
-#if SQLITE_VEC_ENABLE_RESCORE
+    // Non-FLAT columns (rescore, IVF, DiskANN) don't use _vector_chunks
     if (p->vector_columns[i].index_type != VEC0_INDEX_TYPE_FLAT)
       continue;
-#endif
     zSql = sqlite3_mprintf("DROP TABLE \"%w\".\"%w\"", p->schemaName,
                            p->shadowVectorChunksNames[i]);
     rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, 0);
@@ -8764,15 +8755,9 @@ int vec0Update_InsertWriteFinalStep(vec0_vtab *p, i64 chunk_rowid,
 
   // Go insert the vector data into the vector chunk shadow tables
   for (int i = 0; i < p->numVectorColumns; i++) {
-#if SQLITE_VEC_ENABLE_RESCORE
-    // Rescore and IVF columns don't use _vector_chunks
-    if (p->vector_columns[i].index_type == VEC0_INDEX_TYPE_RESCORE
-#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
-        || p->vector_columns[i].index_type == VEC0_INDEX_TYPE_IVF
-#endif
-    )
+    // Non-FLAT columns (rescore, IVF, DiskANN) don't use _vector_chunks
+    if (p->vector_columns[i].index_type != VEC0_INDEX_TYPE_FLAT)
       continue;
-#endif
 
     sqlite3_blob *blobVectors;
     rc = sqlite3_blob_open(p->db, p->schemaName, p->shadowVectorChunksNames[i],
@@ -9398,11 +9383,9 @@ int vec0Update_Delete_ClearVectors(vec0_vtab *p, i64 chunk_id,
                                     u64 chunk_offset) {
   int rc, brc;
   for (int i = 0; i < p->numVectorColumns; i++) {
-#if SQLITE_VEC_ENABLE_RESCORE
-    // Non-FLAT columns don't use _vector_chunks
+    // Non-FLAT columns (rescore, IVF, DiskANN) don't use _vector_chunks
     if (p->vector_columns[i].index_type != VEC0_INDEX_TYPE_FLAT)
       continue;
-#endif
     sqlite3_blob *blobVectors = NULL;
     size_t n = vector_column_byte_size(p->vector_columns[i]);
 
@@ -9514,10 +9497,9 @@ int vec0Update_Delete_DeleteChunkIfEmpty(vec0_vtab *p, i64 chunk_id,
 
   // Delete from each _vector_chunksNN
   for (int i = 0; i < p->numVectorColumns; i++) {
-#if SQLITE_VEC_ENABLE_RESCORE
+    // Non-FLAT columns (rescore, IVF, DiskANN) don't use _vector_chunks
     if (p->vector_columns[i].index_type != VEC0_INDEX_TYPE_FLAT)
       continue;
-#endif
     zSql = sqlite3_mprintf(
         "DELETE FROM " VEC0_SHADOW_VECTOR_N_NAME " WHERE rowid = ?",
         p->schemaName, p->tableName, i);
@@ -9711,8 +9693,8 @@ int vec0Update_Delete(sqlite3_vtab *pVTab, sqlite3_value *idValue) {
   vec0_vtab *p = (vec0_vtab *)pVTab;
   int rc;
   i64 rowid;
-  i64 chunk_id;
-  i64 chunk_offset;
+  i64 chunk_id = 0;
+  i64 chunk_offset = 0;
 
   if (p->pkIsText) {
     rc = vec0_rowid_from_id(p, idValue, &rowid);
@@ -9764,16 +9746,15 @@ int vec0Update_Delete(sqlite3_vtab *pVTab, sqlite3_value *idValue) {
     if (rc != SQLITE_OK) {
       return rc;
     }
-  }
-
 
 #if SQLITE_VEC_ENABLE_RESCORE
-  // 4b. zero out quantized data in rescore chunk tables, delete from rescore vectors
-  rc = rescore_on_delete(p, chunk_id, chunk_offset, rowid);
-  if (rc != SQLITE_OK) {
-    return rc;
-  }
+    // 4b. zero out quantized data in rescore chunk tables, delete from rescore vectors
+    rc = rescore_on_delete(p, chunk_id, chunk_offset, rowid);
+    if (rc != SQLITE_OK) {
+      return rc;
+    }
 #endif
+  }
 
   // 5. delete from _rowids table
   rc = vec0Update_Delete_DeleteRowids(p, rowid);
