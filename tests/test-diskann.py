@@ -1149,3 +1149,30 @@ def test_diskann_large_batch_insert_500(db):
     distances = [r[1] for r in rows]
     for i in range(len(distances) - 1):
         assert distances[i] <= distances[i + 1]
+
+
+def test_corrupt_truncated_node_blob(db):
+    """KNN should error (not crash) when DiskANN node blob is truncated."""
+    db.execute("""
+        CREATE VIRTUAL TABLE t USING vec0(
+            emb float[8] INDEXED BY diskann(neighbor_quantizer=binary, n_neighbors=8)
+        )
+    """)
+    for i in range(5):
+        vec = [0.0] * 8
+        vec[i % 8] = 1.0
+        db.execute("INSERT INTO t(rowid, emb) VALUES (?, ?)", [i + 1, _f32(vec)])
+
+    # Corrupt a DiskANN node: truncate neighbor_ids to 1 byte (wrong size)
+    db.execute(
+        "UPDATE t_diskann_nodes00 SET neighbor_ids = x'00' WHERE rowid = 1"
+    )
+
+    # Should not crash — may return wrong results or error
+    try:
+        db.execute(
+            "SELECT rowid FROM t WHERE emb MATCH ? AND k=3",
+            [_f32([1, 0, 0, 0, 0, 0, 0, 0])],
+        ).fetchall()
+    except sqlite3.OperationalError:
+        pass  # Error is acceptable — crash is not

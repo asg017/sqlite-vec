@@ -566,3 +566,32 @@ def test_multiple_vector_columns(db):
         [float_vec([1.0] * 8)],
     ).fetchall()
     assert rows[0]["rowid"] == 2
+
+
+def test_corrupt_zeroblob_validity(db):
+    """KNN should error (not crash) when rescore chunk rowids blob is zeroed out."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0("
+        "  embedding float[8] indexed by rescore(quantizer=bit)"
+        ")"
+    )
+    db.execute(
+        "INSERT INTO t(rowid, embedding) VALUES (1, ?)",
+        [float_vec([1, 0, 0, 0, 0, 0, 0, 0])],
+    )
+    db.execute(
+        "INSERT INTO t(rowid, embedding) VALUES (2, ?)",
+        [float_vec([0, 1, 0, 0, 0, 0, 0, 0])],
+    )
+
+    # Corrupt: replace rowids with a truncated blob (wrong size)
+    db.execute("UPDATE t_chunks SET rowids = x'00'")
+
+    # Should not crash — may return wrong results or error
+    try:
+        rows = db.execute(
+            "SELECT rowid FROM t WHERE embedding MATCH ? ORDER BY distance LIMIT 1",
+            [float_vec([1, 0, 0, 0, 0, 0, 0, 0])],
+        ).fetchall()
+    except sqlite3.OperationalError:
+        pass  # Error is acceptable — crash is not

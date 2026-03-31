@@ -410,9 +410,18 @@ static int diskann_node_read(vec0_vtab *p, int vec_col_idx, i64 rowid,
     return SQLITE_NOMEM;
   }
 
-  memcpy(v, sqlite3_column_blob(stmt, 0), vs);
-  memcpy(ids, sqlite3_column_blob(stmt, 1), is);
-  memcpy(qv, sqlite3_column_blob(stmt, 2), qs);
+  const void *blobV = sqlite3_column_blob(stmt, 0);
+  const void *blobIds = sqlite3_column_blob(stmt, 1);
+  const void *blobQv = sqlite3_column_blob(stmt, 2);
+  if (!blobV || !blobIds || !blobQv) {
+    sqlite3_free(v);
+    sqlite3_free(ids);
+    sqlite3_free(qv);
+    return SQLITE_ERROR;
+  }
+  memcpy(v, blobV, vs);
+  memcpy(ids, blobIds, is);
+  memcpy(qv, blobQv, qs);
 
   *outValidity = v;       *outValiditySize = vs;
   *outNeighborIds = ids;  *outNeighborIdsSize = is;
@@ -480,9 +489,11 @@ static int diskann_vector_read(vec0_vtab *p, int vec_col_idx, i64 rowid,
   }
 
   int sz = sqlite3_column_bytes(stmt, 0);
+  const void *blob = sqlite3_column_blob(stmt, 0);
+  if (!blob || sz == 0) return SQLITE_ERROR;
   void *vec = sqlite3_malloc(sz);
   if (!vec) return SQLITE_NOMEM;
-  memcpy(vec, sqlite3_column_blob(stmt, 0), sz);
+  memcpy(vec, blob, sz);
 
   *outVector = vec;
   *outVectorSize = sz;
@@ -1325,6 +1336,7 @@ static int diskann_flush_buffer(vec0_vtab *p, int vec_col_idx) {
   while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
     i64 rowid = sqlite3_column_int64(stmt, 0);
     const void *vector = sqlite3_column_blob(stmt, 1);
+    if (!vector) continue;
     // Note: vector is already written to _vectors table, so
     // diskann_insert_graph will skip re-writing it (vector already exists).
     // We call the graph-only insert path.

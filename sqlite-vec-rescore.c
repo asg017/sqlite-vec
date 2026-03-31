@@ -426,6 +426,10 @@ static int rescore_knn(vec0_vtab *p, vec0_cursor *pCur,
     unsigned char *chunkValidity =
         (unsigned char *)sqlite3_column_blob(stmtChunks, 1);
     i64 *chunkRowids = (i64 *)sqlite3_column_blob(stmtChunks, 2);
+    if (!chunkValidity || !chunkRowids) {
+      rc = SQLITE_ERROR;
+      goto cleanup;
+    }
 
     memset(chunk_distances, 0, p->chunk_size * sizeof(f32));
     memset(chunk_topk_idxs, 0, k_oversample * sizeof(i32));
