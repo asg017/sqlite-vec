@@ -156,21 +156,11 @@ static void rescore_quantize_float_to_bit(const float *src, uint8_t *dst,
 
 static void rescore_quantize_float_to_int8(const float *src, int8_t *dst,
                                            size_t dimensions) {
-  float vmin = src[0], vmax = src[0];
-  for (size_t i = 1; i < dimensions; i++) {
-    if (src[i] < vmin) vmin = src[i];
-    if (src[i] > vmax) vmax = src[i];
-  }
-  float range = vmax - vmin;
-  if (range == 0.0f) {
-    memset(dst, 0, dimensions);
-    return;
-  }
-  float scale = 255.0f / range;
+  float step = 2.0f / 255.0f;
   for (size_t i = 0; i < dimensions; i++) {
-    float v = (src[i] - vmin) * scale - 128.0f;
-    if (v < -128.0f) v = -128.0f;
-    if (v > 127.0f) v = 127.0f;
+    float v = (src[i] - (-1.0f)) / step - 128.0f;
+    if (!(v <= 127.0f)) v = 127.0f;
+    if (!(v >= -128.0f)) v = -128.0f;
     dst[i] = (int8_t)v;
   }
 }
