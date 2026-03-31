@@ -465,7 +465,7 @@ static int rescore_knn(vec0_vtab *p, vec0_cursor *pCur,
     for (int j = 0; j < p->chunk_size; j++) {
       if (!bitmap_get(b, j))
         continue;
-      f32 dist;
+      f32 dist = FLT_MAX;
       switch (vector_column->rescore.quantizer_type) {
       case VEC0_RESCORE_QUANTIZER_BIT: {
         const u8 *base_j = ((u8 *)baseVectors) + (j * (qdim / CHAR_BIT));
