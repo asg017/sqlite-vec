@@ -141,6 +141,39 @@ INDEX_REGISTRY["baseline"] = {
 
 
 # ============================================================================
+# Rescore implementation
+# ============================================================================
+
+
+def _rescore_create_table_sql(params):
+    quantizer = params.get("quantizer", "bit")
+    oversample = params.get("oversample", 8)
+    return (
+        f"CREATE VIRTUAL TABLE vec_items USING vec0("
+        f"  chunk_size=256,"
+        f"  id integer primary key,"
+        f"  embedding float[768] distance_metric=cosine"
+        f"  indexed by rescore(quantizer={quantizer}, oversample={oversample}))"
+    )
+
+
+def _rescore_describe(params):
+    q = params.get("quantizer", "bit")
+    os = params.get("oversample", 8)
+    return f"rescore  {q} (os={os})"
+
+
+INDEX_REGISTRY["rescore"] = {
+    "defaults": {"quantizer": "bit", "oversample": 8},
+    "create_table_sql": _rescore_create_table_sql,
+    "insert_sql": None,
+    "post_insert_hook": None,
+    "run_query": None,  # default MATCH query works — rescore is automatic
+    "describe": _rescore_describe,
+}
+
+
+# ============================================================================
 # Config parsing
 # ============================================================================
 
