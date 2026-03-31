@@ -8,27 +8,20 @@ BASELINES = \
 	"brute-int8:type=baseline,variant=int8" \
 	"brute-bit:type=baseline,variant=bit"
 
-# --- Index-specific configs ---
-# Each index branch should add its own configs here. Example:
-#
-# DISKANN_CONFIGS = \
-# 	"diskann-R48-binary:type=diskann,R=48,L=128,quantizer=binary" \
-# 	"diskann-R72-int8:type=diskann,R=72,L=128,quantizer=int8"
-#
-# IVF_CONFIGS = \
-# 	"ivf-n128-p16:type=ivf,nlist=128,nprobe=16"
-#
-# ANNOY_CONFIGS = \
-# 	"annoy-t50:type=annoy,n_trees=50"
+# --- IVF configs ---
+IVF_CONFIGS = \
+	"ivf-n32-p8:type=ivf,nlist=32,nprobe=8" \
+	"ivf-n128-p16:type=ivf,nlist=128,nprobe=16" \
+	"ivf-n512-p32:type=ivf,nlist=512,nprobe=32"
 
 RESCORE_CONFIGS = \
 	"rescore-bit-os8:type=rescore,quantizer=bit,oversample=8" \
 	"rescore-bit-os16:type=rescore,quantizer=bit,oversample=16" \
 	"rescore-int8-os8:type=rescore,quantizer=int8,oversample=8"
 
-ALL_CONFIGS = $(BASELINES) $(RESCORE_CONFIGS)
+ALL_CONFIGS = $(BASELINES) $(RESCORE_CONFIGS) $(IVF_CONFIGS)
 
-.PHONY: seed ground-truth bench-smoke bench-rescore bench-10k bench-50k bench-100k bench-all \
+.PHONY: seed ground-truth bench-smoke bench-rescore bench-ivf bench-10k bench-50k bench-100k bench-all \
         report clean
 
 # --- Data preparation ---
@@ -43,7 +36,8 @@ ground-truth: seed
 # --- Quick smoke test ---
 bench-smoke: seed
 	$(BENCH) --subset-size 5000 -k 10 -n 20 -o runs/smoke \
-		$(BASELINES)
+		"brute-float:type=baseline,variant=float" \
+		"ivf-quick:type=ivf,nlist=16,nprobe=4"
 
 bench-rescore: seed
 	$(BENCH) --subset-size 10000 -k 10 -o runs/rescore \
@@ -61,6 +55,12 @@ bench-100k: seed
 	$(BENCH) --subset-size 100000 -k 10 -o runs/100k $(ALL_CONFIGS)
 
 bench-all: bench-10k bench-50k bench-100k
+
+# --- IVF across sizes ---
+bench-ivf: seed
+	$(BENCH) --subset-size 10000 -k 10 -o runs/ivf $(BASELINES) $(IVF_CONFIGS)
+	$(BENCH) --subset-size 50000 -k 10 -o runs/ivf $(BASELINES) $(IVF_CONFIGS)
+	$(BENCH) --subset-size 100000 -k 10 -o runs/ivf $(BASELINES) $(IVF_CONFIGS)
 
 # --- Report ---
 report:

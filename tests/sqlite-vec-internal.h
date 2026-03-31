@@ -5,6 +5,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifndef SQLITE_VEC_ENABLE_IVF
+#define SQLITE_VEC_ENABLE_IVF 1
+#endif
+
 int min_idx(
   const float *distances,
   int32_t n,
@@ -68,7 +72,35 @@ enum Vec0IndexType {
 #ifdef SQLITE_VEC_ENABLE_RESCORE
   VEC0_INDEX_TYPE_RESCORE = 2,
 #endif
+  VEC0_INDEX_TYPE_IVF = 3,
 };
+
+enum Vec0RescoreQuantizerType {
+  VEC0_RESCORE_QUANTIZER_BIT = 1,
+  VEC0_RESCORE_QUANTIZER_INT8 = 2,
+};
+
+struct Vec0RescoreConfig {
+  enum Vec0RescoreQuantizerType quantizer_type;
+  int oversample;
+};
+
+#if SQLITE_VEC_ENABLE_IVF
+enum Vec0IvfQuantizer {
+  VEC0_IVF_QUANTIZER_NONE = 0,
+  VEC0_IVF_QUANTIZER_INT8 = 1,
+  VEC0_IVF_QUANTIZER_BINARY = 2,
+};
+
+struct Vec0IvfConfig {
+  int nlist;
+  int nprobe;
+  int quantizer;
+  int oversample;
+};
+#else
+struct Vec0IvfConfig { char _unused; };
+#endif
 
 #ifdef SQLITE_VEC_ENABLE_RESCORE
 enum Vec0RescoreQuantizerType {
@@ -93,6 +125,7 @@ struct VectorColumnDefinition {
 #ifdef SQLITE_VEC_ENABLE_RESCORE
   struct Vec0RescoreConfig rescore;
 #endif
+  struct Vec0IvfConfig ivf;
 };
 
 int vec0_parse_vector_column(const char *source, int source_length,
@@ -113,6 +146,10 @@ void _test_rescore_quantize_float_to_bit(const float *src, uint8_t *dst, size_t 
 void _test_rescore_quantize_float_to_int8(const float *src, int8_t *dst, size_t dim);
 size_t _test_rescore_quantized_byte_size_bit(size_t dimensions);
 size_t _test_rescore_quantized_byte_size_int8(size_t dimensions);
+#endif
+#if SQLITE_VEC_ENABLE_IVF
+void ivf_quantize_int8(const float *src, int8_t *dst, int D);
+void ivf_quantize_binary(const float *src, uint8_t *dst, int D);
 #endif
 #endif
 

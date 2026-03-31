@@ -93,6 +93,10 @@ typedef size_t usize;
 #define COMPILER_SUPPORTS_VTAB_IN 1
 #endif
 
+#ifndef SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+#define SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE 0
+#endif
+
 #ifndef SQLITE_SUBTYPE
 #define SQLITE_SUBTYPE 0x000100000
 #endif
@@ -2539,6 +2543,7 @@ enum Vec0IndexType {
 #if SQLITE_VEC_ENABLE_RESCORE
   VEC0_INDEX_TYPE_RESCORE = 2,
 #endif
+  VEC0_INDEX_TYPE_IVF = 3,
 };
 
 #if SQLITE_VEC_ENABLE_RESCORE
@@ -2553,6 +2558,22 @@ struct Vec0RescoreConfig {
 };
 #endif
 
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+enum Vec0IvfQuantizer {
+  VEC0_IVF_QUANTIZER_NONE = 0,
+  VEC0_IVF_QUANTIZER_INT8 = 1,
+  VEC0_IVF_QUANTIZER_BINARY = 2,
+};
+
+struct Vec0IvfConfig {
+  int nlist;       // number of centroids (0 = deferred)
+  int nprobe;      // cells to probe at query time
+  int quantizer;   // VEC0_IVF_QUANTIZER_NONE / INT8 / BINARY
+  int oversample;  // >= 1 (1 = no oversampling)
+};
+#else
+struct Vec0IvfConfig { char _unused; };
+#endif
 
 struct VectorColumnDefinition {
   char *name;
@@ -2564,6 +2585,7 @@ struct VectorColumnDefinition {
 #if SQLITE_VEC_ENABLE_RESCORE
   struct Vec0RescoreConfig rescore;
 #endif
+  struct Vec0IvfConfig ivf;
 };
 
 struct Vec0PartitionColumnDefinition {
@@ -2715,6 +2737,12 @@ static int vec0_parse_rescore_options(struct Vec0Scanner *scanner,
  * @return int SQLITE_OK on success, SQLITE_EMPTY is it's not a vector column
  * definition, SQLITE_ERROR on error.
  */
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+// Forward declaration — defined in sqlite-vec-ivf.c
+static int vec0_parse_ivf_options(struct Vec0Scanner *scanner,
+                                   struct Vec0IvfConfig *config);
+#endif
+
 int vec0_parse_vector_column(const char *source, int source_length,
                         struct VectorColumnDefinition *outColumn) {
   // parses a vector column definition like so:
@@ -2733,6 +2761,8 @@ int vec0_parse_vector_column(const char *source, int source_length,
   struct Vec0RescoreConfig rescoreConfig;
   memset(&rescoreConfig, 0, sizeof(rescoreConfig));
 #endif
+  struct Vec0IvfConfig ivfConfig;
+  memset(&ivfConfig, 0, sizeof(ivfConfig));
   int dimensions;
 
   vec0_scanner_init(&scanner, source, source_length);
@@ -2891,7 +2921,18 @@ int vec0_parse_vector_column(const char *source, int source_length,
         }
       }
 #endif
-      else {
+      else if (sqlite3_strnicmp(token.start, "ivf", indexNameLen) == 0) {
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+        indexType = VEC0_INDEX_TYPE_IVF;
+        memset(&ivfConfig, 0, sizeof(ivfConfig));
+        rc = vec0_parse_ivf_options(&scanner, &ivfConfig);
+        if (rc != SQLITE_OK) {
+          return SQLITE_ERROR;
+        }
+#else
+        return SQLITE_ERROR; // IVF not compiled in
+#endif
+      } else {
         // unknown index type
         return SQLITE_ERROR;
       }
@@ -2914,6 +2955,7 @@ int vec0_parse_vector_column(const char *source, int source_length,
 #if SQLITE_VEC_ENABLE_RESCORE
   outColumn->rescore = rescoreConfig;
 #endif
+  outColumn->ivf = ivfConfig;
   return SQLITE_OK;
 }
 
@@ -3279,6 +3321,18 @@ struct vec0_vtab {
 
   int chunk_size;
 
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+  // IVF cached state per vector column
+  char *shadowIvfCellsNames[VEC0_MAX_VECTOR_COLUMNS];   // table name for blob_open
+  int ivfTrainedCache[VEC0_MAX_VECTOR_COLUMNS];          // -1=unknown, 0=no, 1=yes
+  sqlite3_stmt *stmtIvfCellMeta[VEC0_MAX_VECTOR_COLUMNS];      // SELECT n_vectors, length(validity)*8 FROM cells WHERE cell_id=?
+  sqlite3_stmt *stmtIvfCellUpdateN[VEC0_MAX_VECTOR_COLUMNS];   // UPDATE cells SET n_vectors=n_vectors+? WHERE cell_id=?
+  sqlite3_stmt *stmtIvfRowidMapInsert[VEC0_MAX_VECTOR_COLUMNS]; // INSERT INTO rowid_map(rowid,cell_id,slot) VALUES(?,?,?)
+  sqlite3_stmt *stmtIvfRowidMapLookup[VEC0_MAX_VECTOR_COLUMNS]; // SELECT cell_id,slot FROM rowid_map WHERE rowid=?
+  sqlite3_stmt *stmtIvfRowidMapDelete[VEC0_MAX_VECTOR_COLUMNS]; // DELETE FROM rowid_map WHERE rowid=?
+  sqlite3_stmt *stmtIvfCentroidsAll[VEC0_MAX_VECTOR_COLUMNS];   // SELECT centroid_id,centroid FROM centroids
+#endif
+
   // select latest chunk from _chunks, getting chunk_id
   sqlite3_stmt *stmtLatestChunk;
 
@@ -3364,6 +3418,17 @@ void vec0_free_resources(vec0_vtab *p) {
   p->stmtRowidsUpdatePosition = NULL;
   sqlite3_finalize(p->stmtRowidsGetChunkPosition);
   p->stmtRowidsGetChunkPosition = NULL;
+
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+  for (int i = 0; i < VEC0_MAX_VECTOR_COLUMNS; i++) {
+    sqlite3_finalize(p->stmtIvfCellMeta[i]); p->stmtIvfCellMeta[i] = NULL;
+    sqlite3_finalize(p->stmtIvfCellUpdateN[i]); p->stmtIvfCellUpdateN[i] = NULL;
+    sqlite3_finalize(p->stmtIvfRowidMapInsert[i]); p->stmtIvfRowidMapInsert[i] = NULL;
+    sqlite3_finalize(p->stmtIvfRowidMapLookup[i]); p->stmtIvfRowidMapLookup[i] = NULL;
+    sqlite3_finalize(p->stmtIvfRowidMapDelete[i]); p->stmtIvfRowidMapDelete[i] = NULL;
+    sqlite3_finalize(p->stmtIvfCentroidsAll[i]); p->stmtIvfCentroidsAll[i] = NULL;
+  }
+#endif
 }
 
 /**
@@ -3386,6 +3451,10 @@ void vec0_free(vec0_vtab *p) {
   for (int i = 0; i < p->numVectorColumns; i++) {
     sqlite3_free(p->shadowVectorChunksNames[i]);
     p->shadowVectorChunksNames[i] = NULL;
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+    sqlite3_free(p->shadowIvfCellsNames[i]);
+    p->shadowIvfCellsNames[i] = NULL;
+#endif
 
 #if SQLITE_VEC_ENABLE_RESCORE
     sqlite3_free(p->shadowRescoreChunksNames[i]);
@@ -3674,12 +3743,25 @@ int vec0_result_id(vec0_vtab *p, sqlite3_context *context, i64 rowid) {
  *                       will be stored.
  * @return int SQLITE_OK on success.
  */
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+// Forward declaration — defined in sqlite-vec-ivf.c (included later)
+static int ivf_get_vector_data(vec0_vtab *p, i64 rowid, int col_idx,
+                                void **outVector, int *outVectorSize);
+#endif
+
 int vec0_get_vector_data(vec0_vtab *pVtab, i64 rowid, int vector_column_idx,
                          void **outVector, int *outVectorSize) {
   vec0_vtab *p = pVtab;
   int rc, brc;
   i64 chunk_id;
   i64 chunk_offset;
+
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+  // IVF-indexed columns store vectors in _ivf_cells, not _vector_chunks
+  if (p->vector_columns[vector_column_idx].index_type == VEC0_INDEX_TYPE_IVF) {
+    return ivf_get_vector_data(p, rowid, vector_column_idx, outVector, outVectorSize);
+  }
+#endif
   size_t size;
   void *buf = NULL;
   int blobOffset;
@@ -4327,8 +4409,12 @@ int vec0_new_chunk(vec0_vtab *p, sqlite3_value ** partitionKeyValues, i64 *chunk
     int vector_column_idx = p->user_column_idxs[i];
 
 #if SQLITE_VEC_ENABLE_RESCORE
-    // Rescore columns don't use _vector_chunks for float storage
-    if (p->vector_columns[vector_column_idx].index_type == VEC0_INDEX_TYPE_RESCORE) {
+    // Rescore and IVF columns don't use _vector_chunks for float storage
+    if (p->vector_columns[vector_column_idx].index_type == VEC0_INDEX_TYPE_RESCORE
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+        || p->vector_columns[vector_column_idx].index_type == VEC0_INDEX_TYPE_IVF
+#endif
+    ) {
       continue;
     }
 #endif
@@ -4499,6 +4585,12 @@ void vec0_cursor_clear(vec0_cursor *pCur) {
     pCur->point_data = NULL;
   }
 }
+
+// IVF index implementation — #include'd here after all struct/helper definitions
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+#include "sqlite-vec-ivf-kmeans.c"
+#include "sqlite-vec-ivf.c"
+#endif
 
 #define VEC_CONSTRUCTOR_ERROR "vec0 constructor error: "
 static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
@@ -4761,6 +4853,34 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
   }
 #endif
 
+  // IVF indexes do not support auxiliary, metadata, or partition key columns.
+  {
+    int has_ivf = 0;
+    for (int i = 0; i < numVectorColumns; i++) {
+      if (pNew->vector_columns[i].index_type == VEC0_INDEX_TYPE_IVF) {
+        has_ivf = 1;
+        break;
+      }
+    }
+    if (has_ivf) {
+      if (numPartitionColumns > 0) {
+        *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR
+            "partition key columns are not supported with IVF indexes");
+        goto error;
+      }
+      if (numAuxiliaryColumns > 0) {
+        *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR
+            "auxiliary columns are not supported with IVF indexes");
+        goto error;
+      }
+      if (numMetadataColumns > 0) {
+        *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR
+            "metadata columns are not supported with IVF indexes");
+        goto error;
+      }
+    }
+  }
+
   sqlite3_str *createStr = sqlite3_str_new(NULL);
   sqlite3_str_appendall(createStr, "CREATE TABLE x(");
   if (pkColumnName) {
@@ -4866,6 +4986,15 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     }
 #endif
   }
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+  for (int i = 0; i < pNew->numVectorColumns; i++) {
+    if (pNew->vector_columns[i].index_type != VEC0_INDEX_TYPE_IVF) continue;
+    pNew->shadowIvfCellsNames[i] =
+        sqlite3_mprintf("%s_ivf_cells%02d", tableName, i);
+    if (!pNew->shadowIvfCellsNames[i]) goto error;
+    pNew->ivfTrainedCache[i] = -1; // unknown
+  }
+#endif
   for (int i = 0; i < pNew->numMetadataColumns; i++) {
     pNew->shadowMetadataChunksNames[i] =
         sqlite3_mprintf("%s_metadatachunks%02d", tableName, i);
@@ -4989,8 +5118,8 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
 
     for (int i = 0; i < pNew->numVectorColumns; i++) {
 #if SQLITE_VEC_ENABLE_RESCORE
-      // Rescore columns don't use _vector_chunks
-      if (pNew->vector_columns[i].index_type == VEC0_INDEX_TYPE_RESCORE)
+      // Rescore and IVF columns don't use _vector_chunks
+      if (pNew->vector_columns[i].index_type != VEC0_INDEX_TYPE_FLAT)
         continue;
 #endif
       char *zSql = sqlite3_mprintf(VEC0_SHADOW_VECTOR_N_CREATE,
@@ -5015,6 +5144,18 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     rc = rescore_create_tables(pNew, db, pzErr);
     if (rc != SQLITE_OK) {
       goto error;
+    }
+#endif
+
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+    // Create IVF shadow tables for IVF-indexed vector columns
+    for (int i = 0; i < pNew->numVectorColumns; i++) {
+      if (pNew->vector_columns[i].index_type != VEC0_INDEX_TYPE_IVF) continue;
+      rc = ivf_create_shadow_tables(pNew, i);
+      if (rc != SQLITE_OK) {
+        *pzErr = sqlite3_mprintf("Could not create IVF shadow tables for column %d", i);
+        goto error;
+      }
     }
 #endif
 
@@ -5153,7 +5294,7 @@ static int vec0Destroy(sqlite3_vtab *pVtab) {
 
   for (int i = 0; i < p->numVectorColumns; i++) {
 #if SQLITE_VEC_ENABLE_RESCORE
-    if (p->vector_columns[i].index_type == VEC0_INDEX_TYPE_RESCORE)
+    if (p->vector_columns[i].index_type != VEC0_INDEX_TYPE_FLAT)
       continue;
 #endif
     zSql = sqlite3_mprintf("DROP TABLE \"%w\".\"%w\"", p->schemaName,
@@ -5171,6 +5312,14 @@ static int vec0Destroy(sqlite3_vtab *pVtab) {
   rc = rescore_drop_tables(p);
   if (rc != SQLITE_OK) {
     goto done;
+  }
+#endif
+
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+  // Drop IVF shadow tables
+  for (int i = 0; i < p->numVectorColumns; i++) {
+    if (p->vector_columns[i].index_type != VEC0_INDEX_TYPE_IVF) continue;
+    ivf_drop_shadow_tables(p, i);
   }
 #endif
 
@@ -7186,6 +7335,21 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
   }
 #endif
 
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+  // IVF dispatch: if vector column has IVF, use IVF query instead of chunk scan
+  if (vector_column->index_type == VEC0_INDEX_TYPE_IVF) {
+    rc = ivf_query_knn(p, vectorColumnIdx, queryVector,
+                       (int)vector_column_byte_size(*vector_column), k, knn_data);
+    if (rc != SQLITE_OK) {
+      goto cleanup;
+    }
+    pCur->knn_data = knn_data;
+    pCur->query_plan = VEC0_QUERY_PLAN_KNN;
+    rc = SQLITE_OK;
+    goto cleanup;
+  }
+#endif
+
   rc = vec0_chunks_iter(p, idxStr, argc, argv, &stmtChunks);
   if (rc != SQLITE_OK) {
     // IMP: V06942_23781
@@ -8011,8 +8175,12 @@ int vec0Update_InsertWriteFinalStep(vec0_vtab *p, i64 chunk_rowid,
   // Go insert the vector data into the vector chunk shadow tables
   for (int i = 0; i < p->numVectorColumns; i++) {
 #if SQLITE_VEC_ENABLE_RESCORE
-    // Rescore columns store float vectors in _rescore_vectors instead
-    if (p->vector_columns[i].index_type == VEC0_INDEX_TYPE_RESCORE)
+    // Rescore and IVF columns don't use _vector_chunks
+    if (p->vector_columns[i].index_type == VEC0_INDEX_TYPE_RESCORE
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+        || p->vector_columns[i].index_type == VEC0_INDEX_TYPE_IVF
+#endif
+    )
       continue;
 #endif
 
@@ -8425,6 +8593,18 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
   }
 #endif
 
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+  // Step #4: IVF index insert (if any vector column uses IVF)
+  for (int i = 0; i < p->numVectorColumns; i++) {
+    if (p->vector_columns[i].index_type != VEC0_INDEX_TYPE_IVF) continue;
+    int vecSize = (int)vector_column_byte_size(p->vector_columns[i]);
+    rc = ivf_insert(p, i, rowid, vectorDatas[i], vecSize);
+    if (rc != SQLITE_OK) {
+      goto cleanup;
+    }
+  }
+#endif
+
   if(p->numAuxiliaryColumns > 0) {
     sqlite3_stmt *stmt;
     sqlite3_str * s = sqlite3_str_new(NULL);
@@ -8616,8 +8796,8 @@ int vec0Update_Delete_ClearVectors(vec0_vtab *p, i64 chunk_id,
   int rc, brc;
   for (int i = 0; i < p->numVectorColumns; i++) {
 #if SQLITE_VEC_ENABLE_RESCORE
-    // Rescore columns don't use _vector_chunks
-    if (p->vector_columns[i].index_type == VEC0_INDEX_TYPE_RESCORE)
+    // Non-FLAT columns don't use _vector_chunks
+    if (p->vector_columns[i].index_type != VEC0_INDEX_TYPE_FLAT)
       continue;
 #endif
     sqlite3_blob *blobVectors = NULL;
@@ -8732,7 +8912,7 @@ int vec0Update_Delete_DeleteChunkIfEmpty(vec0_vtab *p, i64 chunk_id,
   // Delete from each _vector_chunksNN
   for (int i = 0; i < p->numVectorColumns; i++) {
 #if SQLITE_VEC_ENABLE_RESCORE
-    if (p->vector_columns[i].index_type == VEC0_INDEX_TYPE_RESCORE)
+    if (p->vector_columns[i].index_type != VEC0_INDEX_TYPE_FLAT)
       continue;
 #endif
     zSql = sqlite3_mprintf(
@@ -9009,6 +9189,15 @@ int vec0Update_Delete(sqlite3_vtab *pVTab, sqlite3_value *idValue) {
     }
   }
 
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+  // 7. delete from IVF index
+  for (int i = 0; i < p->numVectorColumns; i++) {
+    if (p->vector_columns[i].index_type != VEC0_INDEX_TYPE_IVF) continue;
+    rc = ivf_delete(p, i, rowid);
+    if (rc != SQLITE_OK) return rc;
+  }
+#endif
+
   return SQLITE_OK;
 }
 
@@ -9284,6 +9473,18 @@ static int vec0Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
   }
   // INSERT operation
   else if (argc > 1 && sqlite3_value_type(argv[0]) == SQLITE_NULL) {
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+    // Check for IVF command inserts: INSERT INTO t(rowid) VALUES ('compute-centroids')
+    // The id column holds the command string.
+    sqlite3_value *idVal = argv[2 + VEC0_COLUMN_ID];
+    if (sqlite3_value_type(idVal) == SQLITE_TEXT) {
+      const char *cmd = (const char *)sqlite3_value_text(idVal);
+      vec0_vtab *p = (vec0_vtab *)pVTab;
+      int cmdRc = ivf_handle_command(p, cmd, argc, argv);
+      if (cmdRc != SQLITE_EMPTY) return cmdRc; // handled (or error)
+      // SQLITE_EMPTY means not an IVF command — fall through to normal insert
+    }
+#endif
     return vec0Update_Insert(pVTab, argc, argv, pRowid);
   }
   // UPDATE operation
@@ -9431,9 +9632,15 @@ static sqlite3_module vec0Module = {
 #define SQLITE_VEC_DEBUG_BUILD_RESCORE ""
 #endif
 
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+#define SQLITE_VEC_DEBUG_BUILD_IVF "ivf"
+#else
+#define SQLITE_VEC_DEBUG_BUILD_IVF ""
+#endif
+
 #define SQLITE_VEC_DEBUG_BUILD                                                 \
   SQLITE_VEC_DEBUG_BUILD_AVX " " SQLITE_VEC_DEBUG_BUILD_NEON " "              \
-  SQLITE_VEC_DEBUG_BUILD_RESCORE
+  SQLITE_VEC_DEBUG_BUILD_RESCORE " " SQLITE_VEC_DEBUG_BUILD_IVF
 
 #define SQLITE_VEC_DEBUG_STRING                                                \
   "Version: " SQLITE_VEC_VERSION "\n"                                          \

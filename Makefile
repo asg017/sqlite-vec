@@ -206,6 +206,21 @@ test-loadable-watch:
 test-unit:
 	$(CC) -DSQLITE_CORE -DSQLITE_VEC_TEST -DSQLITE_VEC_ENABLE_RESCORE tests/test-unit.c sqlite-vec.c vendor/sqlite3.c -I./ -Ivendor -o $(prefix)/test-unit && $(prefix)/test-unit
 
+# Standalone sqlite3 CLI with vec0 compiled in. Useful for benchmarking,
+# profiling (has debug symbols), and scripting without .load_extension.
+#   make cli
+#   dist/sqlite3 :memory: "SELECT vec_version()"
+#   dist/sqlite3 < script.sql
+cli: sqlite-vec.h $(prefix)
+	$(CC) -O2 -g \
+	-DSQLITE_CORE \
+	-DSQLITE_EXTRA_INIT=core_init \
+	-DSQLITE_THREADSAFE=0 \
+	-Ivendor/ -I./ \
+	$(CFLAGS) \
+	vendor/sqlite3.c vendor/shell.c sqlite-vec.c examples/sqlite3-cli/core_init.c \
+	-ldl -lm -o $(prefix)/sqlite3
+
 fuzz-build:
 	$(MAKE) -C tests/fuzz all
 

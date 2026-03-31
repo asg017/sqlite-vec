@@ -174,6 +174,48 @@ INDEX_REGISTRY["rescore"] = {
 
 
 # ============================================================================
+# IVF implementation
+# ============================================================================
+
+
+def _ivf_create_table_sql(params):
+    return (
+        f"CREATE VIRTUAL TABLE vec_items USING vec0("
+        f"  id integer primary key,"
+        f"  embedding float[768] distance_metric=cosine"
+        f"    indexed by ivf("
+        f"      nlist={params['nlist']},"
+        f"      nprobe={params['nprobe']}"
+        f"    )"
+        f")"
+    )
+
+
+def _ivf_post_insert_hook(conn, params):
+    print("  Training k-means centroids...", flush=True)
+    t0 = time.perf_counter()
+    conn.execute("INSERT INTO vec_items(id) VALUES ('compute-centroids')")
+    conn.commit()
+    elapsed = time.perf_counter() - t0
+    print(f"  Training done in {elapsed:.1f}s", flush=True)
+    return elapsed
+
+
+def _ivf_describe(params):
+    return f"ivf  nlist={params['nlist']:<4} nprobe={params['nprobe']}"
+
+
+INDEX_REGISTRY["ivf"] = {
+    "defaults": {"nlist": 128, "nprobe": 16},
+    "create_table_sql": _ivf_create_table_sql,
+    "insert_sql": None,
+    "post_insert_hook": _ivf_post_insert_hook,
+    "run_query": None,
+    "describe": _ivf_describe,
+}
+
+
+# ============================================================================
 # Config parsing
 # ============================================================================
 
