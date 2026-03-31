@@ -381,11 +381,17 @@ def test_vec_distance_l2():
 
         x = vec_distance_l2(a_sql_t, b_sql_t, a=transform, b=transform)
         y = npy_l2(np.array(a), np.array(b))
-        assert isclose(x, y, abs_tol=1e-6)
+        assert isclose(x, y, rel_tol=1e-5, abs_tol=1e-6)
 
     check([1.2, 0.1], [0.4, -0.4])
     check([-1.2, -0.1], [-0.4, 0.4])
     check([1, 2, 3], [-9, -8, -7], dtype=np.int8)
+    # Extreme int8 values: diff=255, squared=65025 which overflows i16
+    # This tests the NEON widening multiply fix (slight float rounding expected)
+    check([-128] * 8, [127] * 8, dtype=np.int8)
+    check([-128] * 16, [127] * 16, dtype=np.int8)
+    check([-128, 127, -128, 127, -128, 127, -128, 127],
+          [127, -128, 127, -128, 127, -128, 127, -128], dtype=np.int8)
 
 
 def test_vec_length():
