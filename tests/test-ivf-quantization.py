@@ -253,3 +253,20 @@ def test_ivf_quantized_delete(db):
     db.execute("DELETE FROM t WHERE rowid = 5")
     # _ivf_vectors should have 9 rows
     assert db.execute("SELECT count(*) FROM t_ivf_vectors00").fetchone()[0] == 9
+
+
+def test_ivf_binary_rejects_non_multiple_of_8_dims(db):
+    """Binary quantizer requires dimensions divisible by 8."""
+    with pytest.raises(sqlite3.OperationalError):
+        db.execute(
+            "CREATE VIRTUAL TABLE t USING vec0("
+            "  v float[12] indexed by ivf(quantizer=binary)"
+            ")"
+        )
+
+    # Dimensions divisible by 8 should work
+    db.execute(
+        "CREATE VIRTUAL TABLE t2 USING vec0("
+        "  v float[16] indexed by ivf(quantizer=binary)"
+        ")"
+    )

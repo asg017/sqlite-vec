@@ -3074,6 +3074,9 @@ int vec0_parse_vector_column(const char *source, int source_length,
         if (rc != SQLITE_OK) {
           return SQLITE_ERROR;
         }
+        if (ivfConfig.quantizer == VEC0_IVF_QUANTIZER_BINARY && (dimensions % 8) != 0) {
+          return SQLITE_ERROR;
+        }
 #else
         return SQLITE_ERROR; // IVF not compiled in
 #endif
