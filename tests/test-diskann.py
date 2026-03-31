@@ -891,7 +891,7 @@ def test_diskann_delete_preserves_graph_connectivity(db):
 # ======================================================================
 
 def test_diskann_update_vector(db):
-    """UPDATE a vector on DiskANN table may not be supported; verify it either works or errors cleanly."""
+    """UPDATE a vector on DiskANN table should error (will be implemented soon)."""
     db.execute("""
         CREATE VIRTUAL TABLE t USING vec0(
             emb float[8] INDEXED BY diskann(neighbor_quantizer=binary, n_neighbors=8)
@@ -901,17 +901,8 @@ def test_diskann_update_vector(db):
     db.execute("INSERT INTO t(rowid, emb) VALUES (2, ?)", [_f32([0, 1, 0, 0, 0, 0, 0, 0])])
     db.execute("INSERT INTO t(rowid, emb) VALUES (3, ?)", [_f32([0, 0, 1, 0, 0, 0, 0, 0])])
 
-    # UPDATE may not be fully supported for DiskANN yet; verify no crash
-    result = exec(db, "UPDATE t SET emb = ? WHERE rowid = 1", [_f32([0, 0.9, 0.1, 0, 0, 0, 0, 0])])
-    if "error" not in result:
-        # If UPDATE succeeded, verify KNN reflects the new value
-        rows = db.execute(
-            "SELECT rowid, distance FROM t WHERE emb MATCH ? AND k=3",
-            [_f32([0, 1, 0, 0, 0, 0, 0, 0])],
-        ).fetchall()
-        assert len(rows) == 3
-        # rowid 2 should still be closest (exact match)
-        assert rows[0][0] == 2
+    with pytest.raises(sqlite3.OperationalError, match="UPDATE on vector column.*not supported for DiskANN"):
+        db.execute("UPDATE t SET emb = ? WHERE rowid = 1", [_f32([0, 0.9, 0.1, 0, 0, 0, 0, 0])])
 
 
 # ======================================================================

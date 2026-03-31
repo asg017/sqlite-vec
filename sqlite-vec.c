@@ -10055,6 +10055,26 @@ int vec0Update_Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv) {
       continue;
     }
 
+    // Block vector UPDATE for index types that don't implement it —
+    // the DiskANN graph / IVF lists would become stale.
+    {
+      enum Vec0IndexType idx_type = p->vector_columns[vector_idx].index_type;
+      const char *idx_name = NULL;
+      if (idx_type == VEC0_INDEX_TYPE_DISKANN) idx_name = "DiskANN";
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+      else if (idx_type == VEC0_INDEX_TYPE_IVF) idx_name = "IVF";
+#endif
+      if (idx_name) {
+        vtab_set_error(
+          &p->base,
+          "UPDATE on vector column \"%.*s\" is not supported for %s indexes.",
+          p->vector_columns[vector_idx].name_length,
+          p->vector_columns[vector_idx].name,
+          idx_name);
+        return SQLITE_ERROR;
+      }
+    }
+
     rc = vec0Update_UpdateVectorColumn(p, chunk_id, chunk_offset, vector_idx,
                                        valueVector, rowid);
     if (rc != SQLITE_OK) {

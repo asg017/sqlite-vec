@@ -573,3 +573,15 @@ def test_interleaved_ops_correctness(db):
     # Verify we get the right count (25 odd + 15 new - 10 deleted new = 30)
     expected_alive = set(range(1, 50, 2)) | set(range(50, 60)) | set(range(70, 75))
     assert rowids.issubset(expected_alive)
+
+
+def test_ivf_update_vector_blocked(db):
+    """UPDATE on a vector column with IVF index should error (index would become stale)."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0(emb float[4] indexed by ivf(nlist=2))"
+    )
+    db.execute("INSERT INTO t(rowid, emb) VALUES (1, ?)", [_f32([1, 0, 0, 0])])
+    db.execute("INSERT INTO t(rowid, emb) VALUES (2, ?)", [_f32([0, 1, 0, 0])])
+
+    with pytest.raises(sqlite3.OperationalError, match="UPDATE on vector column.*not supported for IVF"):
+        db.execute("UPDATE t SET emb = ? WHERE rowid = 1", [_f32([0, 0, 1, 0])])
