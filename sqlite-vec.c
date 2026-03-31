@@ -10143,14 +10143,17 @@ static int vec0Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
   }
   // INSERT operation
   else if (argc > 1 && sqlite3_value_type(argv[0]) == SQLITE_NULL) {
-#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
-    // Check for IVF command inserts: INSERT INTO t(rowid) VALUES ('compute-centroids')
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE || SQLITE_VEC_ENABLE_DISKANN
+    // Check for command inserts: INSERT INTO t(rowid) VALUES ('command-string')
     // The id column holds the command string.
     sqlite3_value *idVal = argv[2 + VEC0_COLUMN_ID];
     if (sqlite3_value_type(idVal) == SQLITE_TEXT) {
       const char *cmd = (const char *)sqlite3_value_text(idVal);
       vec0_vtab *p = (vec0_vtab *)pVTab;
-      int cmdRc = ivf_handle_command(p, cmd, argc, argv);
+      int cmdRc = SQLITE_EMPTY;
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+      cmdRc = ivf_handle_command(p, cmd, argc, argv);
+#endif
 #if SQLITE_VEC_ENABLE_DISKANN
       if (cmdRc == SQLITE_EMPTY)
         cmdRc = diskann_handle_command(p, cmd);
