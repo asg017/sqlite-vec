@@ -43,8 +43,10 @@ ifndef OMIT_SIMD
 	CFLAGS += -mcpu=apple-m1 -DSQLITE_VEC_ENABLE_NEON
 	endif
 	ifeq ($(shell uname -s),Linux)
+	ifeq ($(findstring android,$(CC)),)
 	ifneq ($(filter avx,$(shell grep -o 'avx[^ ]*' /proc/cpuinfo 2>/dev/null | head -1)),)
 	CFLAGS += -mavx -DSQLITE_VEC_ENABLE_AVX
+	endif
 	endif
 	endif
 endif

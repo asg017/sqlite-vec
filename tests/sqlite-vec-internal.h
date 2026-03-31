@@ -82,6 +82,7 @@ struct Vec0RescoreConfig {
 };
 #endif
 
+
 struct VectorColumnDefinition {
   char *name;
   int name_length;
