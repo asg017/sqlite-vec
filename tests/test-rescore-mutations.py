@@ -32,15 +32,18 @@ def unpack_float_vec(blob):
 # ============================================================================
 
 
-def test_create_error_with_aux_column(db):
-    """Rescore should reject auxiliary columns."""
-    with pytest.raises(sqlite3.OperationalError, match="Auxiliary columns"):
-        db.execute(
-            "CREATE VIRTUAL TABLE t USING vec0("
-            "  embedding float[8] indexed by rescore(quantizer=bit),"
-            "  +extra text"
-            ")"
-        )
+def test_create_with_aux_column(db):
+    """Rescore should support auxiliary columns."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0("
+        "  embedding float[128] indexed by rescore(quantizer=bit),"
+        "  +extra text"
+        ")"
+    )
+    tables = [r[0] for r in db.execute(
+        "SELECT name FROM sqlite_master WHERE name LIKE 't_%' ORDER BY 1"
+    ).fetchall()]
+    assert "t_auxiliary" in tables
 
 
 def test_create_error_with_metadata_column(db):

@@ -630,16 +630,19 @@ def test_diskann_command_search_list_size_error(db):
 # Error cases: DiskANN + auxiliary/metadata/partition columns
 # ======================================================================
 
-def test_diskann_create_error_with_auxiliary_column(db):
-    """DiskANN tables should not support auxiliary columns."""
-    result = exec(db, """
+def test_diskann_create_with_auxiliary_column(db):
+    """DiskANN tables should support auxiliary columns."""
+    db.execute("""
         CREATE VIRTUAL TABLE t USING vec0(
             emb float[64] INDEXED BY diskann(neighbor_quantizer=binary),
             +extra text
         )
     """)
-    assert "error" in result
-    assert "auxiliary" in result["message"].lower() or "Auxiliary" in result["message"]
+    # Auxiliary shadow table should exist
+    tables = [r[0] for r in db.execute(
+        "SELECT name FROM sqlite_master WHERE name LIKE 't_%' ORDER BY 1"
+    ).fetchall()]
+    assert "t_auxiliary" in tables
 
 
 def test_diskann_create_error_with_metadata_column(db):

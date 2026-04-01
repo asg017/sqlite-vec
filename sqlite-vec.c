@@ -5149,11 +5149,6 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
       }
     }
     if (hasRescore) {
-      if (numAuxiliaryColumns > 0) {
-        *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR
-            "Auxiliary columns are not supported with rescore indexes");
-        goto error;
-      }
       if (numMetadataColumns > 0) {
         *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR
             "Metadata columns are not supported with rescore indexes");
@@ -5183,11 +5178,6 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
             "partition key columns are not supported with IVF indexes");
         goto error;
       }
-      if (numAuxiliaryColumns > 0) {
-        *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR
-            "auxiliary columns are not supported with IVF indexes");
-        goto error;
-      }
       if (numMetadataColumns > 0) {
         *pzErr = sqlite3_mprintf(VEC_CONSTRUCTOR_ERROR
             "metadata columns are not supported with IVF indexes");
@@ -5199,12 +5189,6 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
   // DiskANN columns cannot coexist with aux/metadata/partition columns
   for (int i = 0; i < numVectorColumns; i++) {
     if (pNew->vector_columns[i].index_type == VEC0_INDEX_TYPE_DISKANN) {
-      if (numAuxiliaryColumns > 0) {
-        *pzErr = sqlite3_mprintf(
-            VEC_CONSTRUCTOR_ERROR
-            "Auxiliary columns are not supported with DiskANN-indexed vector columns");
-        goto error;
-      }
       if (numMetadataColumns > 0) {
         *pzErr = sqlite3_mprintf(
             VEC_CONSTRUCTOR_ERROR

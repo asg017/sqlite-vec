@@ -203,13 +203,15 @@ def test_update_vector_via_delete_insert(db):
 # ============================================================================
 
 
-def test_error_ivf_with_auxiliary_column(db):
-    result = exec(
-        db,
-        "CREATE VIRTUAL TABLE t USING vec0(v float[4] indexed by ivf(), +extra text)",
+def test_ivf_with_auxiliary_column(db):
+    """IVF should support auxiliary columns."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0(v float[4] indexed by ivf(), +extra text)"
     )
-    assert "error" in result
-    assert "auxiliary" in result.get("message", "").lower()
+    tables = [r[0] for r in db.execute(
+        "SELECT name FROM sqlite_master WHERE name LIKE 't_%' ORDER BY 1"
+    ).fetchall()]
+    assert "t_auxiliary" in tables
 
 
 def test_error_ivf_with_metadata_column(db):
