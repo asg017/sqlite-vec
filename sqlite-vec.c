@@ -708,6 +708,58 @@ static f32 distance_hamming_neon(const u8 *a, const u8 *b, size_t n_bytes) {
 }
 #endif
 
+#ifdef SQLITE_VEC_ENABLE_AVX
+/**
+ * AVX2 Hamming distance using VPSHUFB-based popcount.
+ * Processes 32 bytes (256 bits) per iteration.
+ */
+static f32 distance_hamming_avx2(const u8 *a, const u8 *b, size_t n_bytes) {
+  const u8 *pEnd = a + n_bytes;
+
+  // VPSHUFB lookup table: popcount of low nibble
+  const __m256i lookup = _mm256_setr_epi8(
+      0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4,
+      0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4);
+  const __m256i low_mask = _mm256_set1_epi8(0x0f);
+
+  __m256i acc = _mm256_setzero_si256();
+
+  while (a <= pEnd - 32) {
+    __m256i va = _mm256_loadu_si256((const __m256i *)a);
+    __m256i vb = _mm256_loadu_si256((const __m256i *)b);
+    __m256i xored = _mm256_xor_si256(va, vb);
+
+    // VPSHUFB popcount: split into nibbles, lookup each
+    __m256i lo = _mm256_and_si256(xored, low_mask);
+    __m256i hi = _mm256_and_si256(_mm256_srli_epi16(xored, 4), low_mask);
+    __m256i popcnt = _mm256_add_epi8(_mm256_shuffle_epi8(lookup, lo),
+                                      _mm256_shuffle_epi8(lookup, hi));
+
+    // Horizontal sum: u8 -> u64 via sad against zero
+    acc = _mm256_add_epi64(acc, _mm256_sad_epu8(popcnt, _mm256_setzero_si256()));
+    a += 32;
+    b += 32;
+  }
+
+  // Horizontal sum of 4 x u64 lanes
+  u64 tmp[4];
+  _mm256_storeu_si256((__m256i *)tmp, acc);
+  u32 sum = (u32)(tmp[0] + tmp[1] + tmp[2] + tmp[3]);
+
+  // Scalar tail
+  while (a < pEnd) {
+    u8 x = *a ^ *b;
+    x = x - ((x >> 1) & 0x55);
+    x = (x & 0x33) + ((x >> 2) & 0x33);
+    sum += (x + (x >> 4)) & 0x0F;
+    a++;
+    b++;
+  }
+
+  return (f32)sum;
+}
+#endif
+
 static f32 distance_hamming_u8(u8 *a, u8 *b, size_t n) {
   int same = 0;
   for (unsigned long i = 0; i < n; i++) {
@@ -760,6 +812,11 @@ static f32 distance_hamming(const void *a, const void *b, const void *d) {
 #ifdef SQLITE_VEC_ENABLE_NEON
   if (dimensions >= 128) {
     return distance_hamming_neon((const u8 *)a, (const u8 *)b, n_bytes);
+  }
+#endif
+#ifdef SQLITE_VEC_ENABLE_AVX
+  if (n_bytes >= 32) {
+    return distance_hamming_avx2((const u8 *)a, (const u8 *)b, n_bytes);
   }
 #endif
 
