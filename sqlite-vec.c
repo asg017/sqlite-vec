@@ -984,8 +984,18 @@ static int fvec_from_value(sqlite3_value *value, f32 **vector,
       return SQLITE_NOMEM;
     }
     memcpy(buf, blob, bytes);
+    size_t n = bytes / sizeof(f32);
+    for (size_t i = 0; i < n; i++) {
+      if (isnan(buf[i]) || isinf(buf[i])) {
+        *pzErr = sqlite3_mprintf(
+            "invalid float32 vector: element %d is %s",
+            (int)i, isnan(buf[i]) ? "NaN" : "Inf");
+        sqlite3_free(buf);
+        return SQLITE_ERROR;
+      }
+    }
     *vector = buf;
-    *dimensions = bytes / sizeof(f32);
+    *dimensions = n;
     *cleanup = sqlite3_free;
     return SQLITE_OK;
   }
@@ -1053,6 +1063,13 @@ static int fvec_from_value(sqlite3_value *value, f32 **vector,
       }
 
       f32 res = (f32)result;
+      if (isnan(res) || isinf(res)) {
+        sqlite3_free(x.z);
+        *pzErr = sqlite3_mprintf(
+            "invalid float32 vector: element %d is %s",
+            (int)x.length, isnan(res) ? "NaN" : "Inf");
+        return SQLITE_ERROR;
+      }
       array_append(&x, (const void *)&res);
 
       offset += (endptr - ptr);

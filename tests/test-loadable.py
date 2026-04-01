@@ -365,6 +365,34 @@ def test_vec_distance_l1():
     )
 
 
+def test_vec_reject_nan_inf():
+    """NaN and Inf in float32 vectors should be rejected."""
+    import struct, math
+
+    # NaN via blob
+    nan_blob = struct.pack("4f", 1.0, float("nan"), 3.0, 4.0)
+    with pytest.raises(sqlite3.OperationalError, match="NaN"):
+        db.execute("SELECT vec_length(?)", [nan_blob])
+
+    # Inf via blob
+    inf_blob = struct.pack("4f", 1.0, float("inf"), 3.0, 4.0)
+    with pytest.raises(sqlite3.OperationalError, match="Inf"):
+        db.execute("SELECT vec_length(?)", [inf_blob])
+
+    # -Inf via blob
+    ninf_blob = struct.pack("4f", 1.0, float("-inf"), 3.0, 4.0)
+    with pytest.raises(sqlite3.OperationalError, match="Inf"):
+        db.execute("SELECT vec_length(?)", [ninf_blob])
+
+    # NaN via JSON
+    # Note: JSON doesn't have NaN literal, but strtod may parse "NaN"
+    # This tests the blob path which is the primary input method
+
+    # Valid vectors still work
+    ok_blob = struct.pack("4f", 1.0, 2.0, 3.0, 4.0)
+    assert db.execute("SELECT vec_length(?)", [ok_blob]).fetchone()[0] == 4
+
+
 def test_vec_distance_l2():
     vec_distance_l2 = lambda *args, a="?", b="?": db.execute(
         f"select vec_distance_l2({a}, {b})", args
