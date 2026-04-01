@@ -1289,3 +1289,40 @@ def test_diskann_text_pk_insert_knn_delete(db):
     ).fetchall()
     ids = [r["id"] for r in rows]
     assert "alpha" not in ids
+
+
+def test_diskann_delete_scrubs_all_references(db):
+    """After DELETE, no shadow table should contain the deleted rowid or its data."""
+    import struct
+    db.execute("""
+        CREATE VIRTUAL TABLE t USING vec0(
+            emb float[8] INDEXED BY diskann(neighbor_quantizer=binary, n_neighbors=8)
+        )
+    """)
+    for i in range(20):
+        vec = struct.pack("8f", *[float(i + d) for d in range(8)])
+        db.execute("INSERT INTO t(rowid, emb) VALUES (?, ?)", [i, vec])
+
+    target = 5
+    db.execute("DELETE FROM t WHERE rowid = ?", [target])
+
+    # Node row itself should be gone
+    assert db.execute(
+        "SELECT count(*) FROM t_diskann_nodes00 WHERE rowid=?", [target]
+    ).fetchone()[0] == 0
+
+    # Vector should be gone
+    assert db.execute(
+        "SELECT count(*) FROM t_vectors00 WHERE rowid=?", [target]
+    ).fetchone()[0] == 0
+
+    # No other node should reference the deleted rowid in neighbor_ids
+    for row in db.execute("SELECT rowid, neighbor_ids FROM t_diskann_nodes00"):
+        node_rowid = row[0]
+        ids_blob = row[1]
+        for j in range(0, len(ids_blob), 8):
+            nid = struct.unpack("<q", ids_blob[j : j + 8])[0]
+            assert nid != target, (
+                f"Node {node_rowid} slot {j // 8} still references "
+                f"deleted rowid {target}"
+            )

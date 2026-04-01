@@ -1638,6 +1638,95 @@ static int diskann_repair_reverse_edges(
  * Delete a vector from the DiskANN graph (Algorithm 3: LM-Delete).
  * If the vector is in the buffer (not yet flushed), just remove from buffer.
  */
+/**
+ * Scan all nodes and clear any neighbor slot referencing deleted_rowid.
+ * This removes stale reverse edges that the forward-edge repair misses,
+ * preventing data leaks (deleted rowid + quantized vector lingering in
+ * other nodes' blobs).
+ */
+static int diskann_scrub_deleted_rowid(
+    vec0_vtab *p, int vec_col_idx, i64 deleted_rowid) {
+
+  struct VectorColumnDefinition *col = &p->vector_columns[vec_col_idx];
+  struct Vec0DiskannConfig *cfg = &col->diskann;
+  int rc;
+  sqlite3_stmt *stmt = NULL;
+
+  // Lightweight scan: only read validity + neighbor_ids to find matches
+  char *zSql = sqlite3_mprintf(
+      "SELECT rowid, neighbors_validity, neighbor_ids "
+      "FROM " VEC0_SHADOW_DISKANN_NODES_N_NAME,
+      p->schemaName, p->tableName, vec_col_idx);
+  if (!zSql) return SQLITE_NOMEM;
+  rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
+  sqlite3_free(zSql);
+  if (rc != SQLITE_OK) return rc;
+
+  // Collect rowids that need updating (avoid modifying while iterating)
+  i64 *dirty = NULL;
+  int nDirty = 0, capDirty = 0;
+
+  while (sqlite3_step(stmt) == SQLITE_ROW) {
+    const u8 *validity = (const u8 *)sqlite3_column_blob(stmt, 1);
+    const u8 *ids = (const u8 *)sqlite3_column_blob(stmt, 2);
+    int idsBytes = sqlite3_column_bytes(stmt, 2);
+    if (!validity || !ids) continue;
+
+    int nSlots = idsBytes / (int)sizeof(i64);
+    if (nSlots > cfg->n_neighbors) nSlots = cfg->n_neighbors;
+
+    for (int i = 0; i < nSlots; i++) {
+      if (!diskann_validity_get(validity, i)) continue;
+      i64 nid = diskann_neighbor_id_get(ids, i);
+      if (nid == deleted_rowid) {
+        i64 nodeRowid = sqlite3_column_int64(stmt, 0);
+        // Add to dirty list
+        if (nDirty >= capDirty) {
+          capDirty = capDirty ? capDirty * 2 : 16;
+          i64 *tmp = sqlite3_realloc64(dirty, capDirty * sizeof(i64));
+          if (!tmp) { sqlite3_free(dirty); sqlite3_finalize(stmt); return SQLITE_NOMEM; }
+          dirty = tmp;
+        }
+        dirty[nDirty++] = nodeRowid;
+        break;  // one match per node is enough
+      }
+    }
+  }
+  sqlite3_finalize(stmt);
+
+  // Now do full read/clear/write for each dirty node
+  for (int d = 0; d < nDirty; d++) {
+    u8 *val = NULL, *nids = NULL, *qvecs = NULL;
+    int vs, nis, qs;
+    rc = diskann_node_read(p, vec_col_idx, dirty[d],
+                            &val, &vs, &nids, &nis, &qvecs, &qs);
+    if (rc != SQLITE_OK) continue;
+
+    int modified = 0;
+    for (int i = 0; i < cfg->n_neighbors; i++) {
+      if (diskann_validity_get(val, i) &&
+          diskann_neighbor_id_get(nids, i) == deleted_rowid) {
+        diskann_node_clear_neighbor(val, nids, qvecs, i,
+                                     cfg->quantizer_type, col->dimensions);
+        modified = 1;
+      }
+    }
+
+    if (modified) {
+      rc = diskann_node_write(p, vec_col_idx, dirty[d],
+                               val, vs, nids, nis, qvecs, qs);
+    }
+
+    sqlite3_free(val);
+    sqlite3_free(nids);
+    sqlite3_free(qvecs);
+    if (rc != SQLITE_OK) break;
+  }
+
+  sqlite3_free(dirty);
+  return rc;
+}
+
 static int diskann_delete(vec0_vtab *p, int vec_col_idx, i64 rowid) {
   struct VectorColumnDefinition *col = &p->vector_columns[vec_col_idx];
   struct Vec0DiskannConfig *cfg = &col->diskann;
@@ -1704,6 +1793,12 @@ static int diskann_delete(vec0_vtab *p, int vec_col_idx, i64 rowid) {
   // 4. Handle medoid deletion
   if (rc == SQLITE_OK) {
     rc = diskann_medoid_handle_delete(p, vec_col_idx, rowid);
+  }
+
+  // 5. Scrub stale reverse edges — removes deleted rowid + quantized vector
+  //    from any node that still references it (data leak prevention)
+  if (rc == SQLITE_OK) {
+    rc = diskann_scrub_deleted_rowid(p, vec_col_idx, rowid);
   }
 
   return rc;
