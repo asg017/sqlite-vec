@@ -426,7 +426,15 @@ static int rescore_knn(vec0_vtab *p, vec0_cursor *pCur,
     unsigned char *chunkValidity =
         (unsigned char *)sqlite3_column_blob(stmtChunks, 1);
     i64 *chunkRowids = (i64 *)sqlite3_column_blob(stmtChunks, 2);
+    int validityBytes = sqlite3_column_bytes(stmtChunks, 1);
+    int rowidsBytes = sqlite3_column_bytes(stmtChunks, 2);
     if (!chunkValidity || !chunkRowids) {
+      rc = SQLITE_ERROR;
+      goto cleanup;
+    }
+    // Validate blob sizes match chunk_size expectations
+    if (validityBytes < (p->chunk_size + 7) / 8 ||
+        rowidsBytes < p->chunk_size * (int)sizeof(i64)) {
       rc = SQLITE_ERROR;
       goto cleanup;
     }

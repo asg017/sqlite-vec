@@ -587,14 +587,37 @@ def test_corrupt_zeroblob_validity(db):
     # Corrupt: replace rowids with a truncated blob (wrong size)
     db.execute("UPDATE t_chunks SET rowids = x'00'")
 
-    # Should not crash — may return wrong results or error
-    try:
-        rows = db.execute(
+    # Should error, not crash — blob size validation catches the mismatch
+    with pytest.raises(sqlite3.OperationalError):
+        db.execute(
             "SELECT rowid FROM t WHERE embedding MATCH ? ORDER BY distance LIMIT 1",
             [float_vec([1, 0, 0, 0, 0, 0, 0, 0])],
         ).fetchall()
-    except sqlite3.OperationalError:
-        pass  # Error is acceptable — crash is not
+
+
+def test_corrupt_truncated_validity_blob(db):
+    """KNN should error when rescore chunk validity blob is truncated."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0("
+        "  embedding float[128] indexed by rescore(quantizer=bit)"
+        ")"
+    )
+    for i in range(5):
+        import random
+        random.seed(i)
+        db.execute(
+            "INSERT INTO t(rowid, embedding) VALUES (?, ?)",
+            [i + 1, float_vec([random.gauss(0, 1) for _ in range(128)])],
+        )
+
+    # Corrupt: truncate validity blob to 1 byte (should be chunk_size/8 = 128 bytes)
+    db.execute("UPDATE t_chunks SET validity = x'FF'")
+
+    with pytest.raises(sqlite3.OperationalError):
+        db.execute(
+            "SELECT rowid FROM t WHERE embedding MATCH ? ORDER BY distance LIMIT 1",
+            [float_vec([1.0] * 128)],
+        ).fetchall()
 
 
 def test_rescore_text_pk_insert_knn_delete(db):
