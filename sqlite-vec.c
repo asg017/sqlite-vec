@@ -9161,6 +9161,9 @@ int vec0_write_metadata_value(vec0_vtab *p, int metadata_column_idx, i64 rowid, 
  *
  * @return int SQLITE_OK on success, otherwise error code on failure
  */
+// Forward declaration: needed for INSERT OR REPLACE handling in vec0Update_Insert
+int vec0Update_Delete(sqlite3_vtab *pVTab, sqlite3_value *idValue);
+
 int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
                       sqlite_int64 *pRowid) {
   UNUSED_PARAMETER(argc);
@@ -9279,6 +9282,44 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
     vtab_set_error(pVTab, "A value was provided for the hidden \"k\" column.");
     rc = SQLITE_ERROR;
     goto cleanup;
+  }
+
+  // Handle INSERT OR REPLACE: if the conflict resolution is REPLACE and the
+  // row already exists, delete the existing row first before inserting.
+  if (sqlite3_vtab_on_conflict(p->db) == SQLITE_REPLACE) {
+    sqlite3_value *idValue = argv[2 + VEC0_COLUMN_ID];
+    int idType = sqlite3_value_type(idValue);
+    int existingRowExists = 0;
+
+    if (p->pkIsText && idType == SQLITE_TEXT) {
+      i64 existingRowid;
+      rc = vec0_rowid_from_id(p, idValue, &existingRowid);
+      if (rc == SQLITE_OK) {
+        existingRowExists = 1;
+      } else if (rc == SQLITE_EMPTY) {
+        rc = SQLITE_OK; // row doesn't exist, proceed with normal insert
+      } else {
+        goto cleanup;
+      }
+    } else if (!p->pkIsText && idType == SQLITE_INTEGER) {
+      i64 existingRowid = sqlite3_value_int64(idValue);
+      i64 chunk_id_tmp, chunk_offset_tmp;
+      rc = vec0_get_chunk_position(p, existingRowid, NULL, &chunk_id_tmp, &chunk_offset_tmp);
+      if (rc == SQLITE_OK) {
+        existingRowExists = 1;
+      } else if (rc == SQLITE_EMPTY) {
+        rc = SQLITE_OK; // row doesn't exist, proceed with normal insert
+      } else {
+        goto cleanup;
+      }
+    }
+
+    if (existingRowExists) {
+      rc = vec0Update_Delete(pVTab, idValue);
+      if (rc != SQLITE_OK) {
+        goto cleanup;
+      }
+    }
   }
 
   // Step #1: Insert/get a rowid for this row, from the _rowids table.
