@@ -4,9 +4,9 @@ EXT = ../dist/vec0
 
 # --- Baseline (brute-force) configs ---
 BASELINES = \
-	"brute-float:type=baseline,variant=float" \
-	"brute-int8:type=baseline,variant=int8" \
-	"brute-bit:type=baseline,variant=bit"
+	"brute-float:type=vec0-flat,variant=float" \
+	"brute-int8:type=vec0-flat,variant=int8" \
+	"brute-bit:type=vec0-flat,variant=bit"
 
 # --- IVF configs ---
 IVF_CONFIGS = \
@@ -43,7 +43,7 @@ ground-truth: seed
 # --- Quick smoke test ---
 bench-smoke: seed
 	$(BENCH) --subset-size 5000 -k 10 -n 20 --dataset cohere1m -o runs \
-		"brute-float:type=baseline,variant=float" \
+		"brute-float:type=vec0-flat,variant=float" \
 		"ivf-quick:type=ivf,nlist=16,nprobe=4" \
 		"diskann-quick:type=diskann,R=48,L=64,quantizer=binary"
 

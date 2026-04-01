@@ -1246,3 +1246,46 @@ def test_diskann_delete_interleaved_with_knn(db):
         returned = {r["rowid"] for r in rows}
         assert returned.issubset(alive), \
             f"Deleted rowid {to_del} found in KNN results"
+
+
+# ======================================================================
+# Text primary key + DiskANN
+# ======================================================================
+
+
+def test_diskann_text_pk_insert_knn_delete(db):
+    """DiskANN with text primary key: insert, KNN, delete, KNN again."""
+    db.execute("""
+        CREATE VIRTUAL TABLE t USING vec0(
+            id text primary key,
+            emb float[8] INDEXED BY diskann(neighbor_quantizer=binary, n_neighbors=8)
+        )
+    """)
+
+    vecs = {
+        "alpha": [1, 0, 0, 0, 0, 0, 0, 0],
+        "beta": [0, 1, 0, 0, 0, 0, 0, 0],
+        "gamma": [0, 0, 1, 0, 0, 0, 0, 0],
+        "delta": [0, 0, 0, 1, 0, 0, 0, 0],
+        "epsilon": [0, 0, 0, 0, 1, 0, 0, 0],
+    }
+    for name, vec in vecs.items():
+        db.execute("INSERT INTO t(id, emb) VALUES (?, ?)", [name, _f32(vec)])
+
+    # KNN should return text IDs
+    rows = db.execute(
+        "SELECT id, distance FROM t WHERE emb MATCH ? AND k=3",
+        [_f32([1, 0, 0, 0, 0, 0, 0, 0])],
+    ).fetchall()
+    assert len(rows) >= 1
+    ids = [r["id"] for r in rows]
+    assert "alpha" in ids  # closest to query
+
+    # Delete and verify
+    db.execute("DELETE FROM t WHERE id = 'alpha'")
+    rows = db.execute(
+        "SELECT id FROM t WHERE emb MATCH ? AND k=3",
+        [_f32([1, 0, 0, 0, 0, 0, 0, 0])],
+    ).fetchall()
+    ids = [r["id"] for r in rows]
+    assert "alpha" not in ids

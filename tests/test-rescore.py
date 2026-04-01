@@ -595,3 +595,40 @@ def test_corrupt_zeroblob_validity(db):
         ).fetchall()
     except sqlite3.OperationalError:
         pass  # Error is acceptable — crash is not
+
+
+def test_rescore_text_pk_insert_knn_delete(db):
+    """Rescore with text primary key: insert, KNN, delete, KNN again."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0("
+        "  id text primary key,"
+        "  embedding float[128] indexed by rescore(quantizer=bit)"
+        ")"
+    )
+
+    import random
+    random.seed(99)
+    vecs = {}
+    for name in ["alpha", "beta", "gamma", "delta", "epsilon"]:
+        v = [random.gauss(0, 1) for _ in range(128)]
+        vecs[name] = v
+        db.execute("INSERT INTO t(id, embedding) VALUES (?, ?)", [name, float_vec(v)])
+
+    # KNN should return text IDs
+    rows = db.execute(
+        "SELECT id, distance FROM t WHERE embedding MATCH ? ORDER BY distance LIMIT 3",
+        [float_vec(vecs["alpha"])],
+    ).fetchall()
+    assert len(rows) >= 1
+    ids = [r["id"] for r in rows]
+    assert "alpha" in ids
+
+    # Delete and verify
+    db.execute("DELETE FROM t WHERE id = 'alpha'")
+    rows = db.execute(
+        "SELECT id FROM t WHERE embedding MATCH ? ORDER BY distance LIMIT 3",
+        [float_vec(vecs["alpha"])],
+    ).fetchall()
+    ids = [r["id"] for r in rows]
+    assert "alpha" not in ids
+    assert len(rows) >= 1  # other results still returned

@@ -483,3 +483,57 @@ def test_delete_one_chunk_of_two_shrinks_pages(tmp_path):
         row = db.execute("select emb from v where rowid = ?", [i]).fetchone()
         assert row[0] == _f32([float(i)] * dims)
     db.close()
+
+
+def test_wal_concurrent_reader_during_write(tmp_path):
+    """In WAL mode, a reader should see a consistent snapshot while a writer inserts."""
+    dims = 4
+    db_path = str(tmp_path / "test.db")
+
+    # Writer: create table, insert initial rows, enable WAL
+    writer = sqlite3.connect(db_path)
+    writer.enable_load_extension(True)
+    writer.load_extension("dist/vec0")
+    writer.execute("PRAGMA journal_mode=WAL")
+    writer.execute(
+        f"CREATE VIRTUAL TABLE v USING vec0(emb float[{dims}])"
+    )
+    for i in range(1, 11):
+        writer.execute("INSERT INTO v(rowid, emb) VALUES (?, ?)", [i, _f32([float(i)] * dims)])
+    writer.commit()
+
+    # Reader: open separate connection, start read
+    reader = sqlite3.connect(db_path)
+    reader.enable_load_extension(True)
+    reader.load_extension("dist/vec0")
+
+    # Reader sees 10 rows
+    count_before = reader.execute("SELECT count(*) FROM v").fetchone()[0]
+    assert count_before == 10
+
+    # Writer inserts more rows (not yet committed)
+    writer.execute("BEGIN")
+    for i in range(11, 21):
+        writer.execute("INSERT INTO v(rowid, emb) VALUES (?, ?)", [i, _f32([float(i)] * dims)])
+
+    # Reader still sees 10 (WAL snapshot isolation)
+    count_during = reader.execute("SELECT count(*) FROM v").fetchone()[0]
+    assert count_during == 10
+
+    # KNN during writer's transaction should work on reader's snapshot
+    rows = reader.execute(
+        "SELECT rowid FROM v WHERE emb MATCH ? AND k = 5",
+        [_f32([1.0] * dims)],
+    ).fetchall()
+    assert len(rows) == 5
+    assert all(r[0] <= 10 for r in rows)  # only original rows
+
+    # Writer commits
+    writer.commit()
+
+    # Reader sees new rows after re-query (new snapshot)
+    count_after = reader.execute("SELECT count(*) FROM v").fetchone()[0]
+    assert count_after == 20
+
+    writer.close()
+    reader.close()
