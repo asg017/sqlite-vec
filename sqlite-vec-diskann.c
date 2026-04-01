@@ -1621,13 +1621,14 @@ static int diskann_repair_reverse_edges(
         break;
       }
 
-      diskann_node_write(p, vec_col_idx, nodeRowid,
-                          validity, vs, neighborIds, nis, qvecs, qs);
+      rc = diskann_node_write(p, vec_col_idx, nodeRowid,
+                               validity, vs, neighborIds, nis, qvecs, qs);
     }
 
     sqlite3_free(validity);
     sqlite3_free(neighborIds);
     sqlite3_free(qvecs);
+    if (rc != SQLITE_OK) return rc;
   }
 
   return SQLITE_OK;
