@@ -2586,7 +2586,8 @@ struct Vec0DiskannConfig {
 struct Vec0DiskannCandidate {
   i64 rowid;
   f32 distance;
-  int visited;  // 1 if this candidate's neighbors have been explored
+  int visited;   // 1 if this candidate's neighbors have been explored
+  int confirmed; // 1 if full-precision vector was successfully read (node exists)
 };
 
 /**

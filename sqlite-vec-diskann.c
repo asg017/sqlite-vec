@@ -608,6 +608,7 @@ static int diskann_candidate_list_insert(
   list->items[lo].rowid = rowid;
   list->items[lo].distance = distance;
   list->items[lo].visited = 0;
+  list->items[lo].confirmed = 0;
   list->count++;
   return 1;
 }
@@ -741,8 +742,9 @@ static int diskann_search(
     return rc;
   }
 
-  // Seed with medoid
+  // Seed with medoid (confirmed — we already read its vector above)
   diskann_candidate_list_insert(&candidates, medoid, medoidDist);
+  candidates.items[0].confirmed = 1;
 
   // Pre-quantize query vector once for all quantized distance comparisons
   u8 *queryQuantized = NULL;
@@ -815,16 +817,27 @@ static int diskann_search(
       sqlite3_free(fullVec);
       // Update distance in candidate list and re-sort
       diskann_candidate_list_insert(&candidates, currentRowid, exactDist);
+      // Mark as confirmed (vector exists, distance is exact)
+      for (int ci = 0; ci < candidates.count; ci++) {
+        if (candidates.items[ci].rowid == currentRowid) {
+          candidates.items[ci].confirmed = 1;
+          break;
+        }
+      }
     }
+    // If vector read failed, candidate stays unconfirmed (stale edge to deleted node)
   }
 
-  // 5. Output results (candidates are already sorted by distance)
-  int resultCount = (candidates.count < k) ? candidates.count : k;
-  *outCount = resultCount;
-  for (int i = 0; i < resultCount; i++) {
-    outRowids[i] = candidates.items[i].rowid;
-    outDistances[i] = candidates.items[i].distance;
+  // 5. Output results — only include confirmed candidates (whose vectors exist)
+  int resultCount = 0;
+  for (int i = 0; i < candidates.count && resultCount < k; i++) {
+    if (candidates.items[i].confirmed) {
+      outRowids[resultCount] = candidates.items[i].rowid;
+      outDistances[resultCount] = candidates.items[i].distance;
+      resultCount++;
+    }
   }
+  *outCount = resultCount;
 
   sqlite3_free(queryQuantized);
   diskann_candidate_list_free(&candidates);

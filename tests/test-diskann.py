@@ -1176,3 +1176,73 @@ def test_corrupt_truncated_node_blob(db):
         ).fetchall()
     except sqlite3.OperationalError:
         pass  # Error is acceptable — crash is not
+
+
+def test_diskann_delete_reinsert_cycle_knn(db):
+    """Repeatedly delete and reinsert rows, verify KNN stays correct."""
+    import random
+    random.seed(101)
+    db.execute("""
+        CREATE VIRTUAL TABLE t USING vec0(
+            emb float[8] INDEXED BY diskann(neighbor_quantizer=binary, n_neighbors=8)
+        )
+    """)
+    N = 30
+    vecs = {}
+    for i in range(1, N + 1):
+        v = [random.gauss(0, 1) for _ in range(8)]
+        vecs[i] = v
+        db.execute("INSERT INTO t(rowid, emb) VALUES (?, ?)", [i, _f32(v)])
+
+    # 3 cycles: delete half, reinsert with new vectors, verify KNN
+    for cycle in range(3):
+        to_delete = random.sample(sorted(vecs.keys()), len(vecs) // 2)
+        for r in to_delete:
+            db.execute("DELETE FROM t WHERE rowid = ?", [r])
+            del vecs[r]
+
+        # Reinsert with new rowids
+        new_start = 100 + cycle * 50
+        for i in range(len(to_delete)):
+            rid = new_start + i
+            v = [random.gauss(0, 1) for _ in range(8)]
+            vecs[rid] = v
+            db.execute("INSERT INTO t(rowid, emb) VALUES (?, ?)", [rid, _f32(v)])
+
+        # KNN should return only alive rows
+        query = [0.0] * 8
+        rows = db.execute(
+            "SELECT rowid FROM t WHERE emb MATCH ? AND k=10",
+            [_f32(query)],
+        ).fetchall()
+        returned = {r["rowid"] for r in rows}
+        assert returned.issubset(set(vecs.keys())), \
+            f"Cycle {cycle}: deleted rowid in KNN results"
+        assert len(rows) >= 1
+
+
+def test_diskann_delete_interleaved_with_knn(db):
+    """Delete one row at a time, querying KNN after each delete."""
+    db.execute("""
+        CREATE VIRTUAL TABLE t USING vec0(
+            emb float[8] INDEXED BY diskann(neighbor_quantizer=binary, n_neighbors=8)
+        )
+    """)
+    N = 20
+    for i in range(1, N + 1):
+        vec = [0.0] * 8
+        vec[i % 8] = float(i)
+        db.execute("INSERT INTO t(rowid, emb) VALUES (?, ?)", [i, _f32(vec)])
+
+    alive = set(range(1, N + 1))
+    for to_del in [1, 5, 10, 15, 20]:
+        db.execute("DELETE FROM t WHERE rowid = ?", [to_del])
+        alive.discard(to_del)
+
+        rows = db.execute(
+            "SELECT rowid FROM t WHERE emb MATCH ? AND k=5",
+            [_f32([1, 0, 0, 0, 0, 0, 0, 0])],
+        ).fetchall()
+        returned = {r["rowid"] for r in rows}
+        assert returned.issubset(alive), \
+            f"Deleted rowid {to_del} found in KNN results"

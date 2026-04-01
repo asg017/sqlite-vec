@@ -443,6 +443,104 @@ def test_insert_batch_recall(db):
 # ============================================================================
 
 
+def test_delete_interleaved_with_knn(db):
+    """Delete rows one at a time, running KNN after each delete to verify correctness."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0("
+        "  embedding float[8] indexed by rescore(quantizer=bit)"
+        ")"
+    )
+    N = 30
+    random.seed(42)
+    vecs = {i: [random.gauss(0, 1) for _ in range(8)] for i in range(1, N + 1)}
+    for rowid, vec in vecs.items():
+        db.execute(
+            "INSERT INTO t(rowid, embedding) VALUES (?, ?)",
+            [rowid, float_vec(vec)],
+        )
+
+    alive = set(vecs.keys())
+    query = [0.0] * 8
+
+    for to_del in [5, 10, 15, 20, 25]:
+        db.execute("DELETE FROM t WHERE rowid = ?", [to_del])
+        alive.discard(to_del)
+
+        rows = db.execute(
+            "SELECT rowid FROM t WHERE embedding MATCH ? ORDER BY distance LIMIT 10",
+            [float_vec(query)],
+        ).fetchall()
+        returned = {r["rowid"] for r in rows}
+        # All returned rows must be alive (not deleted)
+        assert returned.issubset(alive), f"Deleted rowid found in KNN after deleting {to_del}"
+        # Count should match alive set (up to k)
+        assert len(rows) == min(10, len(alive))
+
+
+def test_delete_with_rowid_in_constraint(db):
+    """Delete rows and verify KNN with rowid_in filter excludes deleted rows."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0("
+        "  embedding float[8] indexed by rescore(quantizer=int8)"
+        ")"
+    )
+    for i in range(1, 11):
+        db.execute(
+            "INSERT INTO t(rowid, embedding) VALUES (?, ?)",
+            [i, float_vec([float(i)] * 8)],
+        )
+
+    # Delete rows 3, 5, 7
+    for r in [3, 5, 7]:
+        db.execute("DELETE FROM t WHERE rowid = ?", [r])
+
+    # KNN with rowid IN (1,2,3,4,5) — should only return 1, 2, 4 (3 and 5 deleted)
+    rows = db.execute(
+        "SELECT rowid FROM t WHERE embedding MATCH ? AND k = 5 AND rowid IN (1, 2, 3, 4, 5)",
+        [float_vec([1.0] * 8)],
+    ).fetchall()
+    returned = {r["rowid"] for r in rows}
+    assert 3 not in returned
+    assert 5 not in returned
+    assert returned.issubset({1, 2, 4})
+
+
+def test_delete_all_then_reinsert_batch(db):
+    """Delete all rows, reinsert a new batch, verify KNN only returns new rows."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0("
+        "  embedding float[8] indexed by rescore(quantizer=bit)"
+        ")"
+    )
+    # First batch
+    for i in range(1, 21):
+        db.execute(
+            "INSERT INTO t(rowid, embedding) VALUES (?, ?)",
+            [i, float_vec([float(i)] * 8)],
+        )
+
+    # Delete all
+    for i in range(1, 21):
+        db.execute("DELETE FROM t WHERE rowid = ?", [i])
+
+    assert db.execute("SELECT count(*) FROM t").fetchone()[0] == 0
+
+    # Second batch with different rowids and vectors
+    for i in range(100, 110):
+        db.execute(
+            "INSERT INTO t(rowid, embedding) VALUES (?, ?)",
+            [i, float_vec([float(i - 100)] * 8)],
+        )
+
+    rows = db.execute(
+        "SELECT rowid FROM t WHERE embedding MATCH ? ORDER BY distance LIMIT 5",
+        [float_vec([0.0] * 8)],
+    ).fetchall()
+    returned = {r["rowid"] for r in rows}
+    # All returned rowids should be from the second batch
+    assert returned.issubset(set(range(100, 110)))
+
+
 def test_knn_int8_cosine(db):
     """Rescore with quantizer=int8 and distance_metric=cosine."""
     db.execute(
