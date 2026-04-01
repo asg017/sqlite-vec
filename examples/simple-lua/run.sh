@@ -13,8 +13,8 @@ fi
 # Check if lsqlite3 is available
 lua -e "require('lsqlite3')" 2>/dev/null
 if [ $? -ne 0 ]; then
-    echo "Error: lsqlite3 module is not installed"
-    echo "Install it with: luarocks install lsqlite3"
+    echo "Error: lsqlite3 module is not installed" >&2
+    echo "Help: luarocks install lsqlite3" >&2
     exit 1
 fi
 
