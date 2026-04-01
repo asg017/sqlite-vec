@@ -10362,6 +10362,163 @@ static int vec0Rollback(sqlite3_vtab *pVTab) {
   return SQLITE_OK;
 }
 
+/**
+ * xRename implementation for vec0.
+ * Renames all shadow tables to match the new virtual table name,
+ * then updates cached table names and finalizes stale prepared statements.
+ */
+static int vec0Rename(sqlite3_vtab *pVtab, const char *zNew) {
+  vec0_vtab *p = (vec0_vtab *)pVtab;
+  int rc = SQLITE_OK;
+
+  // Build a single SQL string with ALTER TABLE RENAME for every shadow table.
+  sqlite3_str *s = sqlite3_str_new(p->db);
+
+  // Core shadow tables (always present)
+  sqlite3_str_appendf(s,
+    "ALTER TABLE \"%w\".\"%w_info\" RENAME TO \"%w_info\";",
+    p->schemaName, p->tableName, zNew);
+  sqlite3_str_appendf(s,
+    "ALTER TABLE \"%w\".\"%w_rowids\" RENAME TO \"%w_rowids\";",
+    p->schemaName, p->tableName, zNew);
+  sqlite3_str_appendf(s,
+    "ALTER TABLE \"%w\".\"%w_chunks\" RENAME TO \"%w_chunks\";",
+    p->schemaName, p->tableName, zNew);
+
+  // Auxiliary shadow table (only if auxiliary columns exist)
+  if (p->numAuxiliaryColumns > 0) {
+    sqlite3_str_appendf(s,
+      "ALTER TABLE \"%w\".\"%w_auxiliary\" RENAME TO \"%w_auxiliary\";",
+      p->schemaName, p->tableName, zNew);
+  }
+
+  // Per-vector-column shadow tables
+  for (int i = 0; i < p->numVectorColumns; i++) {
+    sqlite3_str_appendf(s,
+      "ALTER TABLE \"%w\".\"%w_vector_chunks%02d\" RENAME TO \"%w_vector_chunks%02d\";",
+      p->schemaName, p->tableName, i, zNew, i);
+
+#if SQLITE_VEC_ENABLE_RESCORE
+    if (p->shadowRescoreChunksNames[i]) {
+      sqlite3_str_appendf(s,
+        "ALTER TABLE \"%w\".\"%w_rescore_chunks%02d\" RENAME TO \"%w_rescore_chunks%02d\";",
+        p->schemaName, p->tableName, i, zNew, i);
+      sqlite3_str_appendf(s,
+        "ALTER TABLE \"%w\".\"%w_rescore_vectors%02d\" RENAME TO \"%w_rescore_vectors%02d\";",
+        p->schemaName, p->tableName, i, zNew, i);
+    }
+#endif
+
+#if SQLITE_VEC_ENABLE_DISKANN
+    if (p->shadowVectorsNames[i]) {
+      sqlite3_str_appendf(s,
+        "ALTER TABLE \"%w\".\"%w_vectors%02d\" RENAME TO \"%w_vectors%02d\";",
+        p->schemaName, p->tableName, i, zNew, i);
+      sqlite3_str_appendf(s,
+        "ALTER TABLE \"%w\".\"%w_diskann_nodes%02d\" RENAME TO \"%w_diskann_nodes%02d\";",
+        p->schemaName, p->tableName, i, zNew, i);
+      sqlite3_str_appendf(s,
+        "ALTER TABLE \"%w\".\"%w_diskann_buffer%02d\" RENAME TO \"%w_diskann_buffer%02d\";",
+        p->schemaName, p->tableName, i, zNew, i);
+    }
+#endif
+  }
+
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+  for (int i = 0; i < p->numVectorColumns; i++) {
+    if (p->shadowIvfCellsNames[i]) {
+      sqlite3_str_appendf(s,
+        "ALTER TABLE \"%w\".\"%w_ivf_cells%02d\" RENAME TO \"%w_ivf_cells%02d\";",
+        p->schemaName, p->tableName, i, zNew, i);
+    }
+  }
+#endif
+
+  // Per-metadata-column shadow tables
+  for (int i = 0; i < p->numMetadataColumns; i++) {
+    sqlite3_str_appendf(s,
+      "ALTER TABLE \"%w\".\"%w_metadatachunks%02d\" RENAME TO \"%w_metadatachunks%02d\";",
+      p->schemaName, p->tableName, i, zNew, i);
+    if (p->metadata_columns[i].kind == VEC0_METADATA_COLUMN_KIND_TEXT) {
+      sqlite3_str_appendf(s,
+        "ALTER TABLE \"%w\".\"%w_metadatatext%02d\" RENAME TO \"%w_metadatatext%02d\";",
+        p->schemaName, p->tableName, i, zNew, i);
+    }
+  }
+
+  char *zSql = sqlite3_str_finish(s);
+  if (!zSql) {
+    return SQLITE_NOMEM;
+  }
+
+  rc = sqlite3_exec(p->db, zSql, 0, 0, 0);
+  sqlite3_free(zSql);
+  if (rc != SQLITE_OK) {
+    return rc;
+  }
+
+  // Finalize all prepared statements — they reference old table names.
+  vec0_free_resources(p);
+
+  // Update cached table name
+  sqlite3_free(p->tableName);
+  p->tableName = sqlite3_mprintf("%s", zNew);
+  if (!p->tableName) return SQLITE_NOMEM;
+
+  // Update cached shadow table names
+  sqlite3_free(p->shadowRowidsName);
+  p->shadowRowidsName = sqlite3_mprintf("%s_rowids", zNew);
+
+  sqlite3_free(p->shadowChunksName);
+  p->shadowChunksName = sqlite3_mprintf("%s_chunks", zNew);
+
+  for (int i = 0; i < p->numVectorColumns; i++) {
+    sqlite3_free(p->shadowVectorChunksNames[i]);
+    p->shadowVectorChunksNames[i] =
+        sqlite3_mprintf("%s_vector_chunks%02d", zNew, i);
+
+#if SQLITE_VEC_ENABLE_RESCORE
+    if (p->shadowRescoreChunksNames[i]) {
+      sqlite3_free(p->shadowRescoreChunksNames[i]);
+      p->shadowRescoreChunksNames[i] =
+          sqlite3_mprintf("%s_rescore_chunks%02d", zNew, i);
+      sqlite3_free(p->shadowRescoreVectorsNames[i]);
+      p->shadowRescoreVectorsNames[i] =
+          sqlite3_mprintf("%s_rescore_vectors%02d", zNew, i);
+    }
+#endif
+
+#if SQLITE_VEC_ENABLE_DISKANN
+    if (p->shadowVectorsNames[i]) {
+      sqlite3_free(p->shadowVectorsNames[i]);
+      p->shadowVectorsNames[i] =
+          sqlite3_mprintf("%s_vectors%02d", zNew, i);
+      sqlite3_free(p->shadowDiskannNodesNames[i]);
+      p->shadowDiskannNodesNames[i] =
+          sqlite3_mprintf("%s_diskann_nodes%02d", zNew, i);
+    }
+#endif
+  }
+
+#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+  for (int i = 0; i < p->numVectorColumns; i++) {
+    if (p->shadowIvfCellsNames[i]) {
+      sqlite3_free(p->shadowIvfCellsNames[i]);
+      p->shadowIvfCellsNames[i] =
+          sqlite3_mprintf("%s_ivf_cells%02d", zNew, i);
+    }
+  }
+#endif
+
+  for (int i = 0; i < p->numMetadataColumns; i++) {
+    sqlite3_free(p->shadowMetadataChunksNames[i]);
+    p->shadowMetadataChunksNames[i] =
+        sqlite3_mprintf("%s_metadatachunks%02d", zNew, i);
+  }
+
+  return SQLITE_OK;
+}
+
 static sqlite3_module vec0Module = {
     /* iVersion      */ 3,
     /* xCreate       */ vec0Create,
@@ -10382,7 +10539,7 @@ static sqlite3_module vec0Module = {
     /* xCommit       */ vec0Commit,
     /* xRollback     */ vec0Rollback,
     /* xFindFunction */ 0,
-    /* xRename       */ 0, // https://github.com/asg017/sqlite-vec/issues/43
+    /* xRename       */ vec0Rename,
     /* xSavepoint    */ 0,
     /* xRelease      */ 0,
     /* xRollbackTo   */ 0,
