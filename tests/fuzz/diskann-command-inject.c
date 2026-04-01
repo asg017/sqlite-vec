@@ -50,7 +50,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   {
     sqlite3_stmt *stmt;
     sqlite3_prepare_v2(db,
-      "INSERT INTO v(rowid, emb) VALUES (?, ?)", -1, &stmt, NULL);
+      "INSERT INTO v(v, emb) VALUES (?, ?)", -1, &stmt, NULL);
     for (int i = 1; i <= 8; i++) {
       float vec[8];
       for (int j = 0; j < 8; j++) vec[j] = (float)i * 0.1f + (float)j * 0.01f;
@@ -66,11 +66,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   sqlite3_stmt *stmtInsert = NULL;
   sqlite3_stmt *stmtKnn = NULL;
 
-  /* Commands are dispatched via INSERT INTO t(rowid) VALUES ('cmd_string') */
+  /* Commands are dispatched via INSERT INTO t(t) VALUES ('cmd_string') */
   sqlite3_prepare_v2(db,
-    "INSERT INTO v(rowid) VALUES (?)", -1, &stmtCmd, NULL);
+    "INSERT INTO v(v) VALUES (?)", -1, &stmtCmd, NULL);
   sqlite3_prepare_v2(db,
-    "INSERT INTO v(rowid, emb) VALUES (?, ?)", -1, &stmtInsert, NULL);
+    "INSERT INTO v(v, emb) VALUES (?, ?)", -1, &stmtInsert, NULL);
   sqlite3_prepare_v2(db,
     "SELECT rowid, distance FROM v WHERE emb MATCH ? AND k = ?",
     -1, &stmtKnn, NULL);

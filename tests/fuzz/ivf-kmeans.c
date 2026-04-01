@@ -64,7 +64,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   // Insert vectors
   sqlite3_stmt *stmtInsert = NULL;
   sqlite3_prepare_v2(db,
-    "INSERT INTO v(rowid, emb) VALUES (?, ?)", -1, &stmtInsert, NULL);
+    "INSERT INTO v(v, emb) VALUES (?, ?)", -1, &stmtInsert, NULL);
   if (!stmtInsert) { sqlite3_close(db); return 0; }
 
   size_t offset = 0;
@@ -125,14 +125,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
   // Clear centroids and re-compute to test round-trip
   sqlite3_exec(db,
-    "INSERT INTO v(rowid) VALUES ('clear-centroids')",
+    "INSERT INTO v(v) VALUES ('clear-centroids')",
     NULL, NULL, NULL);
 
   // Insert a few more vectors in untrained state
   {
     sqlite3_stmt *si = NULL;
     sqlite3_prepare_v2(db,
-      "INSERT INTO v(rowid, emb) VALUES (?, ?)", -1, &si, NULL);
+      "INSERT INTO v(v, emb) VALUES (?, ?)", -1, &si, NULL);
     if (si) {
       for (int i = 0; i < 3; i++) {
         float *vec = sqlite3_malloc(dim * sizeof(float));
@@ -150,7 +150,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
   // Re-train
   sqlite3_exec(db,
-    "INSERT INTO v(rowid) VALUES ('compute-centroids')",
+    "INSERT INTO v(v) VALUES ('compute-centroids')",
     NULL, NULL, NULL);
 
   // Delete some rows after training, then query

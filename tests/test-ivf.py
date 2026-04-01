@@ -217,7 +217,7 @@ def test_compute_centroids(db):
 
     assert ivf_unassigned_count(db) == 40
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
 
     # After training: unassigned cell should be gone (or empty), vectors in trained cells
     assert ivf_unassigned_count(db) == 0
@@ -238,10 +238,10 @@ def test_compute_centroids_recompute(db):
             "INSERT INTO t(rowid, v) VALUES (?, ?)", [i, _f32([i, 0, 0, 0])]
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
     assert db.execute("SELECT count(*) FROM t_ivf_centroids00").fetchone()[0] == 2
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
     assert db.execute("SELECT count(*) FROM t_ivf_centroids00").fetchone()[0] == 2
     assert ivf_assigned_count(db) == 20
 
@@ -260,7 +260,7 @@ def test_ivf_insert_after_training(db):
             "INSERT INTO t(rowid, v) VALUES (?, ?)", [i, _f32([i, 0, 0, 0])]
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
 
     db.execute(
         "INSERT INTO t(rowid, v) VALUES (100, ?)", [_f32([5, 0, 0, 0])]
@@ -290,7 +290,7 @@ def test_ivf_knn_after_training(db):
             "INSERT INTO t(rowid, v) VALUES (?, ?)", [i, _f32([i, 0, 0, 0])]
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
 
     rows = db.execute(
         "SELECT rowid, distance FROM t WHERE v MATCH ? AND k = 5",
@@ -310,7 +310,7 @@ def test_ivf_knn_k_larger_than_n(db):
             "INSERT INTO t(rowid, v) VALUES (?, ?)", [i, _f32([i, 0, 0, 0])]
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
 
     rows = db.execute(
         "SELECT rowid FROM t WHERE v MATCH ? AND k = 100",
@@ -334,17 +334,17 @@ def test_set_centroid_and_assign(db):
         )
 
     db.execute(
-        "INSERT INTO t(rowid, v) VALUES ('set-centroid:0', ?)",
+        "INSERT INTO t(t, v) VALUES ('set-centroid:0', ?)",
         [_f32([5, 0, 0, 0])],
     )
     db.execute(
-        "INSERT INTO t(rowid, v) VALUES ('set-centroid:1', ?)",
+        "INSERT INTO t(t, v) VALUES ('set-centroid:1', ?)",
         [_f32([15, 0, 0, 0])],
     )
 
     assert db.execute("SELECT count(*) FROM t_ivf_centroids00").fetchone()[0] == 2
 
-    db.execute("INSERT INTO t(rowid) VALUES ('assign-vectors')")
+    db.execute("INSERT INTO t(t) VALUES ('assign-vectors')")
 
     assert ivf_unassigned_count(db) == 0
     assert ivf_assigned_count(db) == 20
@@ -364,10 +364,10 @@ def test_clear_centroids(db):
             "INSERT INTO t(rowid, v) VALUES (?, ?)", [i, _f32([i, 0, 0, 0])]
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
     assert db.execute("SELECT count(*) FROM t_ivf_centroids00").fetchone()[0] == 2
 
-    db.execute("INSERT INTO t(rowid) VALUES ('clear-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('clear-centroids')")
     assert db.execute("SELECT count(*) FROM t_ivf_centroids00").fetchone()[0] == 0
     assert ivf_unassigned_count(db) == 20
     trained = db.execute(
@@ -390,7 +390,7 @@ def test_ivf_delete_after_training(db):
             "INSERT INTO t(rowid, v) VALUES (?, ?)", [i, _f32([i, 0, 0, 0])]
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
     assert ivf_assigned_count(db) == 10
 
     db.execute("DELETE FROM t WHERE rowid = 5")
@@ -412,7 +412,7 @@ def test_ivf_recall_nprobe_equals_nlist(db):
             "INSERT INTO t(rowid, v) VALUES (?, ?)", [i, _f32([i, 0, 0, 0])]
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
 
     rows = db.execute(
         "SELECT rowid FROM t WHERE v MATCH ? AND k = 10",

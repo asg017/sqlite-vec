@@ -46,7 +46,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   {
     sqlite3_stmt *si = NULL;
     sqlite3_prepare_v2(db,
-      "INSERT INTO v(rowid, emb) VALUES (?, ?)", -1, &si, NULL);
+      "INSERT INTO v(v, emb) VALUES (?, ?)", -1, &si, NULL);
     if (!si) { sqlite3_close(db); return 0; }
     for (int i = 0; i < 10; i++) {
       float vec[8];
@@ -63,7 +63,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
   // Train
   sqlite3_exec(db,
-    "INSERT INTO v(rowid) VALUES ('compute-centroids')",
+    "INSERT INTO v(v) VALUES ('compute-centroids')",
     NULL, NULL, NULL);
 
   // Now corrupt shadow tables based on fuzz input
@@ -204,7 +204,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     float newvec[8] = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
     sqlite3_stmt *si = NULL;
     sqlite3_prepare_v2(db,
-      "INSERT INTO v(rowid, emb) VALUES (?, ?)", -1, &si, NULL);
+      "INSERT INTO v(v, emb) VALUES (?, ?)", -1, &si, NULL);
     if (si) {
       sqlite3_bind_int64(si, 1, 100);
       sqlite3_bind_blob(si, 2, newvec, sizeof(newvec), SQLITE_STATIC);
@@ -215,12 +215,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
   // compute-centroids over corrupted state
   sqlite3_exec(db,
-    "INSERT INTO v(rowid) VALUES ('compute-centroids')",
+    "INSERT INTO v(v) VALUES ('compute-centroids')",
     NULL, NULL, NULL);
 
   // clear-centroids
   sqlite3_exec(db,
-    "INSERT INTO v(rowid) VALUES ('clear-centroids')",
+    "INSERT INTO v(v) VALUES ('clear-centroids')",
     NULL, NULL, NULL);
 
   sqlite3_close(db);

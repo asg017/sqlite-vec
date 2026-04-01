@@ -78,7 +78,7 @@ def test_batch_insert_knn_recall(db):
         )
     assert ivf_total_vectors(db) == 200
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
     assert ivf_assigned_count(db) == 200
 
     # Query near 100 -- closest should be rowid 100
@@ -107,7 +107,7 @@ def test_delete_rows_gone_from_knn(db):
             [i, _f32([float(i), 0, 0, 0])],
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
 
     # Delete rowid 10
     db.execute("DELETE FROM t WHERE rowid = 10")
@@ -127,7 +127,7 @@ def test_delete_all_rows_empty_results(db):
             [i, _f32([float(i), 0, 0, 0])],
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
 
     for i in range(10):
         db.execute("DELETE FROM t WHERE rowid = ?", [i])
@@ -152,7 +152,7 @@ def test_insert_after_delete_reuse_rowid(db):
             [i, _f32([float(i), 0, 0, 0])],
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
 
     # Delete rowid 5
     db.execute("DELETE FROM t WHERE rowid = 5")
@@ -184,7 +184,7 @@ def test_update_vector_via_delete_insert(db):
             [i, _f32([float(i), 0, 0, 0])],
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
 
     # "Update" rowid 3: delete and re-insert with new vector
     db.execute("DELETE FROM t WHERE rowid = 3")
@@ -316,7 +316,7 @@ def test_single_row_compute_centroids(db):
     db.execute(
         "INSERT INTO t(rowid, v) VALUES (1, ?)", [_f32([1, 2, 3, 4])]
     )
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
     assert ivf_assigned_count(db) == 1
 
     results = knn(db, [1, 2, 3, 4], 1)
@@ -343,10 +343,10 @@ def test_cell_overflow_many_vectors(db):
 
     # Set a single centroid so all vectors go there
     db.execute(
-        "INSERT INTO t(rowid, v) VALUES ('set-centroid:0', ?)",
+        "INSERT INTO t(t, v) VALUES ('set-centroid:0', ?)",
         [_f32([1.0, 0, 0, 0])],
     )
-    db.execute("INSERT INTO t(rowid) VALUES ('assign-vectors')")
+    db.execute("INSERT INTO t(t) VALUES ('assign-vectors')")
 
     assert ivf_assigned_count(db) == 100
 
@@ -377,7 +377,7 @@ def test_large_batch_with_training(db):
             [i, _f32([float(i), 0, 0, 0])],
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
 
     for i in range(500, 1000):
         db.execute(
@@ -409,7 +409,7 @@ def test_knn_after_interleaved_insert_delete(db):
             [i, _f32([float(i), 0, 0, 0])],
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
 
     # Delete rowids 0-9 (closest to query at 5.0)
     for i in range(10):
@@ -434,7 +434,7 @@ def test_knn_empty_centroids_after_deletes(db):
             [i, _f32([float(i % 10) * 10, 0, 0, 0])],
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
 
     # Delete a bunch, potentially emptying some centroids
     for i in range(30):
@@ -458,7 +458,7 @@ def test_knn_correct_distances(db):
     db.execute("INSERT INTO t(rowid, v) VALUES (2, ?)", [_f32([3, 0, 0, 0])])
     db.execute("INSERT INTO t(rowid, v) VALUES (3, ?)", [_f32([0, 4, 0, 0])])
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
 
     results = knn(db, [0, 0, 0, 0], 3)
     result_map = {r[0]: r[1] for r in results}
@@ -547,7 +547,7 @@ def test_interleaved_ops_correctness(db):
             [i, _f32([float(i), 0, 0, 0])],
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
 
     # Phase 2: Delete even-numbered rowids
     for i in range(0, 50, 2):

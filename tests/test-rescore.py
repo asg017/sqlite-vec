@@ -655,3 +655,73 @@ def test_rescore_text_pk_insert_knn_delete(db):
     ids = [r["id"] for r in rows]
     assert "alpha" not in ids
     assert len(rows) >= 1  # other results still returned
+
+
+def test_runtime_oversample(db):
+    """oversample can be changed at query time via FTS5-style command."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0("
+        "  embedding float[128] indexed by rescore(quantizer=bit, oversample=2)"
+        ")"
+    )
+    random.seed(200)
+    for i in range(200):
+        db.execute(
+            "INSERT INTO t(rowid, embedding) VALUES (?, ?)",
+            [i + 1, float_vec([random.gauss(0, 1) for _ in range(128)])],
+        )
+
+    query = float_vec([random.gauss(0, 1) for _ in range(128)])
+
+    # KNN with default oversample=2 (low)
+    rows_low = db.execute(
+        "SELECT rowid FROM t WHERE embedding MATCH ? ORDER BY distance LIMIT 10",
+        [query],
+    ).fetchall()
+    assert len(rows_low) == 10
+
+    # Change oversample at runtime to high value
+    db.execute("INSERT INTO t(t) VALUES ('oversample=32')")
+
+    # KNN with oversample=32 (high) — same or better recall
+    rows_high = db.execute(
+        "SELECT rowid FROM t WHERE embedding MATCH ? ORDER BY distance LIMIT 10",
+        [query],
+    ).fetchall()
+    assert len(rows_high) == 10
+
+    # Reset to original
+    db.execute("INSERT INTO t(t) VALUES ('oversample=2')")
+
+    rows_reset = db.execute(
+        "SELECT rowid FROM t WHERE embedding MATCH ? ORDER BY distance LIMIT 10",
+        [query],
+    ).fetchall()
+    assert len(rows_reset) == 10
+    # After reset, should match the original low-oversample results
+    assert [r["rowid"] for r in rows_reset] == [r["rowid"] for r in rows_low]
+
+
+def test_runtime_oversample_error(db):
+    """Invalid oversample values should error."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0("
+        "  embedding float[128] indexed by rescore(quantizer=bit)"
+        ")"
+    )
+    with pytest.raises(sqlite3.OperationalError, match="oversample must be >= 1"):
+        db.execute("INSERT INTO t(t) VALUES ('oversample=0')")
+
+    with pytest.raises(sqlite3.OperationalError, match="oversample must be >= 1"):
+        db.execute("INSERT INTO t(t) VALUES ('oversample=-5')")
+
+
+def test_unknown_command_errors(db):
+    """Unknown command strings should produce a clear error."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0("
+        "  embedding float[128] indexed by rescore(quantizer=bit)"
+        ")"
+    )
+    with pytest.raises(sqlite3.OperationalError, match="unknown vec0 command"):
+        db.execute("INSERT INTO t(t) VALUES ('not_a_real_command')")

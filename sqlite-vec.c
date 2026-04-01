@@ -2588,7 +2588,8 @@ enum Vec0RescoreQuantizerType {
 
 struct Vec0RescoreConfig {
   enum Vec0RescoreQuantizerType quantizer_type;
-  int oversample;
+  int oversample;          // CREATE-time default
+  int oversample_search;   // runtime override (0 = use default)
 };
 #endif
 
@@ -3399,8 +3400,9 @@ static sqlite3_module vec_eachModule = {
 
 #define VEC0_COLUMN_ID 0
 #define VEC0_COLUMN_USERN_START 1
-#define VEC0_COLUMN_OFFSET_DISTANCE 1
-#define VEC0_COLUMN_OFFSET_K 2
+#define VEC0_COLUMN_OFFSET_COMMAND 1
+#define VEC0_COLUMN_OFFSET_DISTANCE 2
+#define VEC0_COLUMN_OFFSET_K 3
 
 #define VEC0_SHADOW_INFO_NAME "\"%w\".\"%w_info\""
 
@@ -3497,6 +3499,10 @@ struct vec0_vtab {
   // True if the primary key of the vec0 table has a column type TEXT.
   // Will change the schema of the _rowids table, and insert/query logic.
   int pkIsText;
+
+  // True if the hidden command column (named after the table) exists.
+  // Tables created before v0.1.10 or without _info table don't have it.
+  int hasCommandColumn;
 
   // number of defined vector columns.
   int numVectorColumns;
@@ -3777,20 +3783,19 @@ int vec0_num_defined_user_columns(vec0_vtab *p) {
  * @param p vec0 table
  * @return int
  */
-int vec0_column_distance_idx(vec0_vtab *p) {
-  return VEC0_COLUMN_USERN_START + (vec0_num_defined_user_columns(p) - 1) +
-         VEC0_COLUMN_OFFSET_DISTANCE;
+int vec0_column_command_idx(vec0_vtab *p) {
+  // Command column is the first hidden column (right after user columns)
+  return VEC0_COLUMN_USERN_START + vec0_num_defined_user_columns(p);
 }
 
-/**
- * @brief Returns the index of the k hidden column for the given vec0 table.
- *
- * @param p vec0 table
- * @return int k column index
- */
+int vec0_column_distance_idx(vec0_vtab *p) {
+  int base = VEC0_COLUMN_USERN_START + vec0_num_defined_user_columns(p);
+  return base + (p->hasCommandColumn ? 1 : 0);
+}
+
 int vec0_column_k_idx(vec0_vtab *p) {
-  return VEC0_COLUMN_USERN_START + (vec0_num_defined_user_columns(p) - 1) +
-         VEC0_COLUMN_OFFSET_K;
+  int base = VEC0_COLUMN_USERN_START + vec0_num_defined_user_columns(p);
+  return base + (p->hasCommandColumn ? 2 : 1);
 }
 
 /**
@@ -5205,6 +5210,74 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     }
   }
 
+  // Determine whether to add the FTS5-style hidden command column.
+  // New tables (isCreate) always get it; existing tables only if created
+  // with v0.1.10+ (which validated no column name == table name).
+  int hasCommandColumn = 0;
+  if (isCreate) {
+    // Validate no user column name conflicts with the table name
+    const char *tblName = argv[2];
+    int tblNameLen = (int)strlen(tblName);
+    for (int i = 0; i < numVectorColumns; i++) {
+      if (pNew->vector_columns[i].name_length == tblNameLen &&
+          sqlite3_strnicmp(pNew->vector_columns[i].name, tblName, tblNameLen) == 0) {
+        *pzErr = sqlite3_mprintf(
+            VEC_CONSTRUCTOR_ERROR
+            "column name '%s' conflicts with table name (reserved for command column)",
+            tblName);
+        goto error;
+      }
+    }
+    for (int i = 0; i < numPartitionColumns; i++) {
+      if (pNew->paritition_columns[i].name_length == tblNameLen &&
+          sqlite3_strnicmp(pNew->paritition_columns[i].name, tblName, tblNameLen) == 0) {
+        *pzErr = sqlite3_mprintf(
+            VEC_CONSTRUCTOR_ERROR
+            "column name '%s' conflicts with table name (reserved for command column)",
+            tblName);
+        goto error;
+      }
+    }
+    for (int i = 0; i < numAuxiliaryColumns; i++) {
+      if (pNew->auxiliary_columns[i].name_length == tblNameLen &&
+          sqlite3_strnicmp(pNew->auxiliary_columns[i].name, tblName, tblNameLen) == 0) {
+        *pzErr = sqlite3_mprintf(
+            VEC_CONSTRUCTOR_ERROR
+            "column name '%s' conflicts with table name (reserved for command column)",
+            tblName);
+        goto error;
+      }
+    }
+    for (int i = 0; i < numMetadataColumns; i++) {
+      if (pNew->metadata_columns[i].name_length == tblNameLen &&
+          sqlite3_strnicmp(pNew->metadata_columns[i].name, tblName, tblNameLen) == 0) {
+        *pzErr = sqlite3_mprintf(
+            VEC_CONSTRUCTOR_ERROR
+            "column name '%s' conflicts with table name (reserved for command column)",
+            tblName);
+        goto error;
+      }
+    }
+    hasCommandColumn = 1;
+  } else {
+    // xConnect: check _info shadow table for version
+    sqlite3_stmt *stmtInfo = NULL;
+    char *zInfoSql = sqlite3_mprintf(
+        "SELECT value FROM " VEC0_SHADOW_INFO_NAME " WHERE key = 'CREATE_VERSION_PATCH'",
+        argv[1], argv[2]);
+    if (zInfoSql) {
+      int infoRc = sqlite3_prepare_v2(db, zInfoSql, -1, &stmtInfo, NULL);
+      sqlite3_free(zInfoSql);
+      if (infoRc == SQLITE_OK && sqlite3_step(stmtInfo) == SQLITE_ROW) {
+        int patch = sqlite3_column_int(stmtInfo, 0);
+        hasCommandColumn = (patch >= 10);  // v0.1.10+
+      }
+      // If _info doesn't exist or has no version, assume old table
+      sqlite3_finalize(stmtInfo);
+    }
+  }
+  pNew->hasCommandColumn = hasCommandColumn;
+
   sqlite3_str *createStr = sqlite3_str_new(NULL);
   sqlite3_str_appendall(createStr, "CREATE TABLE x(");
   if (pkColumnName) {
@@ -5246,7 +5319,11 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     }
 
   }
-  sqlite3_str_appendall(createStr, " distance hidden, k hidden) ");
+  if (hasCommandColumn) {
+    sqlite3_str_appendf(createStr, " \"%w\" hidden, distance hidden, k hidden) ", argv[2]);
+  } else {
+    sqlite3_str_appendall(createStr, " distance hidden, k hidden) ");
+  }
   if (pkColumnName) {
     sqlite3_str_appendall(createStr, "without rowid ");
   }
@@ -10161,25 +10238,31 @@ static int vec0Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
   }
   // INSERT operation
   else if (argc > 1 && sqlite3_value_type(argv[0]) == SQLITE_NULL) {
-#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE || SQLITE_VEC_ENABLE_DISKANN
-    // Check for command inserts: INSERT INTO t(rowid) VALUES ('command-string')
-    // The id column holds the command string.
-    sqlite3_value *idVal = argv[2 + VEC0_COLUMN_ID];
-    if (sqlite3_value_type(idVal) == SQLITE_TEXT) {
-      const char *cmd = (const char *)sqlite3_value_text(idVal);
-      vec0_vtab *p = (vec0_vtab *)pVTab;
-      int cmdRc = SQLITE_EMPTY;
+    vec0_vtab *p = (vec0_vtab *)pVTab;
+    // FTS5-style command dispatch via hidden column named after table
+    if (p->hasCommandColumn) {
+      sqlite3_value *cmdVal = argv[2 + vec0_column_command_idx(p)];
+      if (sqlite3_value_type(cmdVal) == SQLITE_TEXT) {
+        const char *cmd = (const char *)sqlite3_value_text(cmdVal);
+        int cmdRc = SQLITE_EMPTY;
+#if SQLITE_VEC_ENABLE_RESCORE
+        cmdRc = rescore_handle_command(p, cmd);
+#endif
 #if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
-      cmdRc = ivf_handle_command(p, cmd, argc, argv);
+        if (cmdRc == SQLITE_EMPTY)
+          cmdRc = ivf_handle_command(p, cmd, argc, argv);
 #endif
 #if SQLITE_VEC_ENABLE_DISKANN
-      if (cmdRc == SQLITE_EMPTY)
-        cmdRc = diskann_handle_command(p, cmd);
+        if (cmdRc == SQLITE_EMPTY)
+          cmdRc = diskann_handle_command(p, cmd);
 #endif
-      if (cmdRc != SQLITE_EMPTY) return cmdRc; // handled (or error)
-      // SQLITE_EMPTY means not a recognized command — fall through to normal insert
+        if (cmdRc == SQLITE_EMPTY) {
+          vtab_set_error(pVTab, "unknown vec0 command: '%s'", cmd);
+          return SQLITE_ERROR;
+        }
+        return cmdRc;
+      }
     }
-#endif
     return vec0Update_Insert(pVTab, argc, argv, pRowid);
   }
   // UPDATE operation

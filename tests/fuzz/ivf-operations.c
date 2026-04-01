@@ -28,7 +28,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   if (rc != SQLITE_OK) { sqlite3_close(db); return 0; }
 
   sqlite3_prepare_v2(db,
-    "INSERT INTO v(rowid, emb) VALUES (?, ?)", -1, &stmtInsert, NULL);
+    "INSERT INTO v(v, emb) VALUES (?, ?)", -1, &stmtInsert, NULL);
   sqlite3_prepare_v2(db,
     "DELETE FROM v WHERE rowid = ?", -1, &stmtDelete, NULL);
   sqlite3_prepare_v2(db,
@@ -82,14 +82,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
       case 4: {
         // compute-centroids command
         sqlite3_exec(db,
-          "INSERT INTO v(rowid) VALUES ('compute-centroids')",
+          "INSERT INTO v(v) VALUES ('compute-centroids')",
           NULL, NULL, NULL);
         break;
       }
       case 5: {
         // clear-centroids command
         sqlite3_exec(db,
-          "INSERT INTO v(rowid) VALUES ('clear-centroids')",
+          "INSERT INTO v(v) VALUES ('clear-centroids')",
           NULL, NULL, NULL);
         break;
       }
@@ -100,7 +100,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
           int nprobe = (n % 4) + 1;
           char buf[64];
           snprintf(buf, sizeof(buf),
-            "INSERT INTO v(rowid) VALUES ('nprobe=%d')", nprobe);
+            "INSERT INTO v(v) VALUES ('nprobe=%d')", nprobe);
           sqlite3_exec(db, buf, NULL, NULL, NULL);
         }
         break;

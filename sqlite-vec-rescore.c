@@ -351,7 +351,9 @@ static int rescore_knn(vec0_vtab *p, vec0_cursor *pCur,
   (void)pCur;
   (void)aMetadataIn;
   int rc = SQLITE_OK;
-  int oversample = vector_column->rescore.oversample;
+  int oversample = vector_column->rescore.oversample_search > 0
+      ? vector_column->rescore.oversample_search
+      : vector_column->rescore.oversample;
   i64 k_oversample = k * oversample;
   if (k_oversample > 4096)
     k_oversample = 4096;
@@ -638,6 +640,27 @@ cleanup:
   sqlite3_free(bmRowids);
   sqlite3_free(baseVectors);
   return rc;
+}
+
+/**
+ * Handle FTS5-style command dispatch for rescore parameters.
+ * Returns SQLITE_OK if handled, SQLITE_EMPTY if not a rescore command.
+ */
+static int rescore_handle_command(vec0_vtab *p, const char *command) {
+  if (strncmp(command, "oversample=", 11) == 0) {
+    int val = atoi(command + 11);
+    if (val < 1) {
+      vtab_set_error(&p->base, "oversample must be >= 1");
+      return SQLITE_ERROR;
+    }
+    for (int i = 0; i < p->numVectorColumns; i++) {
+      if (p->vector_columns[i].index_type == VEC0_INDEX_TYPE_RESCORE) {
+        p->vector_columns[i].rescore.oversample_search = val;
+      }
+    }
+    return SQLITE_OK;
+  }
+  return SQLITE_EMPTY;
 }
 
 #ifdef SQLITE_VEC_TEST

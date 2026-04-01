@@ -589,7 +589,7 @@ def test_diskann_command_search_list_size(db):
     assert len(results_before) == 5
 
     # Override search_list_size_search at runtime
-    db.execute("INSERT INTO t(rowid) VALUES ('search_list_size_search=256')")
+    db.execute("INSERT INTO t(t) VALUES ('search_list_size_search=256')")
 
     # Query should still work
     results_after = db.execute(
@@ -598,14 +598,14 @@ def test_diskann_command_search_list_size(db):
     assert len(results_after) == 5
 
     # Override search_list_size_insert at runtime
-    db.execute("INSERT INTO t(rowid) VALUES ('search_list_size_insert=32')")
+    db.execute("INSERT INTO t(t) VALUES ('search_list_size_insert=32')")
 
     # Inserts should still work
     vec = struct.pack("64f", *[random.random() for _ in range(64)])
     db.execute("INSERT INTO t(emb) VALUES (?)", [vec])
 
     # Override unified search_list_size
-    db.execute("INSERT INTO t(rowid) VALUES ('search_list_size=64')")
+    db.execute("INSERT INTO t(t) VALUES ('search_list_size=64')")
 
     results_final = db.execute(
         "SELECT rowid, distance FROM t WHERE emb MATCH ? AND k = 5", [query]
@@ -620,9 +620,9 @@ def test_diskann_command_search_list_size_error(db):
             emb float[64] INDEXED BY diskann(neighbor_quantizer=binary)
         )
     """)
-    result = exec(db, "INSERT INTO t(rowid) VALUES ('search_list_size=0')")
+    result = exec(db, "INSERT INTO t(t) VALUES ('search_list_size=0')")
     assert "error" in result
-    result = exec(db, "INSERT INTO t(rowid) VALUES ('search_list_size=-1')")
+    result = exec(db, "INSERT INTO t(t) VALUES ('search_list_size=-1')")
     assert "error" in result
 
 

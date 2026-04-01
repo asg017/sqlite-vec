@@ -92,7 +92,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   // Insert vectors
   sqlite3_stmt *stmtInsert = NULL;
   sqlite3_prepare_v2(db,
-    "INSERT INTO v(rowid, emb) VALUES (?, ?)", -1, &stmtInsert, NULL);
+    "INSERT INTO v(v, emb) VALUES (?, ?)", -1, &stmtInsert, NULL);
   if (!stmtInsert) { sqlite3_close(db); return 0; }
 
   size_t offset = 0;
@@ -134,14 +134,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
   // Train
   sqlite3_exec(db,
-    "INSERT INTO v(rowid) VALUES ('compute-centroids')",
+    "INSERT INTO v(v) VALUES ('compute-centroids')",
     NULL, NULL, NULL);
 
   // Change nprobe at runtime (can exceed nlist -- tests clamping in query)
   {
     char cmd[64];
     snprintf(cmd, sizeof(cmd),
-      "INSERT INTO v(rowid) VALUES ('nprobe=%d')", nprobe_initial);
+      "INSERT INTO v(v) VALUES ('nprobe=%d')", nprobe_initial);
     sqlite3_exec(db, cmd, NULL, NULL, NULL);
   }
 

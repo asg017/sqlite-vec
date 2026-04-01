@@ -159,7 +159,7 @@ INDEX_REGISTRY = {
 def _ivf_train(conn):
     """Trigger built-in k-means training for IVF."""
     t0 = now_ns()
-    conn.execute("INSERT INTO vec_items(id) VALUES ('compute-centroids')")
+    conn.execute("INSERT INTO vec_items(vec_items) VALUES ('compute-centroids')")
     conn.commit()
     return ns_to_s(now_ns() - t0)
 

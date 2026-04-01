@@ -55,7 +55,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   // Insert enough vectors to overflow at least one cell
   sqlite3_stmt *stmtInsert = NULL;
   sqlite3_prepare_v2(db,
-    "INSERT INTO v(rowid, emb) VALUES (?, ?)", -1, &stmtInsert, NULL);
+    "INSERT INTO v(v, emb) VALUES (?, ?)", -1, &stmtInsert, NULL);
   if (!stmtInsert) { sqlite3_close(db); return 0; }
 
   size_t offset = 0;
@@ -81,7 +81,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
   // Train to assign vectors to centroids (triggers cell building)
   sqlite3_exec(db,
-    "INSERT INTO v(rowid) VALUES ('compute-centroids')",
+    "INSERT INTO v(v) VALUES ('compute-centroids')",
     NULL, NULL, NULL);
 
   // Delete vectors at boundary positions based on fuzz data
@@ -102,7 +102,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   {
     sqlite3_stmt *si = NULL;
     sqlite3_prepare_v2(db,
-      "INSERT INTO v(rowid, emb) VALUES (?, ?)", -1, &si, NULL);
+      "INSERT INTO v(v, emb) VALUES (?, ?)", -1, &si, NULL);
     if (si) {
       for (int i = 0; i < 10; i++) {
         float *vec = sqlite3_malloc(dim * sizeof(float));
@@ -140,7 +140,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   // Test assign-vectors with multi-cell state
   // First clear centroids
   sqlite3_exec(db,
-    "INSERT INTO v(rowid) VALUES ('clear-centroids')",
+    "INSERT INTO v(v) VALUES ('clear-centroids')",
     NULL, NULL, NULL);
 
   // Set centroids manually, then assign
@@ -151,7 +151,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
     char cmd[128];
     snprintf(cmd, sizeof(cmd),
-      "INSERT INTO v(rowid, emb) VALUES ('set-centroid:%d', ?)", c);
+      "INSERT INTO v(v, emb) VALUES ('set-centroid:%d', ?)", c);
     sqlite3_stmt *sc = NULL;
     sqlite3_prepare_v2(db, cmd, -1, &sc, NULL);
     if (sc) {
@@ -163,7 +163,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   }
 
   sqlite3_exec(db,
-    "INSERT INTO v(rowid) VALUES ('assign-vectors')",
+    "INSERT INTO v(v) VALUES ('assign-vectors')",
     NULL, NULL, NULL);
 
   // Final query after assign-vectors

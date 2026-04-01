@@ -456,7 +456,7 @@ def _ivf_create_table_sql(params):
 def _ivf_post_insert_hook(conn, params):
     print("  Training k-means centroids (built-in)...", flush=True)
     t0 = time.perf_counter()
-    conn.execute("INSERT INTO vec_items(id) VALUES ('compute-centroids')")
+    conn.execute("INSERT INTO vec_items(vec_items) VALUES ('compute-centroids')")
     conn.commit()
     elapsed = time.perf_counter() - t0
     print(f"  Training done in {elapsed:.1f}s", flush=True)
@@ -514,7 +514,7 @@ def _ivf_faiss_kmeans_hook(conn, params):
 
     for cid, blob in centroids:
         conn.execute(
-            "INSERT INTO vec_items(id, embedding) VALUES (?, ?)",
+            "INSERT INTO vec_items(vec_items, embedding) VALUES (?, ?)",
             (f"set-centroid:{cid}", blob),
         )
     conn.commit()
@@ -540,7 +540,7 @@ def _ivf_pre_query_hook(conn, params):
     nprobe = params.get("nprobe")
     if nprobe:
         conn.execute(
-            "INSERT INTO vec_items(id) VALUES (?)",
+            "INSERT INTO vec_items(vec_items) VALUES (?)",
             (f"nprobe={nprobe}",),
         )
         conn.commit()
@@ -572,7 +572,7 @@ INDEX_REGISTRY["ivf"] = {
     "insert_sql": None,
     "post_insert_hook": _ivf_post_insert_hook,
     "pre_query_hook": _ivf_pre_query_hook,
-    "train_sql": lambda _: "INSERT INTO vec_items(id) VALUES ('compute-centroids')",
+    "train_sql": lambda _: "INSERT INTO vec_items(vec_items) VALUES ('compute-centroids')",
     "run_query": None,
     "query_sql": None,
     "describe": _ivf_describe,
@@ -616,7 +616,7 @@ def _diskann_pre_query_hook(conn, params):
     L_search = params.get("L_search", 0)
     if L_search:
         conn.execute(
-            "INSERT INTO vec_items(id) VALUES (?)",
+            "INSERT INTO vec_items(vec_items) VALUES (?)",
             (f"search_list_size_search={L_search}",),
         )
         conn.commit()

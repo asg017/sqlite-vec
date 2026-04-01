@@ -122,7 +122,7 @@ def test_ivf_int8_insert_and_query(db):
             "INSERT INTO t(rowid, v) VALUES (?, ?)", [i, _f32([i, 0, 0, 0])]
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
 
     # Should be able to query
     rows = db.execute(
@@ -151,7 +151,7 @@ def test_ivf_binary_insert_and_query(db):
             "INSERT INTO t(rowid, v) VALUES (?, ?)", [i, _f32(v)]
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
 
     rows = db.execute(
         "SELECT rowid FROM t WHERE v MATCH ? AND k = 5",
@@ -221,10 +221,10 @@ def test_ivf_int8_oversample_improves_recall(db):
         db.execute("INSERT INTO t1(rowid, v) VALUES (?, ?)", [i, v])
         db.execute("INSERT INTO t2(rowid, v) VALUES (?, ?)", [i, v])
 
-    db.execute("INSERT INTO t1(rowid) VALUES ('compute-centroids')")
-    db.execute("INSERT INTO t2(rowid) VALUES ('compute-centroids')")
-    db.execute("INSERT INTO t1(rowid) VALUES ('nprobe=4')")
-    db.execute("INSERT INTO t2(rowid) VALUES ('nprobe=4')")
+    db.execute("INSERT INTO t1(t1) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t2(t2) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t1(t1) VALUES ('nprobe=4')")
+    db.execute("INSERT INTO t2(t2) VALUES ('nprobe=4')")
 
     query = _f32([5.0, 1.5, 2.5, 0.5])
     r1 = db.execute("SELECT rowid FROM t1 WHERE v MATCH ? AND k=10", [query]).fetchall()
@@ -247,7 +247,7 @@ def test_ivf_quantized_delete(db):
             "INSERT INTO t(rowid, v) VALUES (?, ?)", [i, _f32([i, 0, 0, 0])]
         )
 
-    db.execute("INSERT INTO t(rowid) VALUES ('compute-centroids')")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
     assert db.execute("SELECT count(*) FROM t_ivf_vectors00").fetchone()[0] == 10
 
     db.execute("DELETE FROM t WHERE rowid = 5")
