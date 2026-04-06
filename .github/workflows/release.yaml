@@ -278,7 +278,7 @@ jobs:
           name: sqlite-vec-iossimulator-x86_64-extension
           path: dist/iossimulator-x86_64
       - run: make sqlite-vec.h
-      - uses: asg017/setup-sqlite-dist@73e37b2ffb0b51e64a64eb035da38c958b9ff6c6
+      - uses: asg017/setup-sqlite-dist@fadb0183a6ec70c3f1942de7d232b087ff2bacd1
       - run: sqlite-dist build --set-version $(cat VERSION)
       - run: |
           gh release upload ${{ github.ref_name }} \
