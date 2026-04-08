@@ -2,6 +2,8 @@
 COMMIT=$(shell git rev-parse HEAD)
 VERSION=$(shell cat VERSION)
 DATE=$(shell date +'%FT%TZ%z')
+UNAME_S=$(shell uname -s 2>/dev/null)
+UNAME_M=$(shell uname -m 2>/dev/null)
 
 INSTALL_LIB_DIR = /usr/local/lib
 INSTALL_INCLUDE_DIR = /usr/local/include
@@ -14,9 +16,11 @@ ifndef AR
 AR=ar
 endif
 
-ifeq ($(shell uname -s),Darwin)
+ifeq ($(UNAME_S),Darwin)
 CONFIG_DARWIN=y
 else ifeq ($(OS),Windows_NT)
+CONFIG_WINDOWS=y
+else ifneq ($(filter MINGW% MSYS% CYGWIN%,$(UNAME_S)),)
 CONFIG_WINDOWS=y
 else
 CONFIG_LINUX=y
@@ -33,6 +37,21 @@ endif
 
 ifdef CONFIG_WINDOWS
 LOADABLE_EXTENSION=dll
+endif
+
+TEST_LOADABLE_UV_RUN_ARGS ?= --managed-python
+TEST_LOADABLE_UV_SYNC_ARGS ?=
+
+ifdef CONFIG_WINDOWS
+# Windows-on-ARM can surface different architecture strings depending on
+# whether the current shell is native or x64-emulated, so inspect both the
+# Windows processor env vars and the current shell/dev-command hints before
+# choosing Python.
+WINDOWS_HOST_ARCH_HINTS := $(PROCESSOR_ARCHITEW6432) $(PROCESSOR_ARCHITECTURE) $(VSCMD_ARG_TGT_ARCH) $(Platform) $(UNAME_S) $(UNAME_M)
+ifneq ($(strip $(findstring ARM64,$(WINDOWS_HOST_ARCH_HINTS))$(findstring arm64,$(WINDOWS_HOST_ARCH_HINTS))$(findstring AARCH64,$(WINDOWS_HOST_ARCH_HINTS))$(findstring aarch64,$(WINDOWS_HOST_ARCH_HINTS))),)
+TEST_LOADABLE_UV_RUN_ARGS = --python python
+TEST_LOADABLE_UV_SYNC_ARGS = --python python
+endif
 endif
 
 ifndef OMIT_SIMD
@@ -188,17 +207,20 @@ evidence-of:
 test:
 	sqlite3 :memory: '.read test.sql'
 
-.PHONY: version loadable static test clean gh-release evidence-of install uninstall amalgamation
+.PHONY: version loadable static test clean gh-release evidence-of install uninstall amalgamation test-loadable-sync test-loadable test-loadable-snapshot-update test-loadable-watch
 
 publish-release:
 	./scripts/publish-release.sh
 
 # -k test_vec0_update
+test-loadable-sync:
+	uv sync --directory tests $(TEST_LOADABLE_UV_SYNC_ARGS)
+
 test-loadable: loadable
-	uv run --managed-python --project tests pytest -vv -s -x . tests/test-*.py
+	uv run $(TEST_LOADABLE_UV_RUN_ARGS) --project tests pytest -vv -s -x . tests/test-*.py
 
 test-loadable-snapshot-update: loadable
-	uv run --managed-python --project tests pytest -vv tests/test-loadable.py --snapshot-update
+	uv run $(TEST_LOADABLE_UV_RUN_ARGS) --project tests pytest -vv tests/test-loadable.py --snapshot-update
 
 test-loadable-watch:
 	watchexec --exts c,py,Makefile --clear -- make test-loadable
