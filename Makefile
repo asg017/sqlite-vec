@@ -145,8 +145,8 @@ $(TARGET_CLI): sqlite-vec.h $(LIBS_DIR)/sqlite-vec.a $(LIBS_DIR)/shell.a $(LIBS_
 	-DSQLITE_ENABLE_STMT_SCANSTATUS -DSQLITE_ENABLE_BYTECODE_VTAB -DSQLITE_ENABLE_EXPLAIN_COMMENTS \
 	-DSQLITE_EXTRA_INIT=core_init \
 	$(CFLAGS) \
-	-ldl -lm \
-	examples/sqlite3-cli/core_init.c $(LIBS_DIR)/shell.a $(LIBS_DIR)/sqlite3.a $(LIBS_DIR)/sqlite-vec.a -o $@
+	examples/sqlite3-cli/core_init.c $(LIBS_DIR)/shell.a $(LIBS_DIR)/sqlite3.a $(LIBS_DIR)/sqlite-vec.a -o $@ \
+	-ldl -lm
 
 
 sqlite-vec.h: sqlite-vec.h.tmpl VERSION
