@@ -28,7 +28,7 @@ endif
 
 ifdef CONFIG_LINUX
 LOADABLE_EXTENSION=so
-CFLAGS += -lm
+LDLIBS += -lm
 endif
 
 ifdef CONFIG_WINDOWS
@@ -99,7 +99,8 @@ $(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(prefix)
 		-Ivendor/ \
 		-O3 \
 		$(CFLAGS) \
-		$< -o $@
+		$< -o $@ \
+		$(LDLIBS)
 
 $(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(prefix) $(OBJS_DIR)
 	$(CC) -Ivendor/ $(CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
