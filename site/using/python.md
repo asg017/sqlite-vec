@@ -67,6 +67,20 @@ db.execute(
 ) # 4
 ```
 
+### Reading Vectors
+
+When reading vectors from a SQLite database, you can use the `vec_to_json()` function to convert the BLOB format into a JSON array.
+
+```python
+import json
+
+db.execute("CREATE TABLE test (embedding BLOB)")
+db.execute("INSERT INTO test VALUES (?)", [serialize_float32([0.1, 0.2, 0.3, 0.4])])
+
+json_str, = db.execute("SELECT vec_to_json(embedding) FROM test").fetchone()
+print(json.loads(json_str)) # [0.1, 0.2, 0.3, 0.4]
+```
+
 
 ## Using an up-to-date version of SQLite {#updated-sqlite}
 
