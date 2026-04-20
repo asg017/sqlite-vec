@@ -7,7 +7,7 @@ Currently there are two ways to to perform KNN queries with `sqlite-vec`:
 With `vec0` virtual tables and "manually" with regular tables.
 
 The `vec0` virtual table is faster and more compact, but is less flexible and requires `JOIN`s back to your source tables.
-The "manual" method is more flexible and
+The "manual" method is more flexible and allows for more granular queries, but may be slower and use more space.
 
 
 
