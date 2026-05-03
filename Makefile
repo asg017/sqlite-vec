@@ -69,20 +69,26 @@ $(prefix):
 
 TARGET_LOADABLE=$(prefix)/vec0.$(LOADABLE_EXTENSION)
 TARGET_STATIC=$(prefix)/libsqlite_vec0.a
+TARGET_SHARED=$(prefix)/libsqlite_vec0.so
 TARGET_STATIC_H=$(prefix)/sqlite-vec.h
 TARGET_CLI=$(prefix)/sqlite3
 
 loadable: $(TARGET_LOADABLE)
 static: $(TARGET_STATIC)
+shared: $(TARGET_SHARED)
 cli: $(TARGET_CLI)
 
-all: loadable static cli
+all: loadable static shared cli
 
 OBJS_DIR=$(prefix)/.objs
+OBJS_DIR_SHARED=$(prefix)/.objs-shared
 LIBS_DIR=$(prefix)/.libs
 BUILD_DIR=$(prefix)/.build
 
 $(OBJS_DIR): $(prefix)
+	mkdir -p $@
+
+$(OBJS_DIR_SHARED): $(prefix)
 	mkdir -p $@
 
 $(LIBS_DIR): $(prefix)
@@ -105,6 +111,11 @@ $(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(prefix) $(OBJS_DIR)
 	$(CC) -Ivendor/ $(CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
 	-O3 -c  $< -o $(OBJS_DIR)/vec.o
 	$(AR) rcs $@ $(OBJS_DIR)/vec.o
+
+$(TARGET_SHARED): sqlite-vec.c sqlite-vec.h $(prefix) $(OBJS_DIR_SHARED)
+	$(CC) -fPIC -Ivendor/ -O3 $(CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
+	-c  $< -o $(OBJS_DIR_SHARED)/vec.o
+	$(CC) -shared $(LDFLAGS) -o $@ $(OBJS_DIR_SHARED)/vec.o
 
 $(TARGET_STATIC_H): sqlite-vec.h $(prefix)
 	cp $< $@
