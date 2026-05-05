@@ -10435,9 +10435,13 @@ static int vec0Rename(sqlite3_vtab *pVtab, const char *zNew) {
 
   // Per-vector-column shadow tables
   for (int i = 0; i < p->numVectorColumns; i++) {
-    sqlite3_str_appendf(s,
-      "ALTER TABLE \"%w\".\"%w_vector_chunks%02d\" RENAME TO \"%w_vector_chunks%02d\";",
-      p->schemaName, p->tableName, i, zNew, i);
+    // Non-FLAT columns (rescore, IVF, DiskANN) don't create _vector_chunks
+    // (mirror the guard in vec0_init around VEC0_SHADOW_VECTOR_N_CREATE).
+    if (p->vector_columns[i].index_type == VEC0_INDEX_TYPE_FLAT) {
+      sqlite3_str_appendf(s,
+        "ALTER TABLE \"%w\".\"%w_vector_chunks%02d\" RENAME TO \"%w_vector_chunks%02d\";",
+        p->schemaName, p->tableName, i, zNew, i);
+    }
 
 #if SQLITE_VEC_ENABLE_RESCORE
     if (p->shadowRescoreChunksNames[i]) {
