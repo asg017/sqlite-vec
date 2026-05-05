@@ -265,6 +265,35 @@ def test_deletes(db, snapshot):
     assert vec0_shadow_table_contents(db, "v") == snapshot()
 
 
+def test_delete_by_metadata_with_long_text(db):
+    """Regression for https://github.com/asg017/sqlite-vec/issues/274.
+
+    ClearMetadata left rc=SQLITE_DONE after the long-text DELETE, which
+    propagated as an error and silently aborted the DELETE scan.
+    """
+    db.execute(
+        "create virtual table v using vec0("
+        "  tag text, embedding float[4], chunk_size=8"
+        ")"
+    )
+    for i in range(6):
+        db.execute(
+            "insert into v(tag, embedding) values (?, zeroblob(16))",
+            [f"long_text_value_{i}"],
+        )
+    for i in range(4):
+        db.execute(
+            "insert into v(tag, embedding) values (?, zeroblob(16))",
+            [f"long_text_value_0"],
+        )
+    assert db.execute("select count(*) from v").fetchone()[0] == 10
+
+    # DELETE by metadata WHERE — the pattern from the issue
+    db.execute("delete from v where tag = 'long_text_value_0'")
+    assert db.execute("select count(*) from v where tag = 'long_text_value_0'").fetchone()[0] == 0
+    assert db.execute("select count(*) from v").fetchone()[0] == 5
+
+
 def test_knn(db, snapshot):
     db.execute(
         "create virtual table v using vec0(vector float[1], name text, chunk_size=8)"

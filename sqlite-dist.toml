@@ -1,6 +1,6 @@
 [package]
 name = "sqlite-vec"
-license = "MIT OR Apache"
+license = "MIT OR Apache-2.0"
 homepage = "https://alexgarcia.xyz/sqlite-vec"
 repo = "https://github.com/asg017/sqlite-vec"
 description = "A vector search SQLite extension."

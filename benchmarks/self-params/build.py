@@ -6,7 +6,6 @@ def connect(path):
     db = sqlite3.connect(path)
     db.enable_load_extension(True)
     db.load_extension("../dist/vec0")
-    db.execute("select load_extension('../dist/vec0', 'sqlite3_vec_fs_read_init')")
     db.enable_load_extension(False)
     return db
 
@@ -17,8 +16,6 @@ page_sizes = [  # 4096, 8192,
 ]
 chunk_sizes = [128, 256, 1024, 2048]
 types = ["f32", "int8", "bit"]
-
-SRC = "../examples/dbpedia-openai/data/vectors.npy"
 
 for page_size in page_sizes:
     for chunk_size in chunk_sizes:
@@ -42,15 +39,8 @@ for page_size in page_sizes:
                     func = "vec_quantize_i8(vector, 'unit')"
                 if t == "bit":
                     func = "vec_quantize_binary(vector)"
-                db.execute(
-                    f"""
-                      insert into vec_items
-                      select rowid, {func}
-                      from vec_npy_each(vec_npy_file(?))
-                      limit 100000
-                    """,
-                    [SRC],
-                )
+                # TODO: replace with non-npy data loading
+                pass
             elapsed = time.time() - t0
             print(elapsed)
 

@@ -1,2 +1,7 @@
 *.dSYM
 targets/
+corpus/
+crash-*
+leak-*
+timeout-*
+*.log

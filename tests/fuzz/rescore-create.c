@@ -1,15 +1,11 @@
 #include <stdint.h>
 #include <stddef.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "sqlite-vec.h"
 #include "sqlite3.h"
 #include <assert.h>
-
-extern int sqlite3_vec_numpy_init(sqlite3 *db, char **pzErrMsg,
-                                  const sqlite3_api_routines *pApi);
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   int rc = SQLITE_OK;
@@ -20,17 +16,20 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   assert(rc == SQLITE_OK);
   rc = sqlite3_vec_init(db, NULL, NULL);
   assert(rc == SQLITE_OK);
-  rc = sqlite3_vec_numpy_init(db, NULL, NULL);
-  assert(rc == SQLITE_OK);
 
-  rc = sqlite3_prepare_v2(db, "select * from vec_npy_each(?)", -1, &stmt, NULL);
-  assert(rc == SQLITE_OK);
-  sqlite3_bind_blob(stmt, 1, data, size, SQLITE_STATIC);
-  rc = sqlite3_step(stmt);
-  while (rc == SQLITE_ROW) {
-    rc = sqlite3_step(stmt);
+  sqlite3_str *s = sqlite3_str_new(NULL);
+  assert(s);
+  sqlite3_str_appendall(s, "CREATE VIRTUAL TABLE v USING vec0(emb float[128] indexed by rescore(");
+  sqlite3_str_appendf(s, "%.*s", (int)size, data);
+  sqlite3_str_appendall(s, "))");
+  const char *zSql = sqlite3_str_finish(s);
+  assert(zSql);
+
+  rc = sqlite3_prepare_v2(db, zSql, -1, &stmt, NULL);
+  sqlite3_free((void *)zSql);
+  if (rc == SQLITE_OK) {
+    sqlite3_step(stmt);
   }
-
   sqlite3_finalize(stmt);
   sqlite3_close(db);
   return 0;

@@ -27,3 +27,15 @@ def test_info(db, snapshot):
     assert exec(db, "select key, typeof(value) from v_info order by 1") == snapshot()
 
 
+def test_command_column_name_conflict(db):
+    """Table name matching a column name should error (command column conflict)."""
+    # This would conflict: hidden command column 'embeddings' vs vector column 'embeddings'
+    with pytest.raises(sqlite3.OperationalError, match="conflicts with table name"):
+        db.execute(
+            "create virtual table embeddings using vec0(embeddings float[4])"
+        )
+
+    # Different names should work fine
+    db.execute("create virtual table t using vec0(embeddings float[4])")
+
+
