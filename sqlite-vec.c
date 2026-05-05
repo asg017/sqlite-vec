@@ -10280,15 +10280,6 @@ int vec0Update_Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv) {
  *      Finalize this vec0 vtab's cached prepared statements
  *      (stmtRowidsInsertRowid, stmtDiskannNodeRead, etc.) without renaming
  *      or destroying the table. They are re-prepared lazily on next use.
- *
- *      Hosts embedding sqlite-vec sometimes need this. mozStorage in
- *      Firefox, for example, calls sqlite3_close() on shutdown, which
- *      fails (and asserts in debug builds) while any sqlite3_stmt* is
- *      still live on the connection. vec0's cache would normally only be
- *      finalized in xDisconnect, which runs *after* that close attempt.
- *      Issuing this command before close lets the connection drain
- *      cleanly. Cheaper than the rename-pair workaround because it
- *      doesn't bump the schema cookie or write to shadow tables.
  */
 static int vec0_handle_general_command(vec0_vtab *p, const char *cmd) {
   if (strcmp(cmd, "release-cached-stmts") == 0) {
