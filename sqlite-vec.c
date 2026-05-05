@@ -10271,6 +10271,33 @@ int vec0Update_Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv) {
   return SQLITE_OK;
 }
 
+/*
+ * Index-type-agnostic vec0 control commands dispatched via the FTS5-style
+ * command column. Returns SQLITE_OK if handled, SQLITE_EMPTY otherwise.
+ *
+ * Recognized:
+ *   "release-cached-stmts"
+ *      Finalize this vec0 vtab's cached prepared statements
+ *      (stmtRowidsInsertRowid, stmtDiskannNodeRead, etc.) without renaming
+ *      or destroying the table. They are re-prepared lazily on next use.
+ *
+ *      Hosts embedding sqlite-vec sometimes need this. mozStorage in
+ *      Firefox, for example, calls sqlite3_close() on shutdown, which
+ *      fails (and asserts in debug builds) while any sqlite3_stmt* is
+ *      still live on the connection. vec0's cache would normally only be
+ *      finalized in xDisconnect, which runs *after* that close attempt.
+ *      Issuing this command before close lets the connection drain
+ *      cleanly. Cheaper than the rename-pair workaround because it
+ *      doesn't bump the schema cookie or write to shadow tables.
+ */
+static int vec0_handle_general_command(vec0_vtab *p, const char *cmd) {
+  if (strcmp(cmd, "release-cached-stmts") == 0) {
+    vec0_free_resources(p);
+    return SQLITE_OK;
+  }
+  return SQLITE_EMPTY;
+}
+
 static int vec0Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
                       sqlite_int64 *pRowid) {
   // DELETE operation
@@ -10297,6 +10324,8 @@ static int vec0Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
         if (cmdRc == SQLITE_EMPTY)
           cmdRc = diskann_handle_command(p, cmd);
 #endif
+        if (cmdRc == SQLITE_EMPTY)
+          cmdRc = vec0_handle_general_command(p, cmd);
         if (cmdRc == SQLITE_EMPTY) {
           vtab_set_error(pVTab, "unknown vec0 command: '%s'", cmd);
           return SQLITE_ERROR;
