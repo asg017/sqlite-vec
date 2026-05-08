@@ -2072,6 +2072,7 @@ static void _static_text_func(sqlite3_context *context, int argc,
 
 enum Vec0TokenType {
   TOKEN_TYPE_IDENTIFIER,
+  TOKEN_TYPE_DOUBLY_QUOTED_IDENTIFIER,
   TOKEN_TYPE_DIGIT,
   TOKEN_TYPE_LBRACKET,
   TOKEN_TYPE_RBRACKET,
@@ -2156,6 +2157,17 @@ int vec0_token_next(char *start, char *end, struct Vec0Token *out) {
       out->start = start;
       out->end = ptr;
       out->token_type = TOKEN_TYPE_IDENTIFIER;
+      return VEC0_TOKEN_RESULT_SOME;
+    } else if (curr == '"') {
+      char *start = ptr;
+      int match = 0;
+      do {
+        match = ptr > start && (*ptr == '"');
+        ptr++;
+      } while (ptr < end && !match);
+      out->start = start;
+      out->end = ptr;
+      out->token_type = TOKEN_TYPE_DOUBLY_QUOTED_IDENTIFIER;
       return VEC0_TOKEN_RESULT_SOME;
     } else if (is_digit(curr)) {
       char *start = ptr;
@@ -2263,12 +2275,18 @@ int vec0_parse_partition_key_definition(const char *source, int source_length,
   // Check first token is identifier, will be the column name
   int rc = vec0_scanner_next(&scanner, &token);
   if (rc != VEC0_TOKEN_RESULT_SOME &&
-      token.token_type != TOKEN_TYPE_IDENTIFIER) {
+      !((token.token_type == TOKEN_TYPE_IDENTIFIER) ||
+        (token.token_type == TOKEN_TYPE_DOUBLY_QUOTED_IDENTIFIER))) {
     return SQLITE_EMPTY;
   }
 
-  column_name = token.start;
-  column_name_length = token.end - token.start;
+  if (token.token_type == TOKEN_TYPE_DOUBLY_QUOTED_IDENTIFIER) {
+    column_name = token.start + 1;
+    column_name_length = token.end - token.start - 2;
+  } else {
+    column_name = token.start;
+    column_name_length = token.end - token.start;
+  }
 
   // Check the next token matches "text" or "integer", as column type
   rc = vec0_scanner_next(&scanner, &token);
@@ -2346,12 +2364,18 @@ int vec0_parse_auxiliary_column_definition(const char *source, int source_length
 
   rc = vec0_scanner_next(&scanner, &token);
   if (rc != VEC0_TOKEN_RESULT_SOME &&
-      token.token_type != TOKEN_TYPE_IDENTIFIER) {
+      !((token.token_type == TOKEN_TYPE_IDENTIFIER) ||
+        (token.token_type == TOKEN_TYPE_DOUBLY_QUOTED_IDENTIFIER))) {
     return SQLITE_EMPTY;
   }
 
-  column_name = token.start;
-  column_name_length = token.end - token.start;
+  if (token.token_type == TOKEN_TYPE_DOUBLY_QUOTED_IDENTIFIER) {
+    column_name = token.start + 1;
+    column_name_length = token.end - token.start - 2;
+  } else {
+    column_name = token.start;
+    column_name_length = token.end - token.start;
+  }
 
   // Check the next token matches "text" or "integer", as column type
   rc = vec0_scanner_next(&scanner, &token);
@@ -2418,12 +2442,18 @@ int vec0_parse_metadata_column_definition(const char *source, int source_length,
 
   rc = vec0_scanner_next(&scanner, &token);
   if (rc != VEC0_TOKEN_RESULT_SOME ||
-      token.token_type != TOKEN_TYPE_IDENTIFIER) {
+      !((token.token_type == TOKEN_TYPE_IDENTIFIER) ||
+        (token.token_type == TOKEN_TYPE_DOUBLY_QUOTED_IDENTIFIER))) {
     return SQLITE_EMPTY;
   }
 
-  column_name = token.start;
-  column_name_length = token.end - token.start;
+  if (token.token_type == TOKEN_TYPE_DOUBLY_QUOTED_IDENTIFIER) {
+    column_name = token.start + 1;
+    column_name_length = token.end - token.start - 2;
+  } else {
+    column_name = token.start;
+    column_name_length = token.end - token.start;
+  }
 
   // Check the next token matches a valid metadata type
   rc = vec0_scanner_next(&scanner, &token);
@@ -2478,12 +2508,18 @@ int vec0_parse_primary_key_definition(const char *source, int source_length,
   // Check first token is identifier, will be the column name
   int rc = vec0_scanner_next(&scanner, &token);
   if (rc != VEC0_TOKEN_RESULT_SOME &&
-      token.token_type != TOKEN_TYPE_IDENTIFIER) {
+      !((token.token_type == TOKEN_TYPE_IDENTIFIER) ||
+        (token.token_type == TOKEN_TYPE_DOUBLY_QUOTED_IDENTIFIER))) {
     return SQLITE_EMPTY;
   }
 
-  column_name = token.start;
-  column_name_length = token.end - token.start;
+  if (token.token_type == TOKEN_TYPE_DOUBLY_QUOTED_IDENTIFIER) {
+    column_name = token.start + 1;
+    column_name_length = token.end - token.start - 2;
+  } else {
+    column_name = token.start;
+    column_name_length = token.end - token.start;
+  }
 
   // Check the next token matches "text" or "integer", as column type
   rc = vec0_scanner_next(&scanner, &token);
@@ -2998,12 +3034,18 @@ int vec0_parse_vector_column(const char *source, int source_length,
   rc = vec0_scanner_next(&scanner, &token);
 
   if (rc != VEC0_TOKEN_RESULT_SOME &&
-      token.token_type != TOKEN_TYPE_IDENTIFIER) {
+      !((token.token_type == TOKEN_TYPE_IDENTIFIER) ||
+        (token.token_type == TOKEN_TYPE_DOUBLY_QUOTED_IDENTIFIER))) {
     return SQLITE_EMPTY;
   }
 
-  name = token.start;
-  nameLength = token.end - token.start;
+  if (token.token_type == TOKEN_TYPE_DOUBLY_QUOTED_IDENTIFIER) {
+    name = token.start + 1;
+    nameLength = token.end - token.start - 2;
+  } else {
+    name = token.start;
+    nameLength = token.end - token.start;
+  }
 
   // vector column type comes next: float, int, or bit
   rc = vec0_scanner_next(&scanner, &token);
