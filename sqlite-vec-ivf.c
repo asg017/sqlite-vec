@@ -353,14 +353,10 @@ static int ivf_cell_find_or_create(vec0_vtab *p, int col_idx, i64 centroid_id,
       " WHERE centroid_id = ? AND n_vectors < %d LIMIT 1",
       p->schemaName, p->tableName, col_idx, VEC0_IVF_CELL_MAX_VECTORS);
   if (!zSql) return SQLITE_NOMEM;
-  // Cache this manually
-  if (!p->stmtIvfCellMeta[col_idx]) {
-    rc = sqlite3_prepare_v2(p->db, zSql, -1, &p->stmtIvfCellMeta[col_idx], NULL);
-    sqlite3_free(zSql);
-    if (rc != SQLITE_OK) return rc;
-  } else {
-    sqlite3_free(zSql);
-  }
+  // Cache this manually (stmt was reset to NULL above)
+  rc = sqlite3_prepare_v2(p->db, zSql, -1, &p->stmtIvfCellMeta[col_idx], NULL);
+  sqlite3_free(zSql);
+  if (rc != SQLITE_OK) return rc;
 
   sqlite3_stmt *stmt = p->stmtIvfCellMeta[col_idx];
   sqlite3_reset(stmt);
