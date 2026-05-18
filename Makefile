@@ -2,6 +2,9 @@
 COMMIT=$(shell git rev-parse HEAD)
 VERSION=$(shell cat VERSION)
 DATE=$(shell date +'%FT%TZ%z')
+VERSION_MAJOR=$(shell cut -d. -f1 VERSION)
+VERSION_MINOR=$(shell cut -d. -f2 VERSION)
+VERSION_PATCH=$(shell cut -d. -f3 VERSION | cut -d- -f1)
 
 INSTALL_LIB_DIR = /usr/local/lib
 INSTALL_INCLUDE_DIR = /usr/local/include
@@ -150,13 +153,17 @@ $(TARGET_CLI): sqlite-vec.h $(LIBS_DIR)/sqlite-vec.a $(LIBS_DIR)/shell.a $(LIBS_
 
 
 sqlite-vec.h: sqlite-vec.h.tmpl VERSION
-	VERSION=$(shell cat VERSION) \
+	VERSION=$(VERSION) \
 	DATE=$(shell date -r VERSION +'%FT%TZ%z') \
 	SOURCE=$(shell git log -n 1 --pretty=format:%H -- VERSION) \
-	VERSION_MAJOR=$$(echo $$VERSION | cut -d. -f1) \
-	VERSION_MINOR=$$(echo $$VERSION | cut -d. -f2) \
-	VERSION_PATCH=$$(echo $$VERSION | cut -d. -f3 | cut -d- -f1) \
+	VERSION_MAJOR=$(VERSION_MAJOR) \
+	VERSION_MINOR=$(VERSION_MINOR) \
+	VERSION_PATCH=$(VERSION_PATCH) \
 	envsubst < $< > $@
+	grep -Eq '^#define SQLITE_VEC_VERSION "[^"]+"' $@
+	grep -Eq '^#define SQLITE_VEC_VERSION_MAJOR [0-9]+' $@
+	grep -Eq '^#define SQLITE_VEC_VERSION_MINOR [0-9]+' $@
+	grep -Eq '^#define SQLITE_VEC_VERSION_PATCH [0-9]+' $@
 
 clean:
 	rm -rf dist
@@ -174,7 +181,7 @@ format: $(FORMAT_FILES)
 	clang-format -i $(FORMAT_FILES)
 	black tests/test-loadable.py
 
-lint: SHELL:=/bin/bash
+lint: SHELL:=$(shell command -v bash || echo /bin/bash)
 lint:
 	diff -u <(cat $(FORMAT_FILES)) <(clang-format $(FORMAT_FILES))
 
