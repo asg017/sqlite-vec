@@ -1,7 +1,7 @@
 # Matryoshka (Adaptive-Length) Embeddings
 
 Matryoshka embeddings are a new class of embedding models introduced in the
-TODO-YYY paper [_TODO title_](https://arxiv.org/abs/2205.13147). They allow one
+26 May 2022 paper titled [Matryoshka Representation Learning](https://arxiv.org/abs/2205.13147). They allow one
 to truncate excess dimensions in large vector, without sacrificing much quality.
 
 Let's say your embedding model generate 1024-dimensional vectors. If you have 1
@@ -16,7 +16,7 @@ Matryoshka embeddings, on the other hand, _can_ be truncated, without losing muc
 quality. Using [`mixedbread.ai`](#TODO) `mxbai-embed-large-v1` model, they claim
 that
 
-They are called "Matryoshka" embeddings because ... TODO
+They are called "Matryoshka" embeddings after the "Matryoshka dolls", also known as "Russian nesting dolls", which are a set of wooden dolls of decreasing size that are placed inside one another. In a similar way, Matryoshka embedding can store more important information in earlier dimensions, and less important information in later dimensions. See more about Matryoshka embeddings at [Hugging Face](https://huggingface.co/blog/matryoshka)
 
 ## Matryoshka Embeddings with `sqlite-vec`
 
