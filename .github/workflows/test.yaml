@@ -11,6 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v7
+      - run: sudo locale-gen fr_FR.UTF-8
       - run: ./scripts/vendor.sh
       - run: make loadable static
       - run: uv sync --directory tests
@@ -75,6 +76,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v7
+      - run: sudo locale-gen fr_FR.UTF-8
       - run: ./scripts/vendor.sh
       - run: make loadable static
       - run: uv sync --directory tests
