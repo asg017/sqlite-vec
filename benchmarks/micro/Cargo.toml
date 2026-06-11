@@ -17,3 +17,7 @@ cc = "1.0.99"
 [[bench]]
 name = "my_benchmark"
 harness = false
+
+[[bench]]
+name = "simd_dispatch"
+harness = false
