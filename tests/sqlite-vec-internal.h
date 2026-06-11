@@ -5,13 +5,24 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// The IVF implementation in sqlite-vec.c is gated on
-// SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE (default 0). Keep the test guard's default
-// consistent with it, otherwise the IVF tests reference ivf_* symbols that were
-// never compiled into the extension and the unit-test binary fails to link.
+// Mirror sqlite-vec.c's own feature-flag defaults so the struct definitions
+// below match the ones the extension is compiled with. sqlite-vec.c defaults
+// RESCORE and DISKANN on and IVF (experimental) off; if these defaults drift,
+// the test reads parsed fields at the wrong offsets (or overflows `col`).
+// Guards below use `#if FLAG` (not `#ifdef`) so an explicit `-DFLAG=0` build
+// stays consistent with the extension.
+#ifndef SQLITE_VEC_ENABLE_RESCORE
+#define SQLITE_VEC_ENABLE_RESCORE 1
+#endif
+#ifndef SQLITE_VEC_ENABLE_DISKANN
+#define SQLITE_VEC_ENABLE_DISKANN 1
+#endif
 #ifndef SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
 #define SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE 0
 #endif
+// The IVF tests gate on SQLITE_VEC_ENABLE_IVF; the implementation gates on
+// SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE. Track the implementation flag so the IVF
+// tests are only built when the ivf_* symbols actually exist.
 #ifndef SQLITE_VEC_ENABLE_IVF
 #define SQLITE_VEC_ENABLE_IVF SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
 #endif
@@ -76,13 +87,16 @@ enum Vec0DistanceMetrics {
 
 enum Vec0IndexType {
   VEC0_INDEX_TYPE_FLAT = 1,
-#ifdef SQLITE_VEC_ENABLE_RESCORE
+#if SQLITE_VEC_ENABLE_RESCORE
   VEC0_INDEX_TYPE_RESCORE = 2,
 #endif
   VEC0_INDEX_TYPE_IVF = 3,
   VEC0_INDEX_TYPE_DISKANN = 4,
 };
 
+// These struct mirrors must stay byte-compatible with the definitions in
+// sqlite-vec.c, otherwise the test reads parsed fields at the wrong offsets.
+#if SQLITE_VEC_ENABLE_RESCORE
 enum Vec0RescoreQuantizerType {
   VEC0_RESCORE_QUANTIZER_BIT = 1,
   VEC0_RESCORE_QUANTIZER_INT8 = 2,
@@ -90,8 +104,10 @@ enum Vec0RescoreQuantizerType {
 
 struct Vec0RescoreConfig {
   enum Vec0RescoreQuantizerType quantizer_type;
-  int oversample;
+  int oversample;        // CREATE-time default
+  int oversample_search; // runtime override (0 = use default)
 };
+#endif
 
 #if SQLITE_VEC_ENABLE_IVF
 enum Vec0IvfQuantizer {
@@ -108,18 +124,6 @@ struct Vec0IvfConfig {
 };
 #else
 struct Vec0IvfConfig { char _unused; };
-#endif
-
-#ifdef SQLITE_VEC_ENABLE_RESCORE
-enum Vec0RescoreQuantizerType {
-  VEC0_RESCORE_QUANTIZER_BIT = 1,
-  VEC0_RESCORE_QUANTIZER_INT8 = 2,
-};
-
-struct Vec0RescoreConfig {
-  enum Vec0RescoreQuantizerType quantizer_type;
-  int oversample;
-};
 #endif
 
 enum Vec0DiskannQuantizerType {
@@ -144,7 +148,7 @@ struct VectorColumnDefinition {
   enum VectorElementType element_type;
   enum Vec0DistanceMetrics distance_metric;
   enum Vec0IndexType index_type;
-#ifdef SQLITE_VEC_ENABLE_RESCORE
+#if SQLITE_VEC_ENABLE_RESCORE
   struct Vec0RescoreConfig rescore;
 #endif
   struct Vec0IvfConfig ivf;
@@ -206,7 +210,7 @@ float _test_distance_l2_sqr_float(const float *a, const float *b, size_t dims);
 float _test_distance_cosine_float(const float *a, const float *b, size_t dims);
 float _test_distance_hamming(const unsigned char *a, const unsigned char *b, size_t dims);
 
-#ifdef SQLITE_VEC_ENABLE_RESCORE
+#if SQLITE_VEC_ENABLE_RESCORE
 void _test_rescore_quantize_float_to_bit(const float *src, uint8_t *dst, size_t dim);
 void _test_rescore_quantize_float_to_int8(const float *src, int8_t *dst, size_t dim);
 size_t _test_rescore_quantized_byte_size_bit(size_t dimensions);

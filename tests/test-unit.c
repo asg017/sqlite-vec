@@ -936,7 +936,7 @@ void test_distance_hamming() {
   printf("  All distance_hamming tests passed.\n");
 }
 
-#ifdef SQLITE_VEC_ENABLE_RESCORE
+#if SQLITE_VEC_ENABLE_RESCORE
 
 void test_rescore_quantize_float_to_bit() {
   printf("Starting %s...\n", __func__);
@@ -992,50 +992,50 @@ void test_rescore_quantize_float_to_int8() {
   printf("Starting %s...\n", __func__);
   int8_t dst[256];
 
-  // Uniform vector -> all zeros (range=0)
+  // Fixed [-1, 1] -> [-128, 127] mapping (no range normalization): -1.0 maps
+  // to -128 exactly, 1.0 to the top of the range (127, modulo float rounding).
   {
-    float src[8] = {5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f};
-    _test_rescore_quantize_float_to_int8(src, dst, 8);
-    for (int i = 0; i < 8; i++) {
-      assert(dst[i] == 0);
-    }
-  }
-
-  // [0.0, 1.0] -> should map to [-128, 127]
-  {
-    float src[2] = {0.0f, 1.0f};
+    float src[2] = {-1.0f, 1.0f};
     _test_rescore_quantize_float_to_int8(src, dst, 2);
     assert(dst[0] == -128);
-    assert(dst[1] == 127);
+    assert(dst[1] >= 126 && dst[1] <= 127);
   }
 
-  // [-1.0, 0.0] -> should map to [-128, 127]
+  // 0.0 sits at the midpoint and maps to ~0.
   {
-    float src[2] = {-1.0f, 0.0f};
-    _test_rescore_quantize_float_to_int8(src, dst, 2);
-    assert(dst[0] == -128);
-    assert(dst[1] == 127);
-  }
-
-  // Single-element: range=0 -> 0
-  {
-    float src[1] = {42.0f};
+    float src[1] = {0.0f};
     _test_rescore_quantize_float_to_int8(src, dst, 1);
-    assert(dst[0] == 0);
+    assert(dst[0] >= -1 && dst[0] <= 0);
   }
 
-  // Verify range: all outputs in [-128, 127], min near -128, max near 127
+  // Values outside [-1, 1] clamp to the endpoints.
   {
-    float src[4] = {-100.0f, 0.0f, 100.0f, 50.0f};
+    float src[4] = {5.0f, -5.0f, 100.0f, -100.0f};
     _test_rescore_quantize_float_to_int8(src, dst, 4);
-    for (int i = 0; i < 4; i++) {
-      assert(dst[i] >= -128 && dst[i] <= 127);
+    assert(dst[0] == 127);
+    assert(dst[1] == -128);
+    assert(dst[2] == 127);
+    assert(dst[3] == -128);
+  }
+
+  // A uniform in-range vector maps every element to the same code.
+  {
+    float src[8] = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
+    _test_rescore_quantize_float_to_int8(src, dst, 8);
+    for (int i = 1; i < 8; i++) {
+      assert(dst[i] == dst[0]);
     }
-    // Min maps to -128 (exact), max maps to ~127 (may lose 1 to float rounding)
+    assert(dst[0] > 0); // positive half maps to a positive code
+  }
+
+  // Monotonic: increasing inputs produce non-decreasing codes.
+  {
+    float src[5] = {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f};
+    _test_rescore_quantize_float_to_int8(src, dst, 5);
+    for (int i = 1; i < 5; i++) {
+      assert(dst[i] >= dst[i - 1]);
+    }
     assert(dst[0] == -128);
-    assert(dst[2] >= 126 && dst[2] <= 127);
-    // Middle value (50) should be positive
-    assert(dst[3] > 0);
   }
 
   printf("  All rescore_quantize_float_to_int8 tests passed.\n");
@@ -1380,7 +1380,7 @@ void test_ivf_config_parsing() {
 
 #endif /* SQLITE_VEC_ENABLE_IVF */
 
-#ifdef SQLITE_VEC_ENABLE_DISKANN
+#if SQLITE_VEC_ENABLE_DISKANN
 
 void test_vec0_parse_vector_column_diskann() {
   printf("Starting %s...\n", __func__);
@@ -2103,7 +2103,7 @@ int main() {
 #ifdef SQLITE_VEC_ENABLE_NEON
   printf("SQLITE_VEC_ENABLE_NEON=1\n");
 #endif
-#ifdef SQLITE_VEC_ENABLE_RESCORE
+#if SQLITE_VEC_ENABLE_RESCORE
   printf("SQLITE_VEC_ENABLE_RESCORE=1\n");
 #endif
 #if !defined(SQLITE_VEC_ENABLE_AVX) && !defined(SQLITE_VEC_ENABLE_NEON)
@@ -2116,7 +2116,7 @@ int main() {
   test_distance_l2_sqr_float();
   test_distance_cosine_float();
   test_distance_hamming();
-#ifdef SQLITE_VEC_ENABLE_RESCORE
+#if SQLITE_VEC_ENABLE_RESCORE
   test_rescore_quantize_float_to_bit();
   test_rescore_quantize_float_to_int8();
   test_rescore_quantized_byte_size();
@@ -2127,7 +2127,7 @@ int main() {
   test_ivf_config_parsing();
 #endif /* SQLITE_VEC_ENABLE_IVF */
 #endif /* SQLITE_VEC_ENABLE_RESCORE */
-#ifdef SQLITE_VEC_ENABLE_DISKANN
+#if SQLITE_VEC_ENABLE_DISKANN
   test_vec0_parse_vector_column_diskann();
   test_diskann_validity_bitmap();
   test_diskann_neighbor_ids();
