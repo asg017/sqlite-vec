@@ -5,8 +5,15 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// The IVF implementation in sqlite-vec.c is gated on
+// SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE (default 0). Keep the test guard's default
+// consistent with it, otherwise the IVF tests reference ivf_* symbols that were
+// never compiled into the extension and the unit-test binary fails to link.
+#ifndef SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
+#define SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE 0
+#endif
 #ifndef SQLITE_VEC_ENABLE_IVF
-#define SQLITE_VEC_ENABLE_IVF 1
+#define SQLITE_VEC_ENABLE_IVF SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
 #endif
 
 int min_idx(
