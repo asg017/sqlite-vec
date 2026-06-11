@@ -936,7 +936,7 @@ void test_distance_hamming() {
   printf("  All distance_hamming tests passed.\n");
 }
 
-#ifdef SQLITE_VEC_ENABLE_RESCORE
+#if SQLITE_VEC_ENABLE_RESCORE
 
 void test_rescore_quantize_float_to_bit() {
   printf("Starting %s...\n", __func__);
@@ -992,12 +992,148 @@ void test_rescore_quantize_float_to_int8() {
   printf("Starting %s...\n", __func__);
   int8_t dst[256];
 
-  // Uniform vector -> all zeros (range=0)
+  // Fixed [-1, 1] -> [-128, 127] mapping (no range normalization): -1.0 maps
+  // to -128 exactly, 1.0 to the top of the range (127, modulo float rounding).
   {
-    float src[8] = {5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f};
+    float src[2] = {-1.0f, 1.0f};
+    _test_rescore_quantize_float_to_int8(src, dst, 2);
+    assert(dst[0] == -128);
+    assert(dst[1] >= 126 && dst[1] <= 127);
+  }
+
+  // 0.0 sits at the midpoint and maps to ~0.
+  {
+    float src[1] = {0.0f};
+    _test_rescore_quantize_float_to_int8(src, dst, 1);
+    assert(dst[0] >= -1 && dst[0] <= 0);
+  }
+
+  // Values outside [-1, 1] clamp to the endpoints.
+  {
+    float src[4] = {5.0f, -5.0f, 100.0f, -100.0f};
+    _test_rescore_quantize_float_to_int8(src, dst, 4);
+    assert(dst[0] == 127);
+    assert(dst[1] == -128);
+    assert(dst[2] == 127);
+    assert(dst[3] == -128);
+  }
+
+  // A uniform in-range vector maps every element to the same code.
+  {
+    float src[8] = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
     _test_rescore_quantize_float_to_int8(src, dst, 8);
-    for (int i = 0; i < 8; i++) {
+    for (int i = 1; i < 8; i++) {
+      assert(dst[i] == dst[0]);
+    }
+    assert(dst[0] > 0); // positive half maps to a positive code
+  }
+
+  // Monotonic: increasing inputs produce non-decreasing codes.
+  {
+    float src[5] = {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f};
+    _test_rescore_quantize_float_to_int8(src, dst, 5);
+    for (int i = 1; i < 5; i++) {
+      assert(dst[i] >= dst[i - 1]);
+    }
+    assert(dst[0] == -128);
+  }
+
+  printf("  All rescore_quantize_float_to_int8 tests passed.\n");
+}
+
+void test_rescore_quantized_byte_size() {
+  printf("Starting %s...\n", __func__);
+
+  // Bit quantizer: dims/8
+  assert(_test_rescore_quantized_byte_size_bit(128) == 16);
+  assert(_test_rescore_quantized_byte_size_bit(8) == 1);
+  assert(_test_rescore_quantized_byte_size_bit(1024) == 128);
+
+  // Int8 quantizer: dims
+  assert(_test_rescore_quantized_byte_size_int8(128) == 128);
+  assert(_test_rescore_quantized_byte_size_int8(8) == 8);
+  assert(_test_rescore_quantized_byte_size_int8(1024) == 1024);
+
+  printf("  All rescore_quantized_byte_size tests passed.\n");
+}
+
+void test_vec0_parse_vector_column_rescore() {
+  printf("Starting %s...\n", __func__);
+  struct VectorColumnDefinition col;
+  int rc;
+
+  // Basic bit quantizer
+  {
+    const char *input = "emb float[128] indexed by rescore(quantizer=bit)";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_OK);
+    assert(col.index_type == VEC0_INDEX_TYPE_RESCORE);
+    assert(col.rescore.quantizer_type == VEC0_RESCORE_QUANTIZER_BIT);
+    assert(col.rescore.oversample == 8); // default
+    assert(col.dimensions == 128);
+    sqlite3_free(col.name);
+  }
+
+  // Int8 quantizer
+  {
+    const char *input = "emb float[128] indexed by rescore(quantizer=int8)";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_OK);
+    assert(col.index_type == VEC0_INDEX_TYPE_RESCORE);
+    assert(col.rescore.quantizer_type == VEC0_RESCORE_QUANTIZER_INT8);
+    sqlite3_free(col.name);
+  }
+
+  // Bit quantizer with oversample
+  {
+    const char *input = "emb float[128] indexed by rescore(quantizer=bit, oversample=16)";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_OK);
+    assert(col.index_type == VEC0_INDEX_TYPE_RESCORE);
+    assert(col.rescore.quantizer_type == VEC0_RESCORE_QUANTIZER_BIT);
+    assert(col.rescore.oversample == 16);
+    sqlite3_free(col.name);
+  }
+
+  // Error: non-float element type
+  {
+    const char *input = "emb int8[128] indexed by rescore(quantizer=bit)";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_ERROR);
+  }
+
+  // Error: dims not divisible by 8 for bit quantizer
+  {
+    const char *input = "emb float[100] indexed by rescore(quantizer=bit)";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_ERROR);
+  }
+
+  // Error: missing quantizer
+  {
+    const char *input = "emb float[128] indexed by rescore(oversample=8)";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_ERROR);
+  }
+
+  // With distance_metric=cosine
+  {
+    const char *input = "emb float[128] distance_metric=cosine indexed by rescore(quantizer=int8)";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_OK);
+    assert(col.index_type == VEC0_INDEX_TYPE_RESCORE);
+    assert(col.distance_metric == VEC0_DISTANCE_METRIC_COSINE);
+    assert(col.rescore.quantizer_type == VEC0_RESCORE_QUANTIZER_INT8);
+    sqlite3_free(col.name);
+  }
+
+  printf("  All vec0_parse_vector_column_rescore tests passed.\n");
+}
+
+#endif /* SQLITE_VEC_ENABLE_RESCORE */
+
 #if SQLITE_VEC_ENABLE_IVF
+
 void test_ivf_quantize_int8() {
   printf("Starting %s...\n", __func__);
 
@@ -1032,64 +1168,6 @@ void test_ivf_quantize_int8() {
       assert(dst[i] == 0);
     }
   }
-
-  // [0.0, 1.0] -> should map to [-128, 127]
-  {
-    float src[2] = {0.0f, 1.0f};
-    _test_rescore_quantize_float_to_int8(src, dst, 2);
-    assert(dst[0] == -128);
-    assert(dst[1] == 127);
-  }
-
-  // [-1.0, 0.0] -> should map to [-128, 127]
-  {
-    float src[2] = {-1.0f, 0.0f};
-    _test_rescore_quantize_float_to_int8(src, dst, 2);
-    assert(dst[0] == -128);
-    assert(dst[1] == 127);
-  }
-
-  // Single-element: range=0 -> 0
-  {
-    float src[1] = {42.0f};
-    _test_rescore_quantize_float_to_int8(src, dst, 1);
-    assert(dst[0] == 0);
-  }
-
-  // Verify range: all outputs in [-128, 127], min near -128, max near 127
-  {
-    float src[4] = {-100.0f, 0.0f, 100.0f, 50.0f};
-    _test_rescore_quantize_float_to_int8(src, dst, 4);
-    for (int i = 0; i < 4; i++) {
-      assert(dst[i] >= -128 && dst[i] <= 127);
-    }
-    // Min maps to -128 (exact), max maps to ~127 (may lose 1 to float rounding)
-    assert(dst[0] == -128);
-    assert(dst[2] >= 126 && dst[2] <= 127);
-    // Middle value (50) should be positive
-    assert(dst[3] > 0);
-  }
-
-  printf("  All rescore_quantize_float_to_int8 tests passed.\n");
-}
-
-void test_rescore_quantized_byte_size() {
-  printf("Starting %s...\n", __func__);
-
-  // Bit quantizer: dims/8
-  assert(_test_rescore_quantized_byte_size_bit(128) == 16);
-  assert(_test_rescore_quantized_byte_size_bit(8) == 1);
-  assert(_test_rescore_quantized_byte_size_bit(1024) == 128);
-
-  // Int8 quantizer: dims
-  assert(_test_rescore_quantized_byte_size_int8(128) == 128);
-  assert(_test_rescore_quantized_byte_size_int8(8) == 8);
-  assert(_test_rescore_quantized_byte_size_int8(1024) == 1024);
-
-  printf("  All rescore_quantized_byte_size tests passed.\n");
-}
-
-void test_vec0_parse_vector_column_rescore() {
   // Negative zero
   {
     float src[] = {-0.0f};
@@ -1187,108 +1265,9 @@ void test_ivf_quantize_binary() {
 }
 
 void test_ivf_config_parsing() {
-void test_vec0_parse_vector_column_diskann() {
   printf("Starting %s...\n", __func__);
   struct VectorColumnDefinition col;
   int rc;
-
-  // Basic bit quantizer
-  {
-    const char *input = "emb float[128] indexed by rescore(quantizer=bit)";
-    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
-    assert(rc == SQLITE_OK);
-    assert(col.index_type == VEC0_INDEX_TYPE_RESCORE);
-    assert(col.rescore.quantizer_type == VEC0_RESCORE_QUANTIZER_BIT);
-    assert(col.rescore.oversample == 8); // default
-  // Existing syntax (no INDEXED BY) should have diskann.enabled == 0
-  {
-    const char *input = "emb float[128]";
-    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
-    assert(rc == SQLITE_OK);
-    assert(col.index_type != VEC0_INDEX_TYPE_DISKANN);
-    sqlite3_free(col.name);
-  }
-
-  // With distance_metric but no INDEXED BY
-  {
-    const char *input = "emb float[128] distance_metric=cosine";
-    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
-    assert(rc == SQLITE_OK);
-    assert(col.index_type != VEC0_INDEX_TYPE_DISKANN);
-    assert(col.distance_metric == VEC0_DISTANCE_METRIC_COSINE);
-    sqlite3_free(col.name);
-  }
-
-  // Basic binary quantizer
-  {
-    const char *input = "emb float[128] INDEXED BY diskann(neighbor_quantizer=binary)";
-    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
-    assert(rc == SQLITE_OK);
-    assert(col.index_type == VEC0_INDEX_TYPE_DISKANN);
-    assert(col.diskann.quantizer_type == VEC0_DISKANN_QUANTIZER_BINARY);
-    assert(col.diskann.n_neighbors == 72);  // default
-    assert(col.diskann.search_list_size == 128);  // default
-    assert(col.dimensions == 128);
-    sqlite3_free(col.name);
-  }
-
-  // Int8 quantizer
-  {
-    const char *input = "emb float[128] indexed by rescore(quantizer=int8)";
-    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
-    assert(rc == SQLITE_OK);
-    assert(col.index_type == VEC0_INDEX_TYPE_RESCORE);
-    assert(col.rescore.quantizer_type == VEC0_RESCORE_QUANTIZER_INT8);
-    sqlite3_free(col.name);
-  }
-
-  // Bit quantizer with oversample
-  {
-    const char *input = "emb float[128] indexed by rescore(quantizer=bit, oversample=16)";
-    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
-    assert(rc == SQLITE_OK);
-    assert(col.index_type == VEC0_INDEX_TYPE_RESCORE);
-    assert(col.rescore.quantizer_type == VEC0_RESCORE_QUANTIZER_BIT);
-    assert(col.rescore.oversample == 16);
-    sqlite3_free(col.name);
-  }
-
-  // Error: non-float element type
-  {
-    const char *input = "emb int8[128] indexed by rescore(quantizer=bit)";
-    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
-    assert(rc == SQLITE_ERROR);
-  }
-
-  // Error: dims not divisible by 8 for bit quantizer
-  {
-    const char *input = "emb float[100] indexed by rescore(quantizer=bit)";
-    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
-    assert(rc == SQLITE_ERROR);
-  }
-
-  // Error: missing quantizer
-  {
-    const char *input = "emb float[128] indexed by rescore(oversample=8)";
-    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
-    assert(rc == SQLITE_ERROR);
-  }
-
-  // With distance_metric=cosine
-  {
-    const char *input = "emb float[128] distance_metric=cosine indexed by rescore(quantizer=int8)";
-    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
-    assert(rc == SQLITE_OK);
-    assert(col.index_type == VEC0_INDEX_TYPE_RESCORE);
-    assert(col.distance_metric == VEC0_DISTANCE_METRIC_COSINE);
-    assert(col.rescore.quantizer_type == VEC0_RESCORE_QUANTIZER_INT8);
-    sqlite3_free(col.name);
-  }
-
-  printf("  All vec0_parse_vector_column_rescore tests passed.\n");
-}
-
-#endif /* SQLITE_VEC_ENABLE_RESCORE */
   // Default IVF config
   {
     const char *s = "v float[4] indexed by ivf()";
@@ -1398,7 +1377,46 @@ void test_vec0_parse_vector_column_diskann() {
 
   printf("  All ivf_config_parsing tests passed.\n");
 }
+
 #endif /* SQLITE_VEC_ENABLE_IVF */
+
+#if SQLITE_VEC_ENABLE_DISKANN
+
+void test_vec0_parse_vector_column_diskann() {
+  printf("Starting %s...\n", __func__);
+  struct VectorColumnDefinition col;
+  int rc;
+  // Existing syntax (no INDEXED BY) should have diskann.enabled == 0
+  {
+    const char *input = "emb float[128]";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_OK);
+    assert(col.index_type != VEC0_INDEX_TYPE_DISKANN);
+    sqlite3_free(col.name);
+  }
+
+  // With distance_metric but no INDEXED BY
+  {
+    const char *input = "emb float[128] distance_metric=cosine";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_OK);
+    assert(col.index_type != VEC0_INDEX_TYPE_DISKANN);
+    assert(col.distance_metric == VEC0_DISTANCE_METRIC_COSINE);
+    sqlite3_free(col.name);
+  }
+
+  // Basic binary quantizer
+  {
+    const char *input = "emb float[128] INDEXED BY diskann(neighbor_quantizer=binary)";
+    rc = vec0_parse_vector_column(input, (int)strlen(input), &col);
+    assert(rc == SQLITE_OK);
+    assert(col.index_type == VEC0_INDEX_TYPE_DISKANN);
+    assert(col.diskann.quantizer_type == VEC0_DISKANN_QUANTIZER_BINARY);
+    assert(col.diskann.n_neighbors == 72);  // default
+    assert(col.diskann.search_list_size == 128);  // default
+    assert(col.dimensions == 128);
+    sqlite3_free(col.name);
+  }
   // INT8 quantizer
   {
     const char *input = "v float[64] INDEXED BY diskann(neighbor_quantizer=int8)";
@@ -2075,6 +2093,8 @@ void test_diskann_prune_select_max_neighbors_1() {
   printf("  All diskann_prune_select_max_neighbors_1 tests passed.\n");
 }
 
+#endif /* SQLITE_VEC_ENABLE_DISKANN */
+
 int main() {
   printf("Starting unit tests...\n");
 #ifdef SQLITE_VEC_ENABLE_AVX
@@ -2083,7 +2103,7 @@ int main() {
 #ifdef SQLITE_VEC_ENABLE_NEON
   printf("SQLITE_VEC_ENABLE_NEON=1\n");
 #endif
-#ifdef SQLITE_VEC_ENABLE_RESCORE
+#if SQLITE_VEC_ENABLE_RESCORE
   printf("SQLITE_VEC_ENABLE_RESCORE=1\n");
 #endif
 #if !defined(SQLITE_VEC_ENABLE_AVX) && !defined(SQLITE_VEC_ENABLE_NEON)
@@ -2096,7 +2116,7 @@ int main() {
   test_distance_l2_sqr_float();
   test_distance_cosine_float();
   test_distance_hamming();
-#ifdef SQLITE_VEC_ENABLE_RESCORE
+#if SQLITE_VEC_ENABLE_RESCORE
   test_rescore_quantize_float_to_bit();
   test_rescore_quantize_float_to_int8();
   test_rescore_quantized_byte_size();
@@ -2105,7 +2125,9 @@ int main() {
   test_ivf_quantize_int8();
   test_ivf_quantize_binary();
   test_ivf_config_parsing();
-#endif
+#endif /* SQLITE_VEC_ENABLE_IVF */
+#endif /* SQLITE_VEC_ENABLE_RESCORE */
+#if SQLITE_VEC_ENABLE_DISKANN
   test_vec0_parse_vector_column_diskann();
   test_diskann_validity_bitmap();
   test_diskann_neighbor_ids();
@@ -2124,5 +2146,6 @@ int main() {
   test_diskann_prune_select_single_candidate();
   test_diskann_prune_select_all_identical_distances();
   test_diskann_prune_select_max_neighbors_1();
+#endif /* SQLITE_VEC_ENABLE_DISKANN */
   printf("All unit tests passed.\n");
 }
