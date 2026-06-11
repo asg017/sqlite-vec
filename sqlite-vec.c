@@ -86,6 +86,7 @@ enum VectorElementType {
 #define PORTABLE_ALIGN32 __attribute__((aligned(32)))
 #define PORTABLE_ALIGN64 __attribute__((aligned(64)))
 
+__attribute__((target("avx,avx2")))
 static f32 l2_sqr_float_avx(const void *pVect1v, const void *pVect2v,
                             const void *qty_ptr) {
   f32 *pVect1 = (f32 *)pVect1v;
@@ -417,7 +418,9 @@ static f32 distance_l2_sqr_float(const void *a, const void *b, const void *d) {
   }
 #endif
 #ifdef SQLITE_VEC_ENABLE_AVX
-  if (((*(const size_t *)d) % 16 == 0)) {
+  static int has_avx2 = -1;
+  if (has_avx2 < 0) has_avx2 = __builtin_cpu_supports("avx2");
+  if (has_avx2 && ((*(const size_t *)d) % 16 == 0)) {
     return l2_sqr_float_avx(a, b, d);
   }
 #endif
@@ -713,6 +716,7 @@ static f32 distance_hamming_neon(const u8 *a, const u8 *b, size_t n_bytes) {
  * AVX2 Hamming distance using VPSHUFB-based popcount.
  * Processes 32 bytes (256 bits) per iteration.
  */
+__attribute__((target("avx2")))
 static f32 distance_hamming_avx2(const u8 *a, const u8 *b, size_t n_bytes) {
   const u8 *pEnd = a + n_bytes;
 
@@ -815,7 +819,9 @@ static f32 distance_hamming(const void *a, const void *b, const void *d) {
   }
 #endif
 #ifdef SQLITE_VEC_ENABLE_AVX
-  if (n_bytes >= 32) {
+  static int has_avx2 = -1;
+  if (has_avx2 < 0) has_avx2 = __builtin_cpu_supports("avx2");
+  if (has_avx2 && n_bytes >= 32) {
     return distance_hamming_avx2((const u8 *)a, (const u8 *)b, n_bytes);
   }
 #endif

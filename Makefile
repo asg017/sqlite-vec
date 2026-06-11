@@ -37,16 +37,14 @@ endif
 
 ifndef OMIT_SIMD
 	ifeq ($(shell uname -sm),Darwin x86_64)
-	CFLAGS += -mavx -mavx2 -DSQLITE_VEC_ENABLE_AVX
+	CFLAGS += -DSQLITE_VEC_ENABLE_AVX
 	endif
 	ifeq ($(shell uname -sm),Darwin arm64)
 	CFLAGS += -mcpu=apple-m1 -DSQLITE_VEC_ENABLE_NEON
 	endif
-	ifeq ($(shell uname -s),Linux)
+	ifeq ($(shell uname -sm),Linux x86_64)
 	ifeq ($(findstring android,$(CC)),)
-	ifneq ($(filter avx,$(shell grep -o 'avx[^ ]*' /proc/cpuinfo 2>/dev/null | head -1)),)
-	CFLAGS += -mavx -mavx2 -DSQLITE_VEC_ENABLE_AVX
-	endif
+	CFLAGS += -DSQLITE_VEC_ENABLE_AVX
 	endif
 	endif
 endif
