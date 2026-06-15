@@ -725,3 +725,58 @@ def test_unknown_command_errors(db):
     )
     with pytest.raises(sqlite3.OperationalError, match="unknown vec0 command"):
         db.execute("INSERT INTO t(t) VALUES ('not_a_real_command')")
+
+
+# ============================================================================
+# Distance constraint tests (issue #308)
+# ============================================================================
+
+
+def test_knn_distance_constraint_le(db):
+    """A `distance <= threshold` constraint must be honored in rescore KNN."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0("
+        "  embedding float[8] indexed by rescore(quantizer=bit)"
+        ")"
+    )
+    # rowid 1 is the exact match (distance 0); rowid 2 is far away.
+    v1 = [1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    v2 = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+    db.execute("INSERT INTO t(rowid, embedding) VALUES (1, ?)", [float_vec(v1)])
+    db.execute("INSERT INTO t(rowid, embedding) VALUES (2, ?)", [float_vec(v2)])
+
+    query = [1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    rows = db.execute(
+        "SELECT rowid, distance FROM t "
+        "WHERE embedding MATCH ? AND k = 10 AND distance <= 0.5 "
+        "ORDER BY distance",
+        [float_vec(query)],
+    ).fetchall()
+
+    # Only the exact match (distance ~0) is within the 0.5 threshold;
+    # rowid 2 (distance 1.5) must be filtered out.
+    assert [r["rowid"] for r in rows] == [1]
+    assert all(r["distance"] <= 0.5 for r in rows)
+
+
+def test_knn_distance_constraint_lt_gt(db):
+    """`distance < x` and `distance > x` constraints must be honored."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0("
+        "  embedding float[8] indexed by rescore(quantizer=bit)"
+        ")"
+    )
+    v1 = [1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    v2 = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+    db.execute("INSERT INTO t(rowid, embedding) VALUES (1, ?)", [float_vec(v1)])
+    db.execute("INSERT INTO t(rowid, embedding) VALUES (2, ?)", [float_vec(v2)])
+
+    query = [1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    # Exclude the exact match, keep only the far vector.
+    rows = db.execute(
+        "SELECT rowid, distance FROM t "
+        "WHERE embedding MATCH ? AND k = 10 AND distance > 0.5 "
+        "ORDER BY distance",
+        [float_vec(query)],
+    ).fetchall()
+    assert [r["rowid"] for r in rows] == [2]

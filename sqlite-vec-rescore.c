@@ -585,6 +585,55 @@ static int rescore_knn(vec0_vtab *p, vec0_cursor *pCur,
     sqlite3_blob_close(blobFloat);
     sqlite3_free(fBuf);
 
+    // Apply distance constraints (ex `distance <= ?`) on the rescored float
+    // distances. Candidates failing any constraint are dropped before the
+    // top-k selection. The constraint targets the final float distance, not
+    // the coarse quantized distance from phase 1. (issue #308)
+    for (int c = 0; c < argc; c++) {
+      int idx = 1 + (c * 4);
+      if (idxStr[idx + 0] != VEC0_IDXSTR_KIND_KNN_DISTANCE_CONSTRAINT)
+        continue;
+      vec0_distance_constraint_operator op = idxStr[idx + 1];
+      f32 target = (f32)sqlite3_value_double(argv[c]);
+      i64 kept = 0;
+      for (i64 j = 0; j < cand_used; j++) {
+        int pass;
+        switch (op) {
+        case VEC0_DISTANCE_CONSTRAINT_GE:
+          pass = float_distances[j] >= target;
+          break;
+        case VEC0_DISTANCE_CONSTRAINT_GT:
+          pass = float_distances[j] > target;
+          break;
+        case VEC0_DISTANCE_CONSTRAINT_LE:
+          pass = float_distances[j] <= target;
+          break;
+        case VEC0_DISTANCE_CONSTRAINT_LT:
+          pass = float_distances[j] < target;
+          break;
+        default:
+          pass = 1;
+          break;
+        }
+        if (pass) {
+          cand_rowids[kept] = cand_rowids[j];
+          float_distances[kept] = float_distances[j];
+          kept++;
+        }
+      }
+      cand_used = kept;
+    }
+
+    if (cand_used == 0) {
+      knn_data->current_idx = 0;
+      knn_data->k = 0;
+      knn_data->rowids = NULL;
+      knn_data->distances = NULL;
+      knn_data->k_used = 0;
+      sqlite3_free(float_distances);
+      goto cleanup;
+    }
+
     // Sort by float distance
     for (i64 a = 0; a + 1 < cand_used; a++) {
       i64 minIdx = a;
