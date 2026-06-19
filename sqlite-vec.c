@@ -3012,13 +3012,19 @@ int vec0_parse_vector_column(const char *source, int source_length,
       token.token_type != TOKEN_TYPE_IDENTIFIER) {
     return SQLITE_EMPTY;
   }
-  if (sqlite3_strnicmp(token.start, "float", 5) == 0 ||
-      sqlite3_strnicmp(token.start, "f32", 3) == 0) {
+  // Match the full identifier, not just a prefix: `sqlite3_strnicmp` only
+  // compares the given number of bytes, so a bare prefix check would coerce
+  // typos and lookalikes (e.g. `float16`, `bitcoin`) to a real type instead of
+  // rejecting them.
+  const int typeLength = token.end - token.start;
+  if ((typeLength == 5 && sqlite3_strnicmp(token.start, "float", 5) == 0) ||
+      (typeLength == 7 && sqlite3_strnicmp(token.start, "float32", 7) == 0) ||
+      (typeLength == 3 && sqlite3_strnicmp(token.start, "f32", 3) == 0)) {
     elementType = SQLITE_VEC_ELEMENT_TYPE_FLOAT32;
-  } else if (sqlite3_strnicmp(token.start, "int8", 4) == 0 ||
-             sqlite3_strnicmp(token.start, "i8", 2) == 0) {
+  } else if ((typeLength == 4 && sqlite3_strnicmp(token.start, "int8", 4) == 0) ||
+             (typeLength == 2 && sqlite3_strnicmp(token.start, "i8", 2) == 0)) {
     elementType = SQLITE_VEC_ELEMENT_TYPE_INT8;
-  } else if (sqlite3_strnicmp(token.start, "bit", 3) == 0) {
+  } else if (typeLength == 3 && sqlite3_strnicmp(token.start, "bit", 3) == 0) {
     elementType = SQLITE_VEC_ELEMENT_TYPE_BIT;
   } else {
     return SQLITE_EMPTY;
