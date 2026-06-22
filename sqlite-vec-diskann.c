@@ -157,7 +157,13 @@ int diskann_quantize_vector(
     case VEC0_DISKANN_QUANTIZER_INT8: {
       f32 step = (1.0f - (-1.0f)) / 255.0f;
       for (size_t i = 0; i < dimensions; i++) {
-        ((i8 *)out)[i] = (i8)(((src[i] - (-1.0f)) / step) - 128.0f);
+        // Saturate before the cast: converting a float outside [-128, 127] to a
+        // signed integer type is undefined behavior in C (and silently wraps to
+        // garbage). Inputs are expected to be normalized to [-1, 1]; clamp so
+        // out-of-range values quantize to the nearest representable int8.
+        const f32 raw = ((src[i] - (-1.0f)) / step) - 128.0f;
+        const f32 q = raw < -128.0f ? -128.0f : (raw > 127.0f ? 127.0f : raw);
+        ((i8 *)out)[i] = (i8)q;
       }
       return SQLITE_OK;
     }
