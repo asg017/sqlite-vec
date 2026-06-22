@@ -28,7 +28,20 @@ endif
 
 ifdef CONFIG_LINUX
 LOADABLE_EXTENSION=so
-CFLAGS += -lm
+# Link-time libraries, kept OUT of CFLAGS so they land AFTER the object/archive
+# inputs on each link line. GNU ld with --as-needed (the Debian/Ubuntu default)
+# drops a library placed before the inputs that reference it, which otherwise
+# leaves sqrt/pow/ceil (libm) and pthread_* (libsqlite3, built threadsafe)
+# undefined. See asg017/sqlite-vec#84 and #93.
+#
+# The loadable extension is just sqlite-vec.c: it references libm (sqrt/pow/...)
+# but no raw pthread/dl symbols (SQLite is resolved by the host at load time),
+# so it links libm only. dl/pthread are needed solely by targets that embed the
+# threadsafe SQLite amalgamation (cli, static-into-exe, test-unit). Keeping
+# dl/pthread off the loadable also fixes Android/Bionic cross-builds, which run
+# on a Linux host (so CONFIG_LINUX) but have no standalone libpthread.
+LOADABLE_LIBS += -lm
+LINK_LIBS += -lm -ldl -lpthread
 endif
 
 ifdef CONFIG_WINDOWS
@@ -99,7 +112,7 @@ $(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(prefix)
 		-Ivendor/ \
 		-O3 \
 		$(CFLAGS) \
-		$< -o $@
+		$< $(LOADABLE_LIBS) -o $@
 
 $(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(prefix) $(OBJS_DIR)
 	$(CC) -Ivendor/ $(CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
@@ -145,8 +158,8 @@ $(TARGET_CLI): sqlite-vec.h $(LIBS_DIR)/sqlite-vec.a $(LIBS_DIR)/shell.a $(LIBS_
 	-DSQLITE_ENABLE_STMT_SCANSTATUS -DSQLITE_ENABLE_BYTECODE_VTAB -DSQLITE_ENABLE_EXPLAIN_COMMENTS \
 	-DSQLITE_EXTRA_INIT=core_init \
 	$(CFLAGS) \
-	-ldl -lm \
-	examples/sqlite3-cli/core_init.c $(LIBS_DIR)/shell.a $(LIBS_DIR)/sqlite3.a $(LIBS_DIR)/sqlite-vec.a -o $@
+	examples/sqlite3-cli/core_init.c $(LIBS_DIR)/shell.a $(LIBS_DIR)/sqlite3.a $(LIBS_DIR)/sqlite-vec.a \
+	$(LINK_LIBS) -o $@
 
 
 sqlite-vec.h: sqlite-vec.h.tmpl VERSION
@@ -204,7 +217,7 @@ test-loadable-watch:
 	watchexec --exts c,py,Makefile --clear -- make test-loadable
 
 test-unit:
-	$(CC) -DSQLITE_CORE -DSQLITE_VEC_TEST -DSQLITE_VEC_ENABLE_RESCORE -DSQLITE_VEC_ENABLE_DISKANN=1 tests/test-unit.c sqlite-vec.c vendor/sqlite3.c -I./ -Ivendor $(CFLAGS) -o $(prefix)/test-unit && $(prefix)/test-unit
+	$(CC) -DSQLITE_CORE -DSQLITE_VEC_TEST -DSQLITE_VEC_ENABLE_RESCORE -DSQLITE_VEC_ENABLE_DISKANN=1 tests/test-unit.c sqlite-vec.c vendor/sqlite3.c -I./ -Ivendor $(CFLAGS) $(LINK_LIBS) -o $(prefix)/test-unit && $(prefix)/test-unit
 
 # Standalone sqlite3 CLI with vec0 compiled in. Useful for benchmarking,
 # profiling (has debug symbols), and scripting without .load_extension.
@@ -219,7 +232,7 @@ cli: sqlite-vec.h $(prefix)
 	-Ivendor/ -I./ \
 	$(CFLAGS) \
 	vendor/sqlite3.c vendor/shell.c sqlite-vec.c examples/sqlite3-cli/core_init.c \
-	-ldl -lm -o $(prefix)/sqlite3
+	$(LINK_LIBS) -o $(prefix)/sqlite3
 
 fuzz-build:
 	$(MAKE) -C tests/fuzz all
