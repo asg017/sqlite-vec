@@ -6987,7 +6987,7 @@ int vec0_metadata_filter_text(vec0_vtab * p, sqlite3_value * value, const void *
     }
 
     case VEC0_METADATA_OPERATOR_IN: {
-      size_t metadataInIdx = -1;
+      int metadataInIdx = -1;
       for(size_t i = 0; i < aMetadataIn->length; i++) {
         struct Vec0MetadataIn * metadataIn = &(((struct Vec0MetadataIn *) aMetadataIn->z)[i]);
         if(metadataIn->argv_idx == argv_idx) {
