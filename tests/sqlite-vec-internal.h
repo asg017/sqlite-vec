@@ -84,6 +84,7 @@ enum Vec0RescoreQuantizerType {
 struct Vec0RescoreConfig {
   enum Vec0RescoreQuantizerType quantizer_type;
   int oversample;
+  int oversample_search;   // must match sqlite-vec.c layout
 };
 
 #if SQLITE_VEC_ENABLE_IVF
@@ -112,6 +113,7 @@ enum Vec0RescoreQuantizerType {
 struct Vec0RescoreConfig {
   enum Vec0RescoreQuantizerType quantizer_type;
   int oversample;
+  int oversample_search;   // must match sqlite-vec.c layout
 };
 #endif
 
