@@ -587,3 +587,130 @@ def test_ivf_update_vector_blocked(db):
 
     with pytest.raises(sqlite3.OperationalError, match="UPDATE on vector column.*not supported for IVF"):
         db.execute("UPDATE t SET emb = ? WHERE rowid = 1", [_f32([0, 0, 1, 0])])
+
+
+# ============================================================================
+# Regression: slot allocation must reuse freed slots, not overwrite live ones
+# ============================================================================
+
+
+def test_insert_after_delete_no_overwrite(db):
+    """Inserts after deletes must go into freed slots. Previously the insert
+    appended at slot=n_vectors, overwriting live vectors once a cell had
+    interior holes (data corruption + rows vanishing from KNN)."""
+    db.execute("CREATE VIRTUAL TABLE t USING vec0(v float[4] indexed by ivf(nlist=1))")
+
+    # Fill exactly one cell to capacity (64) in untrained mode
+    for i in range(64):
+        db.execute("INSERT INTO t(rowid, v) VALUES (?, ?)", [i, _f32([float(i), 0, 0, 0])])
+    # Free slots 0..9
+    for i in range(10):
+        db.execute("DELETE FROM t WHERE rowid = ?", [i])
+    # These must land in the freed slots
+    for i in range(100, 110):
+        db.execute("INSERT INTO t(rowid, v) VALUES (?, ?)", [i, _f32([float(i), 0, 0, 0])])
+
+    expected = set(range(10, 64)) | set(range(100, 110))
+    rows = db.execute("SELECT rowid, vec_to_json(v) AS vj FROM t").fetchall()
+    assert set(r["rowid"] for r in rows) == expected
+    import json
+    for r in rows:
+        vec = json.loads(r["vj"])
+        assert vec[0] == pytest.approx(float(r["rowid"])), \
+            f"rowid {r['rowid']} vector corrupted: {vec}"
+
+    # Every live row must be reachable via KNN
+    found = set(rowid for rowid, _ in knn(db, [50.0, 0, 0, 0], 100))
+    assert found == expected
+
+    # Bookkeeping: n_vectors must equal number of live rows
+    assert ivf_total_vectors(db) == len(expected)
+
+
+def test_insert_delete_churn_consistency(db):
+    """Randomized insert/delete churn across multiple cells stays consistent."""
+    import random
+    rng = random.Random(42)
+    db.execute("CREATE VIRTUAL TABLE t USING vec0(v float[4] indexed by ivf(nlist=2))")
+
+    alive = {}
+    next_rowid = 0
+    for _ in range(600):
+        if alive and rng.random() < 0.4:
+            rid = rng.choice(list(alive))
+            db.execute("DELETE FROM t WHERE rowid = ?", [rid])
+            del alive[rid]
+        else:
+            vec = [rng.uniform(-1, 1) for _ in range(4)]
+            db.execute("INSERT INTO t(rowid, v) VALUES (?, ?)", [next_rowid, _f32(vec)])
+            alive[next_rowid] = vec
+            next_rowid += 1
+
+    found = set(rowid for rowid, _ in knn(db, [0.0, 0, 0, 0], len(alive) + 10))
+    assert found == set(alive)
+    assert ivf_total_vectors(db) == len(alive)
+    import json
+    for rid, vec in alive.items():
+        stored = json.loads(
+            db.execute("SELECT vec_to_json(v) FROM t WHERE rowid = ?", [rid]).fetchone()[0]
+        )
+        assert stored == pytest.approx(vec, abs=1e-6)
+
+
+# ============================================================================
+# Regression: assign-vectors centroid byte stride + non-contiguous ids
+# ============================================================================
+
+
+def test_assign_vectors_correct_assignments(db):
+    """assign-vectors must place each vector in its nearest centroid's cell.
+    Previously the centroid array was indexed with a stride of D bytes instead
+    of D*sizeof(float), so all but centroid 0 were garbage."""
+    db.execute("CREATE VIRTUAL TABLE t USING vec0(v float[4] indexed by ivf(nlist=4))")
+
+    truth = {}
+    rowid = 0
+    for c in range(4):
+        for i in range(5):
+            truth[rowid] = c
+            db.execute("INSERT INTO t(rowid, v) VALUES (?, ?)",
+                       [rowid, _f32([c * 100.0 + i * 0.1] * 4)])
+            rowid += 1
+
+    for c in range(4):
+        db.execute("INSERT INTO t(t, v) VALUES (?, ?)",
+                   [f"set-centroid:{c}", _f32([c * 100.0] * 4)])
+    db.execute("INSERT INTO t(t) VALUES ('assign-vectors')")
+
+    for rid, expected_c in truth.items():
+        cell_id, _ = db.execute(
+            "SELECT cell_id, slot FROM t_ivf_rowid_map00 WHERE rowid = ?", [rid]
+        ).fetchone()
+        (centroid_id,) = db.execute(
+            "SELECT centroid_id FROM t_ivf_cells00 WHERE rowid = ?", [cell_id]
+        ).fetchone()
+        assert centroid_id == expected_c, f"rowid {rid} assigned to {centroid_id}"
+    assert ivf_unassigned_count(db) == 0
+
+
+def test_assign_vectors_non_contiguous_centroid_ids(db):
+    """set-centroid allows arbitrary centroid ids; assign-vectors must map
+    to the actual ids, not array indexes."""
+    db.execute("CREATE VIRTUAL TABLE t USING vec0(v float[4] indexed by ivf(nlist=2))")
+
+    db.execute("INSERT INTO t(rowid, v) VALUES (1, ?)", [_f32([0.0, 0, 0, 0])])
+    db.execute("INSERT INTO t(rowid, v) VALUES (2, ?)", [_f32([100.0] * 4)])
+
+    db.execute("INSERT INTO t(t, v) VALUES ('set-centroid:10', ?)", [_f32([0.0, 0, 0, 0])])
+    db.execute("INSERT INTO t(t, v) VALUES ('set-centroid:20', ?)", [_f32([100.0] * 4)])
+    db.execute("INSERT INTO t(t) VALUES ('assign-vectors')")
+
+    used = set(
+        r[0] for r in db.execute(
+            "SELECT DISTINCT centroid_id FROM t_ivf_cells00 WHERE n_vectors > 0"
+        ).fetchall()
+    )
+    assert used == {10, 20}
+    # Both rows must remain findable
+    found = set(rowid for rowid, _ in knn(db, [0.0, 0, 0, 0], 10))
+    assert found == {1, 2}

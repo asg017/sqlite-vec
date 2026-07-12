@@ -270,3 +270,105 @@ def test_ivf_binary_rejects_non_multiple_of_8_dims(db):
         "  v float[16] indexed by ivf(quantizer=binary)"
         ")"
     )
+
+
+# ============================================================================
+# Regression: commands on quantized indexes must keep the quantized
+# representation consistent (cells + centroids both store quantized bytes)
+# ============================================================================
+
+
+def _self_match_count(db, vecs):
+    ok = 0
+    for rid, v in vecs.items():
+        got = db.execute(
+            "SELECT rowid FROM t WHERE v MATCH ? AND k = 1", [_f32(v)]
+        ).fetchone()[0]
+        ok += got == rid
+    return ok
+
+
+def _random_unit_vecs(n, d, seed=1):
+    import random
+    rng = random.Random(seed)
+    return {rid: [rng.uniform(-1, 1) for _ in range(d)] for rid in range(n)}
+
+
+def test_ivf_int8_clear_centroids_preserves_vectors(db):
+    """clear-centroids must re-quantize full-precision vectors when moving
+    them back to unassigned cells. Previously it wrote raw float32 bytes into
+    int8/binary cells, corrupting every vector."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0(v float[8] indexed by ivf(nlist=2, quantizer=int8))"
+    )
+    vecs = _random_unit_vecs(20, 8)
+    for rid, v in vecs.items():
+        db.execute("INSERT INTO t(rowid, v) VALUES (?, ?)", [rid, _f32(v)])
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
+    assert _self_match_count(db, vecs) == 20
+
+    db.execute("INSERT INTO t(t) VALUES ('clear-centroids')")
+    assert _self_match_count(db, vecs) == 20
+
+
+def test_ivf_binary_clear_centroids_preserves_vectors(db):
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0(v float[16] indexed by ivf(nlist=2, quantizer=binary))"
+    )
+    vecs = _random_unit_vecs(20, 16, seed=7)
+    for rid, v in vecs.items():
+        db.execute("INSERT INTO t(rowid, v) VALUES (?, ?)", [rid, _f32(v)])
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
+
+    db.execute("INSERT INTO t(t) VALUES ('clear-centroids')")
+    # All rows must still be present and findable
+    found = set(
+        r[0] for r in db.execute(
+            "SELECT rowid FROM t WHERE v MATCH ? AND k = 50", [_f32(vecs[0])]
+        ).fetchall()
+    )
+    assert found == set(vecs)
+
+
+def test_ivf_int8_set_centroid_and_insert(db):
+    """set-centroid on a quantized index must store the quantized
+    representation; otherwise subsequent inserts find no size-matching
+    centroid and fail."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0(v float[8] indexed by ivf(nlist=2, quantizer=int8))"
+    )
+    db.execute("INSERT INTO t(t, v) VALUES ('set-centroid:0', ?)", [_f32([0.5] * 8)])
+    db.execute("INSERT INTO t(t, v) VALUES ('set-centroid:1', ?)", [_f32([-0.5] * 8)])
+
+    # Inserts after manual centroids must succeed and be assigned
+    db.execute("INSERT INTO t(rowid, v) VALUES (1, ?)", [_f32([0.4] * 8)])
+    db.execute("INSERT INTO t(rowid, v) VALUES (2, ?)", [_f32([-0.4] * 8)])
+
+    found = set(
+        r[0] for r in db.execute(
+            "SELECT rowid FROM t WHERE v MATCH ? AND k = 10", [_f32([0.4] * 8)]
+        ).fetchall()
+    )
+    assert found == {1, 2}
+
+
+def test_ivf_int8_assign_vectors(db):
+    """assign-vectors on a quantized index must interpret cell blobs with the
+    quantized element size, not float32."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0(v float[8] indexed by ivf(nlist=2, quantizer=int8))"
+    )
+    vecs = _random_unit_vecs(30, 8, seed=3)
+    for rid, v in vecs.items():
+        db.execute("INSERT INTO t(rowid, v) VALUES (?, ?)", [rid, _f32(v)])
+
+    db.execute("INSERT INTO t(t, v) VALUES ('set-centroid:0', ?)", [_f32([0.5] * 8)])
+    db.execute("INSERT INTO t(t, v) VALUES ('set-centroid:1', ?)", [_f32([-0.5] * 8)])
+    db.execute("INSERT INTO t(t) VALUES ('assign-vectors')")
+
+    # No vectors left unassigned, all findable, none corrupted
+    unassigned = db.execute(
+        "SELECT COALESCE(SUM(n_vectors),0) FROM t_ivf_cells00 WHERE centroid_id = -1"
+    ).fetchone()[0]
+    assert unassigned == 0
+    assert _self_match_count(db, vecs) == 30
