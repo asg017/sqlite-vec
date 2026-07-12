@@ -92,7 +92,9 @@ $(BUILD_DIR): $(prefix)
 	mkdir -p $@
 
 
-$(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(prefix)
+VEC_INCLUDED_SOURCES=sqlite-vec-ivf.c sqlite-vec-ivf-kmeans.c sqlite-vec-rescore.c sqlite-vec-diskann.c
+
+$(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(VEC_INCLUDED_SOURCES) $(prefix)
 	$(CC) \
 		-fPIC -shared \
 		-Wall -Wextra \
@@ -101,7 +103,7 @@ $(TARGET_LOADABLE): sqlite-vec.c sqlite-vec.h $(prefix)
 		$(CFLAGS) \
 		$< -o $@
 
-$(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(prefix) $(OBJS_DIR)
+$(TARGET_STATIC): sqlite-vec.c sqlite-vec.h $(VEC_INCLUDED_SOURCES) $(prefix) $(OBJS_DIR)
 	$(CC) -Ivendor/ $(CFLAGS) -DSQLITE_CORE -DSQLITE_VEC_STATIC \
 	-O3 -c  $< -o $(OBJS_DIR)/vec.o
 	$(AR) rcs $@ $(OBJS_DIR)/vec.o
@@ -204,7 +206,7 @@ test-loadable-watch:
 	watchexec --exts c,py,Makefile --clear -- make test-loadable
 
 test-unit:
-	$(CC) -DSQLITE_CORE -DSQLITE_VEC_TEST -DSQLITE_VEC_ENABLE_RESCORE -DSQLITE_VEC_ENABLE_DISKANN=1 tests/test-unit.c sqlite-vec.c vendor/sqlite3.c -I./ -Ivendor $(CFLAGS) -o $(prefix)/test-unit && $(prefix)/test-unit
+	$(CC) -DSQLITE_CORE -DSQLITE_VEC_TEST -DSQLITE_VEC_ENABLE_RESCORE -DSQLITE_VEC_ENABLE_DISKANN=1 -DSQLITE_VEC_EXPERIMENTAL_IVF_ENABLE=1 tests/test-unit.c sqlite-vec.c vendor/sqlite3.c -I./ -Ivendor $(CFLAGS) -o $(prefix)/test-unit && $(prefix)/test-unit
 
 # Standalone sqlite3 CLI with vec0 compiled in. Useful for benchmarking,
 # profiling (has debug symbols), and scripting without .load_extension.

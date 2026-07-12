@@ -253,7 +253,15 @@ static float ivf_distance(vec0_vtab *p, int col_idx,
   size_t dims = p->vector_columns[col_idx].dimensions;
   switch (p->vector_columns[col_idx].ivf.quantizer) {
   case VEC0_IVF_QUANTIZER_INT8:
-    return distance_l2_sqr_int8(a, b, &dims);
+    switch (p->vector_columns[col_idx].distance_metric) {
+    case VEC0_DISTANCE_METRIC_COSINE:
+      return distance_cosine_int8(a, b, &dims);
+    case VEC0_DISTANCE_METRIC_L1:
+      return (float)distance_l1_int8(a, b, &dims);
+    case VEC0_DISTANCE_METRIC_L2:
+    default:
+      return distance_l2_sqr_int8(a, b, &dims);
+    }
   case VEC0_IVF_QUANTIZER_BINARY:
     return distance_hamming(a, b, &dims);
   default:
@@ -333,33 +341,24 @@ static int ivf_cell_create(vec0_vtab *p, int col_idx, i64 centroid_id,
 
 /**
  * Find a cell with space for the given centroid, or create one.
- * Returns cell_id (rowid) and current n_vectors.
+ * Returns cell_id (rowid) and the first free slot (validity bit clear).
+ * Slots are not append-only: deletes clear validity bits, so free slots
+ * can appear anywhere in the cell and must be found by scanning the bitmap.
  */
 static int ivf_cell_find_or_create(vec0_vtab *p, int col_idx, i64 centroid_id,
-                                     i64 *out_cell_id, int *out_n) {
+                                     i64 *out_cell_id, int *out_slot) {
   int rc;
-  // Find existing cell with space
-  rc = ivf_ensure_stmt(p, &p->stmtIvfCellMeta[col_idx],
-      "SELECT rowid, n_vectors FROM " VEC0_SHADOW_IVF_CELLS_NAME
-      " WHERE centroid_id = ? AND n_vectors < %d LIMIT 1",
-      col_idx);
-  // The %d in the format won't work with ivf_ensure_stmt since it only has 3
-  // format args. Use a direct approach instead.
-  sqlite3_finalize(p->stmtIvfCellMeta[col_idx]);
-  p->stmtIvfCellMeta[col_idx] = NULL;
+  int cap = VEC0_IVF_CELL_MAX_VECTORS;
 
-  char *zSql = sqlite3_mprintf(
-      "SELECT rowid, n_vectors FROM " VEC0_SHADOW_IVF_CELLS_NAME
-      " WHERE centroid_id = ? AND n_vectors < %d LIMIT 1",
-      p->schemaName, p->tableName, col_idx, VEC0_IVF_CELL_MAX_VECTORS);
-  if (!zSql) return SQLITE_NOMEM;
-  // Cache this manually
   if (!p->stmtIvfCellMeta[col_idx]) {
+    char *zSql = sqlite3_mprintf(
+        "SELECT rowid, validity FROM " VEC0_SHADOW_IVF_CELLS_NAME
+        " WHERE centroid_id = ? AND n_vectors < %d LIMIT 1",
+        p->schemaName, p->tableName, col_idx, cap);
+    if (!zSql) return SQLITE_NOMEM;
     rc = sqlite3_prepare_v2(p->db, zSql, -1, &p->stmtIvfCellMeta[col_idx], NULL);
     sqlite3_free(zSql);
     if (rc != SQLITE_OK) return rc;
-  } else {
-    sqlite3_free(zSql);
   }
 
   sqlite3_stmt *stmt = p->stmtIvfCellMeta[col_idx];
@@ -367,31 +366,43 @@ static int ivf_cell_find_or_create(vec0_vtab *p, int col_idx, i64 centroid_id,
   sqlite3_bind_int64(stmt, 1, centroid_id);
 
   if (sqlite3_step(stmt) == SQLITE_ROW) {
-    *out_cell_id = sqlite3_column_int64(stmt, 0);
-    *out_n = sqlite3_column_int(stmt, 1);
-    return SQLITE_OK;
+    i64 cell_id = sqlite3_column_int64(stmt, 0);
+    const unsigned char *validity =
+        (const unsigned char *)sqlite3_column_blob(stmt, 1);
+    int valBits = sqlite3_column_bytes(stmt, 1) * 8;
+    int slot = -1;
+    if (validity) {
+      int limit = valBits < cap ? valBits : cap;
+      for (int i = 0; i < limit; i++) {
+        if (!(validity[i / 8] & (1 << (i % 8)))) { slot = i; break; }
+      }
+    }
+    sqlite3_reset(stmt);
+    if (slot >= 0) {
+      *out_cell_id = cell_id;
+      *out_slot = slot;
+      return SQLITE_OK;
+    }
+    // n_vectors claims space but no free validity bit: bookkeeping drift.
+    // Fall through and create a fresh cell rather than corrupt a live slot.
   }
 
-  // No cell with space — create new one
   rc = ivf_cell_create(p, col_idx, centroid_id, out_cell_id);
-  *out_n = 0;
+  *out_slot = 0;
   return rc;
 }
 
 /**
- * Insert vector into cell at slot = n_vectors (append).
- * Cell must have space (n_vectors < VEC0_IVF_CELL_MAX_VECTORS).
+ * Insert vector into the first free slot of a cell for this centroid.
  */
 static int ivf_cell_insert(vec0_vtab *p, int col_idx, i64 centroid_id,
                             i64 rowid, const void *vectorData, int vectorSize) {
   int rc;
   i64 cell_id;
-  int n_vectors;
+  int slot;
 
-  rc = ivf_cell_find_or_create(p, col_idx, centroid_id, &cell_id, &n_vectors);
+  rc = ivf_cell_find_or_create(p, col_idx, centroid_id, &cell_id, &slot);
   if (rc != SQLITE_OK) return rc;
-
-  int slot = n_vectors;
   char *cellsTable = p->shadowIvfCellsNames[col_idx];
 
   // Set validity bit
@@ -1025,15 +1036,23 @@ static int ivf_cmd_set_centroid(vec0_vtab *p, int col_idx, int centroid_id,
   int D = (int)p->vector_columns[col_idx].dimensions;
   if (vectorSize != (int)(D * sizeof(float))) { vtab_set_error(&p->base, "Dimension mismatch"); return SQLITE_ERROR; }
 
+  // Centroids are stored in the same (possibly quantized) representation as
+  // cell vectors, so insert/query can compare them directly.
+  int qvecSize = ivf_vec_size(p, col_idx);
+  void *qbuf = sqlite3_malloc(qvecSize);
+  if (!qbuf) return SQLITE_NOMEM;
+  ivf_quantize(p, col_idx, (const float *)vectorData, qbuf);
+
   char *zSql = sqlite3_mprintf(
       "INSERT OR REPLACE INTO " VEC0_SHADOW_IVF_CENTROIDS_NAME " (centroid_id, centroid) VALUES (?, ?)",
       p->schemaName, p->tableName, col_idx);
-  if (!zSql) return SQLITE_NOMEM;
+  if (!zSql) { sqlite3_free(qbuf); return SQLITE_NOMEM; }
   rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
-  if (rc != SQLITE_OK) return rc;
+  if (rc != SQLITE_OK) { sqlite3_free(qbuf); return rc; }
   sqlite3_bind_int(stmt, 1, centroid_id);
-  sqlite3_bind_blob(stmt, 2, vectorData, vectorSize, SQLITE_STATIC);
+  sqlite3_bind_blob(stmt, 2, qbuf, qvecSize, SQLITE_TRANSIENT);
   rc = sqlite3_step(stmt); sqlite3_finalize(stmt);
+  sqlite3_free(qbuf);
   if (rc != SQLITE_DONE) return SQLITE_ERROR;
 
   zSql = sqlite3_mprintf(
@@ -1049,41 +1068,60 @@ static int ivf_cmd_set_centroid(vec0_vtab *p, int col_idx, int centroid_id,
 static int ivf_cmd_assign_vectors(vec0_vtab *p, int col_idx) {
   if (!ivf_is_trained(p, col_idx)) { vtab_set_error(&p->base, "No centroids"); return SQLITE_ERROR; }
 
-  int D = (int)p->vector_columns[col_idx].dimensions;
-  int vecSize = D * (int)sizeof(float);
+  // Cells and centroids are both stored in the quantized representation,
+  // so assignment operates entirely in quantized space.
+  int qvecSize = ivf_vec_size(p, col_idx);
   int rc;
   sqlite3_stmt *stmt = NULL;
   char *zSql;
 
-  // Load centroids
+  // Load centroids. Centroid ids need not be contiguous (set-centroid allows
+  // arbitrary ids), so keep an id array parallel to the vector array.
   int nlist = 0;
-  float *centroids = NULL;
   zSql = sqlite3_mprintf("SELECT count(*) FROM " VEC0_SHADOW_IVF_CENTROIDS_NAME,
       p->schemaName, p->tableName, col_idx);
+  if (!zSql) return SQLITE_NOMEM;
   rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
   if (rc == SQLITE_OK && sqlite3_step(stmt) == SQLITE_ROW) nlist = sqlite3_column_int(stmt, 0);
   sqlite3_finalize(stmt);
   if (nlist == 0) { vtab_set_error(&p->base, "No centroids"); return SQLITE_ERROR; }
 
-  centroids = sqlite3_malloc64((i64)nlist * D * sizeof(float));
-  if (!centroids) return SQLITE_NOMEM;
+  unsigned char *centroids = sqlite3_malloc64((i64)nlist * qvecSize);
+  i64 *centroid_ids = sqlite3_malloc64((i64)nlist * sizeof(i64));
+  if (!centroids || !centroid_ids) {
+    sqlite3_free(centroids); sqlite3_free(centroid_ids);
+    return SQLITE_NOMEM;
+  }
+  int nCentroids = 0;
   zSql = sqlite3_mprintf("SELECT centroid_id, centroid FROM " VEC0_SHADOW_IVF_CENTROIDS_NAME " ORDER BY centroid_id",
       p->schemaName, p->tableName, col_idx);
+  if (!zSql) { sqlite3_free(centroids); sqlite3_free(centroid_ids); return SQLITE_NOMEM; }
   rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
-  { int ci = 0; while (sqlite3_step(stmt) == SQLITE_ROW && ci < nlist) {
+  if (rc == SQLITE_OK) {
+    while (sqlite3_step(stmt) == SQLITE_ROW && nCentroids < nlist) {
       const void *b = sqlite3_column_blob(stmt, 1);
       int bBytes = sqlite3_column_bytes(stmt, 1);
-      if (b && bBytes == vecSize) memcpy(&centroids[ci * D], b, vecSize);
-      ci++;
-  }}
+      if (!b || bBytes != qvecSize) continue;
+      centroid_ids[nCentroids] = sqlite3_column_int64(stmt, 0);
+      memcpy(centroids + (i64)nCentroids * qvecSize, b, qvecSize);
+      nCentroids++;
+    }
+  }
   sqlite3_finalize(stmt);
+  if (nCentroids == 0) {
+    sqlite3_free(centroids); sqlite3_free(centroid_ids);
+    vtab_set_error(&p->base, "No centroids with matching vector size");
+    return SQLITE_ERROR;
+  }
 
   // Read unassigned cells, re-insert into trained cells
   zSql = sqlite3_mprintf(
       "SELECT rowid, n_vectors, validity, rowids, vectors FROM " VEC0_SHADOW_IVF_CELLS_NAME
       " WHERE centroid_id = %d",
       p->schemaName, p->tableName, col_idx, VEC0_IVF_UNASSIGNED_CENTROID_ID);
+  if (!zSql) { sqlite3_free(centroids); sqlite3_free(centroid_ids); return SQLITE_NOMEM; }
   rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
+  if (rc != SQLITE_OK) { sqlite3_free(centroids); sqlite3_free(centroid_ids); return rc; }
 
   // Invalidate cached stmts since we'll be modifying cells
   ivf_invalidate_cached(p, col_idx);
@@ -1092,19 +1130,21 @@ static int ivf_cmd_assign_vectors(vec0_vtab *p, int col_idx) {
     int n = sqlite3_column_int(stmt, 1);
     const unsigned char *val = (const unsigned char *)sqlite3_column_blob(stmt, 2);
     const i64 *rids = (const i64 *)sqlite3_column_blob(stmt, 3);
-    const float *vecs = (const float *)sqlite3_column_blob(stmt, 4);
+    const unsigned char *vecs = (const unsigned char *)sqlite3_column_blob(stmt, 4);
     int valBytes = sqlite3_column_bytes(stmt, 2);
     int ridsBytes = sqlite3_column_bytes(stmt, 3);
     int vecsBytes = sqlite3_column_bytes(stmt, 4);
     if (!val || !rids || !vecs) continue;
     int cap = valBytes * 8;
     if (ridsBytes / (int)sizeof(i64) < cap) cap = ridsBytes / (int)sizeof(i64);
-    if (vecsBytes / vecSize < cap) cap = vecsBytes / vecSize;
+    if (vecsBytes / qvecSize < cap) cap = vecsBytes / qvecSize;
 
     for (int i = 0; i < cap && n > 0; i++) {
       if (!(val[i / 8] & (1 << (i % 8)))) continue;
       n--;
-      int cid = ivf_find_nearest_centroid(p, col_idx, &vecs[i * D], centroids, D, nlist);
+      int nearest = ivf_find_nearest_centroid(p, col_idx, vecs + (i64)i * qvecSize,
+                                              centroids, qvecSize, nCentroids);
+      i64 cid = centroid_ids[nearest];
 
       // Delete old rowid_map entry
       sqlite3_stmt *sd = NULL;
@@ -1113,7 +1153,7 @@ static int ivf_cmd_assign_vectors(vec0_vtab *p, int col_idx) {
       if (zd) { sqlite3_prepare_v2(p->db, zd, -1, &sd, NULL); sqlite3_free(zd);
         sqlite3_bind_int64(sd, 1, rids[i]); sqlite3_step(sd); sqlite3_finalize(sd); }
 
-      ivf_cell_insert(p, col_idx, cid, rids[i], &vecs[i * D], vecSize);
+      ivf_cell_insert(p, col_idx, cid, rids[i], vecs + (i64)i * qvecSize, qvecSize);
     }
   }
   sqlite3_finalize(stmt);
@@ -1126,6 +1166,7 @@ static int ivf_cmd_assign_vectors(vec0_vtab *p, int col_idx) {
     sqlite3_step(stmt); sqlite3_finalize(stmt); }
 
   sqlite3_free(centroids);
+  sqlite3_free(centroid_ids);
   return SQLITE_OK;
 }
 
@@ -1140,6 +1181,11 @@ static int ivf_cmd_clear_centroids(vec0_vtab *p, int col_idx) {
   rc = ivf_load_all_vectors(p, col_idx, &vectors, &rowids, &N);
   if (rc != SQLITE_OK) return rc;
 
+  // ivf_load_all_vectors always returns full-precision float32; cells store
+  // the quantized representation, so re-quantize before re-inserting.
+  void *qbuf = sqlite3_malloc(vecSize);
+  if (!qbuf && N > 0) { sqlite3_free(vectors); sqlite3_free(rowids); return SQLITE_NOMEM; }
+
   ivf_invalidate_cached(p, col_idx);
 
   ivf_exec(p, "DELETE FROM " VEC0_SHADOW_IVF_CENTROIDS_NAME, col_idx);
@@ -1148,9 +1194,11 @@ static int ivf_cmd_clear_centroids(vec0_vtab *p, int col_idx) {
 
   // Re-insert all vectors into unassigned cells
   for (int i = 0; i < N; i++) {
+    ivf_quantize(p, col_idx, &vectors[i * D], qbuf);
     ivf_cell_insert(p, col_idx, VEC0_IVF_UNASSIGNED_CENTROID_ID,
-                     rowids[i], &vectors[i * D], vecSize);
+                     rowids[i], qbuf, vecSize);
   }
+  sqlite3_free(qbuf);
 
   zSql = sqlite3_mprintf(
       "INSERT OR REPLACE INTO " VEC0_SHADOW_INFO_NAME " (key, value) VALUES ('ivf_trained_%d', '0')",
