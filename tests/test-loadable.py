@@ -1590,6 +1590,90 @@ def test_vec0_constructor():
         db.execute("create virtual table v using vec0(4)")
 
 
+def test_chunk_size_64_knn_and_per_table_isolation():
+    # chunk_size=64 is a useful mid-range option that:
+    #   - accepts insert of a corpus that crosses the 64-row chunk boundary,
+    #   - returns the same top-k ordering as default-chunk_size on the same
+    #     vector set, and
+    #   - keeps per-table shadow state isolated when a second vec0 table in
+    #     the same database uses a different chunk_size.
+    db.execute("drop table if exists t_cs64")
+    db.execute("drop table if exists t_cs1024")
+
+    # chunk_size=64 is accepted and the table is creatable.
+    db.execute(
+        "create virtual table t_cs64 using vec0("
+        "row_id text primary key, embedding float[4] distance_metric=cosine, chunk_size=64)"
+    )
+
+    # Insert 65 rows: forces the second chunk to materialize at the 64-row
+    # boundary. Each row uses a distinct primary key.
+    for i in range(65):
+        db.execute(
+            "insert into t_cs64(row_id, embedding) values (?, ?)",
+            [f"id_{i}", _f32([(i % 13) * 0.1, (i % 7) * 0.05, i * 0.001, 1.0])],
+        )
+
+    # The shadow `chunks` table must record at least two chunks at chunk_size=64.
+    chunk_count = db.execute(
+        "select count(*) from t_cs64_chunks where size = 64"
+    ).fetchone()[0]
+    assert chunk_count >= 2, (
+        f"expected at least 2 chunks at chunk_size=64, got {chunk_count}"
+    )
+
+    # KNN over chunk_size=64 returns the same top-k ordering as chunk_size=1024
+    # on the same vector set. KNN correctness is preserved across small chunk
+    # boundaries — chunk_size is a storage-only knob.
+    db.execute(
+        "create virtual table t_cs1024 using vec0("
+        "row_id text primary key, embedding float[4] distance_metric=cosine, chunk_size=1024)"
+    )
+    for i in range(65):
+        db.execute(
+            "insert into t_cs1024(row_id, embedding) values (?, ?)",
+            [f"id_{i}", _f32([(i % 13) * 0.1, (i % 7) * 0.05, i * 0.001, 1.0])],
+        )
+
+    query = _f32([0.1, 0.05, 0.001, 1.0])
+    cs64_top = [
+        r[0]
+        for r in db.execute(
+            "select row_id from t_cs64 where embedding match ? and k = 5 order by distance",
+            [query],
+        ).fetchall()
+    ]
+    cs1024_top = [
+        r[0]
+        for r in db.execute(
+            "select row_id from t_cs1024 where embedding match ? and k = 5 order by distance",
+            [query],
+        ).fetchall()
+    ]
+    assert cs64_top == cs1024_top, (
+        f"top-k ordering diverged between chunk_size=64 and chunk_size=1024: "
+        f"{cs64_top} vs {cs1024_top}"
+    )
+
+    # chunk_size is per-table — the shadow tables reflect each table's choice
+    # independently, with no cross-table leakage.
+    cs64_size = db.execute(
+        "select distinct size from t_cs64_chunks"
+    ).fetchall()
+    cs1024_size = db.execute(
+        "select distinct size from t_cs1024_chunks"
+    ).fetchall()
+    assert cs64_size == [(64,)], (
+        f"t_cs64 shadow table should report only size=64, got {cs64_size}"
+    )
+    assert cs1024_size == [(1024,)], (
+        f"t_cs1024 shadow table should report only size=1024, got {cs1024_size}"
+    )
+
+    db.execute("drop table t_cs64")
+    db.execute("drop table t_cs1024")
+
+
 def test_vec0_indexed_by_flat():
     db.execute("drop table if exists t_ibf")
     db.execute("drop table if exists t_ibf2")
