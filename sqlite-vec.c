@@ -3689,13 +3689,15 @@ void vec0_free_resources(vec0_vtab *p) {
     sqlite3_finalize(p->stmtIvfRowidMapLookup[i]); p->stmtIvfRowidMapLookup[i] = NULL;
     sqlite3_finalize(p->stmtIvfRowidMapDelete[i]); p->stmtIvfRowidMapDelete[i] = NULL;
     sqlite3_finalize(p->stmtIvfCentroidsAll[i]); p->stmtIvfCentroidsAll[i] = NULL;
+  }
+#endif
 #if SQLITE_VEC_ENABLE_DISKANN
+  for (int i = 0; i < VEC0_MAX_VECTOR_COLUMNS; i++) {
     sqlite3_finalize(p->stmtDiskannNodeRead[i]); p->stmtDiskannNodeRead[i] = NULL;
     sqlite3_finalize(p->stmtDiskannNodeWrite[i]); p->stmtDiskannNodeWrite[i] = NULL;
     sqlite3_finalize(p->stmtDiskannNodeInsert[i]); p->stmtDiskannNodeInsert[i] = NULL;
     sqlite3_finalize(p->stmtVectorsRead[i]); p->stmtVectorsRead[i] = NULL;
     sqlite3_finalize(p->stmtVectorsInsert[i]); p->stmtVectorsInsert[i] = NULL;
-#endif
   }
 #endif
 }
@@ -10364,28 +10366,7 @@ static int vec0Begin(sqlite3_vtab *pVTab) {
   return SQLITE_OK;
 }
 static int vec0Sync(sqlite3_vtab *pVTab) {
-  UNUSED_PARAMETER(pVTab);
-  vec0_vtab *p = (vec0_vtab *)pVTab;
-  if (p->stmtLatestChunk) {
-    sqlite3_finalize(p->stmtLatestChunk);
-    p->stmtLatestChunk = NULL;
-  }
-  if (p->stmtRowidsInsertRowid) {
-    sqlite3_finalize(p->stmtRowidsInsertRowid);
-    p->stmtRowidsInsertRowid = NULL;
-  }
-  if (p->stmtRowidsInsertId) {
-    sqlite3_finalize(p->stmtRowidsInsertId);
-    p->stmtRowidsInsertId = NULL;
-  }
-  if (p->stmtRowidsUpdatePosition) {
-    sqlite3_finalize(p->stmtRowidsUpdatePosition);
-    p->stmtRowidsUpdatePosition = NULL;
-  }
-  if (p->stmtRowidsGetChunkPosition) {
-    sqlite3_finalize(p->stmtRowidsGetChunkPosition);
-    p->stmtRowidsGetChunkPosition = NULL;
-  }
+  vec0_free_resources((vec0_vtab *)pVTab);
   return SQLITE_OK;
 }
 static int vec0Commit(sqlite3_vtab *pVTab) {
@@ -10429,9 +10410,13 @@ static int vec0Rename(sqlite3_vtab *pVtab, const char *zNew) {
 
   // Per-vector-column shadow tables
   for (int i = 0; i < p->numVectorColumns; i++) {
-    sqlite3_str_appendf(s,
-      "ALTER TABLE \"%w\".\"%w_vector_chunks%02d\" RENAME TO \"%w_vector_chunks%02d\";",
-      p->schemaName, p->tableName, i, zNew, i);
+    // Non-FLAT columns (rescore, IVF, DiskANN) don't create _vector_chunks
+    // (mirror the guard in vec0_init around VEC0_SHADOW_VECTOR_N_CREATE).
+    if (p->vector_columns[i].index_type == VEC0_INDEX_TYPE_FLAT) {
+      sqlite3_str_appendf(s,
+        "ALTER TABLE \"%w\".\"%w_vector_chunks%02d\" RENAME TO \"%w_vector_chunks%02d\";",
+        p->schemaName, p->tableName, i, zNew, i);
+    }
 
 #if SQLITE_VEC_ENABLE_RESCORE
     if (p->shadowRescoreChunksNames[i]) {
@@ -10463,8 +10448,21 @@ static int vec0Rename(sqlite3_vtab *pVtab, const char *zNew) {
   for (int i = 0; i < p->numVectorColumns; i++) {
     if (p->shadowIvfCellsNames[i]) {
       sqlite3_str_appendf(s,
+        "ALTER TABLE \"%w\".\"%w_ivf_centroids%02d\" RENAME TO \"%w_ivf_centroids%02d\";",
+        p->schemaName, p->tableName, i, zNew, i);
+      sqlite3_str_appendf(s,
         "ALTER TABLE \"%w\".\"%w_ivf_cells%02d\" RENAME TO \"%w_ivf_cells%02d\";",
         p->schemaName, p->tableName, i, zNew, i);
+      sqlite3_str_appendf(s,
+        "ALTER TABLE \"%w\".\"%w_ivf_rowid_map%02d\" RENAME TO \"%w_ivf_rowid_map%02d\";",
+        p->schemaName, p->tableName, i, zNew, i);
+      // _ivf_vectors is only created when quantizer != none
+      // (mirror ivf_create_shadow_tables in sqlite-vec-ivf.c).
+      if (p->vector_columns[i].ivf.quantizer != VEC0_IVF_QUANTIZER_NONE) {
+        sqlite3_str_appendf(s,
+          "ALTER TABLE \"%w\".\"%w_ivf_vectors%02d\" RENAME TO \"%w_ivf_vectors%02d\";",
+          p->schemaName, p->tableName, i, zNew, i);
+      }
     }
   }
 #endif
