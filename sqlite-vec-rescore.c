@@ -602,6 +602,36 @@ static int rescore_knn(vec0_vtab *p, vec0_cursor *pCur,
       }
     }
 
+    // Apply any `distance` constraints from the WHERE clause. This must happen
+    // on the rescored float distances (the coarse quantized distances from
+    // phase 1 are not comparable to a user-supplied threshold), and before the
+    // top-k truncation below, so that a constraint like `distance > x` can
+    // still yield k rows instead of dropping the head of the result set.
+    i64 cand_kept = 0;
+    for (i64 j = 0; j < cand_used; j++) {
+      if (!vec0_distance_constraints_satisfied(float_distances[j], idxStr, argc,
+                                               argv)) {
+        continue;
+      }
+      cand_rowids[cand_kept] = cand_rowids[j];
+      float_distances[cand_kept] = float_distances[j];
+      cand_kept++;
+    }
+    cand_used = cand_kept;
+
+    // Every candidate was filtered out: return an empty result set. Falling
+    // through would sqlite3_malloc(0), which returns NULL and would be
+    // misreported as SQLITE_NOMEM below.
+    if (cand_used == 0) {
+      knn_data->current_idx = 0;
+      knn_data->k = 0;
+      knn_data->rowids = NULL;
+      knn_data->distances = NULL;
+      knn_data->k_used = 0;
+      sqlite3_free(float_distances);
+      goto cleanup;
+    }
+
     i64 result_k = min(k, cand_used);
     i64 *out_rowids = sqlite3_malloc(result_k * sizeof(i64));
     f32 *out_distances = sqlite3_malloc(result_k * sizeof(f32));
