@@ -6009,6 +6009,53 @@ typedef enum {
   VEC0_DISTANCE_CONSTRAINT_LE = 'd',
 } vec0_distance_constraint_operator;
 
+/**
+ * @brief Test a single distance value against every distance constraint
+ *        encoded in idxStr.
+ *
+ * vec0BestIndex() sets aConstraintUsage[].omit = 1 on `distance` constraints,
+ * which promises SQLite that the vtab applies them itself. Every KNN
+ * implementation (FLAT, rescore, IVF, ...) MUST therefore route its candidate
+ * distances through this predicate, otherwise the WHERE clause is silently
+ * dropped from the query plan and never re-checked by SQLite.
+ *
+ * @param distance - candidate distance to test
+ * @param idxStr - the xBestIndex/xFilter idxStr
+ * @param argc, argv - xFilter arguments, parallel to the idxStr entries
+ * @returns 1 if the distance satisfies all constraints, 0 otherwise.
+ */
+static int vec0_distance_constraints_satisfied(f32 distance, const char *idxStr,
+                                               int argc,
+                                               sqlite3_value **argv) {
+  for (int i = 0; i < argc; i++) {
+    int idx = 1 + (i * 4);
+    if (idxStr[idx + 0] != VEC0_IDXSTR_KIND_KNN_DISTANCE_CONSTRAINT) {
+      continue;
+    }
+    // TODO casts f64 to f32, is that a problem?
+    f32 target = (f32)sqlite3_value_double(argv[i]);
+    switch ((vec0_distance_constraint_operator)idxStr[idx + 1]) {
+    case VEC0_DISTANCE_CONSTRAINT_GT:
+      if (!(distance > target))
+        return 0;
+      break;
+    case VEC0_DISTANCE_CONSTRAINT_GE:
+      if (!(distance >= target))
+        return 0;
+      break;
+    case VEC0_DISTANCE_CONSTRAINT_LT:
+      if (!(distance < target))
+        return 0;
+      break;
+    case VEC0_DISTANCE_CONSTRAINT_LE:
+      if (!(distance <= target))
+        return 0;
+      break;
+    }
+  }
+  return 1;
+}
+
 static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
   vec0_vtab *p = (vec0_vtab *)pVTab;
   /**
@@ -7543,50 +7590,11 @@ int vec0Filter_knn_chunks_iter(vec0_vtab *p, sqlite3_stmt *stmtChunks,
     }
 
     if(hasDistanceConstraints) {
-      for(int i = 0; i < argc; i++) {
-        int idx = 1 + (i * 4);
-        char kind = idxStr[idx + 0];
-        // TODO casts f64 to f32, is that a problem?
-        f32 target = (f32) sqlite3_value_double(argv[i]);
-
-        if(kind != VEC0_IDXSTR_KIND_KNN_DISTANCE_CONSTRAINT)  {
-          continue;
-        }
-        vec0_distance_constraint_operator op = idxStr[idx + 1];
-
-        switch(op) {
-          case VEC0_DISTANCE_CONSTRAINT_GE: {
-            for(int i = 0; i < p->chunk_size;i++) {
-              if(bitmap_get(b, i) && !(chunk_distances[i] >= target)) {
-                bitmap_set(b, i, 0);
-              }
-            }
-            break;
-          }
-          case VEC0_DISTANCE_CONSTRAINT_GT: {
-            for(int i = 0; i < p->chunk_size;i++) {
-              if(bitmap_get(b, i) && !(chunk_distances[i] > target)) {
-                bitmap_set(b, i, 0);
-              }
-            }
-            break;
-          }
-          case VEC0_DISTANCE_CONSTRAINT_LE: {
-            for(int i = 0; i < p->chunk_size;i++) {
-              if(bitmap_get(b, i) && !(chunk_distances[i] <= target)) {
-                bitmap_set(b, i, 0);
-              }
-            }
-            break;
-          }
-          case VEC0_DISTANCE_CONSTRAINT_LT: {
-            for(int i = 0; i < p->chunk_size;i++) {
-              if(bitmap_get(b, i) && !(chunk_distances[i] < target)) {
-                bitmap_set(b, i, 0);
-              }
-            }
-            break;
-          }
+      for(int i = 0; i < p->chunk_size; i++) {
+        if(bitmap_get(b, i) &&
+           !vec0_distance_constraints_satisfied(chunk_distances[i], idxStr,
+                                                argc, argv)) {
+          bitmap_set(b, i, 0);
         }
       }
     }
@@ -7794,6 +7802,22 @@ static int vec0Filter_knn_diskann(
         resultRowids[sj] = tmpR;
       }
     }
+  }
+
+  // Apply any `distance` constraints from the WHERE clause. vec0BestIndex()
+  // omits these from the query plan, so SQLite will not re-check them.
+  {
+    int kept = 0;
+    for (int si = 0; si < resultCount; si++) {
+      if (!vec0_distance_constraints_satisfied(resultDistances[si], idxStr,
+                                               argc, argv)) {
+        continue;
+      }
+      resultRowids[kept] = resultRowids[si];
+      resultDistances[kept] = resultDistances[si];
+      kept++;
+    }
+    resultCount = kept;
   }
 
   knn_data->k = resultCount;
@@ -8070,6 +8094,22 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
                        (int)vector_column_byte_size(*vector_column), k, knn_data);
     if (rc != SQLITE_OK) {
       goto cleanup;
+    }
+    // Apply any `distance` constraints from the WHERE clause. vec0BestIndex()
+    // omits these from the query plan, so SQLite will not re-check them.
+    {
+      i64 kept = 0;
+      for (i64 j = 0; j < knn_data->k_used; j++) {
+        if (!vec0_distance_constraints_satisfied(knn_data->distances[j], idxStr,
+                                                 argc, argv)) {
+          continue;
+        }
+        knn_data->rowids[kept] = knn_data->rowids[j];
+        knn_data->distances[kept] = knn_data->distances[j];
+        kept++;
+      }
+      knn_data->k = kept;
+      knn_data->k_used = kept;
     }
     pCur->knn_data = knn_data;
     pCur->query_plan = VEC0_QUERY_PLAN_KNN;
