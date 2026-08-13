@@ -153,6 +153,7 @@ function sidebar(): DefaultTheme.SidebarItem[] {
         { text: "Ruby", link: "/ruby" },
         { text: "Rust", link: "/rust" },
         { text: "Go", link: "/go" },
+        { text: "Elixir", link: "/elixir" },
         { text: "C/C++", link: "/c" },
         { text: "Browser (WASM)", link: "/wasm" },
         { text: "Datasette", link: "/datasette" },
