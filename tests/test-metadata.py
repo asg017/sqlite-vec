@@ -624,3 +624,24 @@ def authorizer_deny_on(operation, x1, x2=None):
     return _auth
 
 
+def test_metadata_in_filter(db):
+    # Exercises the metadata `IN (...)` filter path (VEC0_METADATA_OPERATOR_IN).
+    # A not-found entry in that path indexed with a `size_t metadataInIdx = -1`
+    # (== SIZE_MAX) caused an out-of-bounds read; the `< 0` guard never fired
+    # for an unsigned type. The OOB is silent without a sanitizer, so this test
+    # asserts correct filtering and the ASan job turns the latent OOB fail-loud.
+    db.execute("create virtual table t using vec0(a float[2], label integer)")
+    db.executemany(
+        "insert into t(rowid, a, label) values (?, vec_f32(?), ?)",
+        [(i, f"[{i},{i}]", i % 3) for i in range(9)],
+    )
+    rows = db.execute(
+        "select rowid from t "
+        "where a match vec_f32('[0,0]') and k = 9 and label in (1, 2)"
+    ).fetchall()
+    found = sorted(r[0] for r in rows)
+    # rowids with label (i % 3) in {1, 2}: 1,2,4,5,7,8
+    assert found == [1, 2, 4, 5, 7, 8]
+    assert all(r % 3 != 0 for r in found)
+
+
