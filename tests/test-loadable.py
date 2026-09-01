@@ -2183,6 +2183,18 @@ def test_vec0_distance_metric():
     ]
 
 
+def test_vec0_column_option_malformed_value():
+    # vec0_parse_vector_column's "option value" guard used to be:
+    #   if (rc != VEC0_TOKEN_RESULT_SOME && token.token_type != TOKEN_TYPE_IDENTIFIER)
+    # With && instead of ||, hitting EOF right after "distance_metric=" left
+    # `token` uninitialised and the guard could spuriously not fire, falling
+    # through to use token.start/token.end (uninitialised) as the option value.
+    # Fixed to || so any non-identifier token (including EOF, where rc !=
+    # VEC0_TOKEN_RESULT_SOME) deterministically rejects the column definition.
+    with pytest.raises(sqlite3.DatabaseError):
+        db.execute("create virtual table t using vec0(a float[2] distance_metric=)")
+
+
 def test_vec0_vacuum():
     db = connect(EXT_PATH)
     db.execute("create virtual table vec_t using vec0(a float[1]);")
