@@ -1510,6 +1510,23 @@ def test_vec_each():
       vec_each_f32(None)
 
 
+@pytest.mark.parametrize(
+    "vector, transform, expected",
+    [
+        (b"\x01\x80", "vec_bit(?)", [1] + [0] * 14 + [1]),
+        (
+            "[1,-1,0,2,-2,0,3,-3]",
+            "vec_quantize_binary(?)",
+            [1, 0, 0, 1, 0, 0, 1, 0],
+        ),
+    ],
+)
+def test_vec_each_bit(vector, transform, expected):
+    assert execute_all(
+        db, f"select rowid, value from vec_each({transform})", [vector]
+    ) == [{"rowid": i, "value": value} for i, value in enumerate(expected)]
+
+
 def test_vec0_constructor():
     vec_constructor_error_prefix = "vec0 constructor error: {}"
     vec_col_error_prefix = "vec0 constructor error: could not parse vector column '{}'"

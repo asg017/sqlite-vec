@@ -3348,7 +3348,7 @@ static int vec_eachColumn(sqlite3_vtab_cursor *cur, sqlite3_context *context,
     case SQLITE_VEC_ELEMENT_TYPE_BIT: {
       u8 x = ((u8 *)pCur->vector)[pCur->iRowid / CHAR_BIT];
       sqlite3_result_int(context,
-                         (x & (0b10000000 >> ((pCur->iRowid % CHAR_BIT)))) > 0);
+                         (x >> (pCur->iRowid % CHAR_BIT)) & 1);
       break;
     }
     case SQLITE_VEC_ELEMENT_TYPE_INT8: {
