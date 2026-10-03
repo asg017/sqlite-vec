@@ -52,6 +52,9 @@ jobs:
           path: dist/*
   build-windows-x86_64-extension:
     runs-on: windows-2022
+    strategy:
+      matrix:
+        simd: [default, avx2]
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
@@ -61,14 +64,13 @@ jobs:
       - run: ./scripts/vendor.sh
         shell: bash
       - run: make sqlite-vec.h
-      - run: mkdir dist
-      - run: cl.exe /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c -o dist/vec0.dll
+      - run: ./scripts/build-windows.ps1 -Simd ${{ matrix.simd }}
       - run: uv sync --directory tests
       - run: make test-loadable
         shell: bash
       - uses: actions/upload-artifact@v4
         with:
-          name: sqlite-vec-windows-x86_64-extension
+          name: sqlite-vec-windows-x86_64-extension-${{ matrix.simd }}
           path: dist/*
   build-linux-aarch64-extension:
     runs-on: ubuntu-22.04-arm

@@ -60,3 +60,13 @@ The current compile-time flags are:
 - `SQLITE_VEC_ENABLE_AVX`, enables AVX CPU instructions for some vector search operations
 - `SQLITE_VEC_ENABLE_NEON`, enables NEON CPU instructions for some vector search operations
 - `SQLITE_VEC_STATIC`, meant for statically linking `sqlite-vec` 
+
+## Windows SIMD builds
+
+From an x64 MSVC developer shell, generate `sqlite-vec.h` and vendor SQLite
+headers as above, then run `./scripts/build-windows.ps1`. The default preserves
+the existing Windows release CPU target. Use `-Simd avx2` to opt into the existing
+AVX floating-point and AVX2 Hamming kernels. This uses `/arch:AVX2` and
+`SQLITE_VEC_ENABLE_AVX`, and requires an AVX2-capable machine; there is no runtime
+fallback in this build. `-OutputDirectory dist/avx2` keeps it beside a default
+build. Official Windows packages continue to use the default build.

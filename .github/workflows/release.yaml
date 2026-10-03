@@ -48,8 +48,7 @@ jobs:
       - run: ./scripts/vendor.sh
         shell: bash
       - run: make sqlite-vec.h
-      - run: mkdir dist
-      - run: cl.exe /fPIC -shared /W4 /Ivendor/ /O2 /LD sqlite-vec.c -o dist/vec0.dll
+      - run: ./scripts/build-windows.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: sqlite-vec-windows-x86_64-extension
