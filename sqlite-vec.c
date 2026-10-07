@@ -1344,7 +1344,11 @@ int ensure_vector_match(sqlite3_value *aValue, sqlite3_value *bValue, void **a,
   return SQLITE_OK;
 }
 
-int _cmp(const void *a, const void *b) { return (*(i64 *)a - *(i64 *)b); }
+int _cmp(const void *a, const void *b) {
+  i64 x = *(const i64 *)a;
+  i64 y = *(const i64 *)b;
+  return (x > y) - (x < y);
+}
 
 #pragma region scalar functions
 static void vec_f32(sqlite3_context *context, int argc, sqlite3_value **argv) {
@@ -7174,12 +7178,11 @@ int vec0_set_metadata_filter_bitmap(
           struct Vec0MetadataIn * metadataIn = &((struct Vec0MetadataIn *) aMetadataIn->z)[metadataInIdx];
           struct Array * aTarget = &(metadataIn->array);
 
+          // the list was sorted when vec0Filter_knn read it, as a
+          // `rowid in (...)` list is
           for(int i = 0; i < size; i++) {
-            for(size_t target_idx = 0; target_idx < aTarget->length; target_idx++) {
-              if( ((i64*)aTarget->z)[target_idx] == array[i]) {
-                bitmap_set(b, i, 1);
-                break;
-              }
+            if(bsearch(&array[i], aTarget->z, aTarget->length, sizeof(i64), _cmp)) {
+              bitmap_set(b, i, 1);
             }
           }
           break;
@@ -8002,6 +8005,7 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
           vtab_set_error(&p->base, "Error fetching next value in `x in (...)` integer expression");
           goto cleanup;
         }
+        qsort(item.array.z, item.array.length, item.array.element_size, _cmp);
 
         break;
       }

@@ -399,6 +399,28 @@ def test_vtab_in_long_text(db, snapshot):
     ) == snapshot(name="all")
 
 
+@pytest.mark.skipif(
+    not SUPPORTS_VTAB_IN, reason="requires vtab `x in (...)` support in SQLite >=3.38"
+)
+def test_vtab_in_integer_list(db):
+    db.execute(
+        "create virtual table v using vec0(vector float[1], n int, chunk_size=8)"
+    )
+    # values 2**32 apart, which a comparator narrowing their difference to an
+    # int would read as equal
+    values = [i * 2**32 + 1 for i in range(40)]
+    db.executemany(
+        "insert into v(rowid, vector, n) values (?, ?, ?)",
+        [(i + 1, f"[{i}]", n) for i, n in enumerate(values)],
+    )
+    wanted = values[::3] + [-5, 7, 2**62]
+    rows = db.execute(
+        "select rowid from v where vector match '[0]' and k = 100 and n in (select value from json_each(?))",
+        [json.dumps(wanted)],
+    ).fetchall()
+    assert sorted(row[0] for row in rows) == list(range(1, 41, 3))
+
+
 def test_idxstr(db, snapshot):
     db.execute(
         """
