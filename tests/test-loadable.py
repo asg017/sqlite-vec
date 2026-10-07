@@ -1715,6 +1715,39 @@ def test_vec0_create_errors():
     # db.rollback()
 
 
+@pytest.mark.skipif(
+    not SUPPORTS_VTAB_IN, reason="requires vtab `x in (...)` support in SQLite >=3.38"
+)
+def test_vec0_knn_rowid_in_far_apart():
+    # 2**32 + 1 and 1 differ by exactly 2**32, which narrows to 0 as an int,
+    # so a comparator that returns the difference reads them as equal.
+    db = connect(EXT_PATH)
+    db.execute("create virtual table v using vec0(a float[1], chunk_size=8)")
+    db.executemany(
+        "insert into v(rowid, a) values (?, ?)",
+        [(1, "[1]"), (2, "[2]"), (2**32 + 1, "[3]")],
+    )
+    rows = execute_all(
+        db, "select rowid from v where a match '[0]' and k = 10 and rowid in (1, 2)"
+    )
+    assert [row["rowid"] for row in rows] == [1, 2]
+
+    # Differences that overflow an int sort the list out of order, and the
+    # search then misses rowids that are in it.
+    ids = [(-1) ** i * (i + 1) * 3_000_000_000 + i for i in range(5)]
+    db.execute("delete from v")
+    db.executemany(
+        "insert into v(rowid, a) values (?, ?)",
+        [(rowid, f"[{i}]") for i, rowid in enumerate(ids)],
+    )
+    rows = execute_all(
+        db,
+        "select rowid from v where a match '[0]' and k = 10 and rowid in (select value from json_each(?))",
+        [json.dumps(ids)],
+    )
+    assert sorted(row["rowid"] for row in rows) == sorted(ids)
+
+
 def test_vec0_knn():
     db = connect(EXT_PATH)
     db.execute(

@@ -1344,7 +1344,11 @@ int ensure_vector_match(sqlite3_value *aValue, sqlite3_value *bValue, void **a,
   return SQLITE_OK;
 }
 
-int _cmp(const void *a, const void *b) { return (*(i64 *)a - *(i64 *)b); }
+int _cmp(const void *a, const void *b) {
+  i64 x = *(const i64 *)a;
+  i64 y = *(const i64 *)b;
+  return (x > y) - (x < y);
+}
 
 #pragma region scalar functions
 static void vec_f32(sqlite3_context *context, int argc, sqlite3_value **argv) {
