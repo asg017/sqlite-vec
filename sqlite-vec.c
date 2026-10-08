@@ -6498,6 +6498,16 @@ void bitmap_fill(u8 *bitmap, i32 n) {
   memset(bitmap, 0xFF, n / CHAR_BIT);
 }
 
+int bitmap_any(u8 *bitmap, i32 n) {
+  assert((n % 8) == 0);
+  for (int i = 0; i < n / CHAR_BIT; i++) {
+    if (bitmap[i]) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 /**
  * @brief Finds the minimum k items in distances, and writes the indicies to
  * out.
@@ -7400,37 +7410,6 @@ int vec0Filter_knn_chunks_iter(vec0_vtab *p, sqlite3_stmt *stmtChunks,
       goto cleanup;
     }
 
-    // open the vector chunk blob for the current chunk
-    rc = sqlite3_blob_open(p->db, p->schemaName,
-                           p->shadowVectorChunksNames[vectorColumnIdx],
-                           "vectors", chunk_id, 0, &blobVectors);
-    if (rc != SQLITE_OK) {
-      vtab_set_error(&p->base, "could not open vectors blob for chunk %lld",
-                     chunk_id);
-      rc = SQLITE_ERROR;
-      goto cleanup;
-    }
-
-    i64 currentBaseVectorsSize = sqlite3_blob_bytes(blobVectors);
-    i64 expectedBaseVectorsSize =
-        p->chunk_size * vector_column_byte_size(*vector_column);
-    if (currentBaseVectorsSize != expectedBaseVectorsSize) {
-      // IMP: V16465_00535
-      vtab_set_error(
-          &p->base,
-          "vectors blob size doesn't match - expected %lld, found %lld",
-          expectedBaseVectorsSize, currentBaseVectorsSize);
-      rc = SQLITE_ERROR;
-      goto cleanup;
-    }
-    rc = sqlite3_blob_read(blobVectors, baseVectors, currentBaseVectorsSize, 0);
-
-    if (rc != SQLITE_OK) {
-      vtab_set_error(&p->base, "vectors blob read error for %lld", chunk_id);
-      rc = SQLITE_ERROR;
-      goto cleanup;
-    }
-
     bitmap_copy(b, chunkValidity, p->chunk_size);
     if (arrayRowidsIn) {
       bitmap_clear(bmRowids, p->chunk_size);
@@ -7477,6 +7456,42 @@ int vec0Filter_knn_chunks_iter(vec0_vtab *p, sqlite3_stmt *stmtChunks,
       }
     }
 
+    // A chunk whose rowid and metadata filters keep no row offers no
+    // candidate, so its vectors are never read.
+    if (!bitmap_any(b, p->chunk_size)) {
+      continue;
+    }
+
+    // open the vector chunk blob for the current chunk
+    rc = sqlite3_blob_open(p->db, p->schemaName,
+                           p->shadowVectorChunksNames[vectorColumnIdx],
+                           "vectors", chunk_id, 0, &blobVectors);
+    if (rc != SQLITE_OK) {
+      vtab_set_error(&p->base, "could not open vectors blob for chunk %lld",
+                     chunk_id);
+      rc = SQLITE_ERROR;
+      goto cleanup;
+    }
+
+    i64 currentBaseVectorsSize = sqlite3_blob_bytes(blobVectors);
+    i64 expectedBaseVectorsSize =
+        p->chunk_size * vector_column_byte_size(*vector_column);
+    if (currentBaseVectorsSize != expectedBaseVectorsSize) {
+      // IMP: V16465_00535
+      vtab_set_error(
+          &p->base,
+          "vectors blob size doesn't match - expected %lld, found %lld",
+          expectedBaseVectorsSize, currentBaseVectorsSize);
+      rc = SQLITE_ERROR;
+      goto cleanup;
+    }
+    rc = sqlite3_blob_read(blobVectors, baseVectors, currentBaseVectorsSize, 0);
+
+    if (rc != SQLITE_OK) {
+      vtab_set_error(&p->base, "vectors blob read error for %lld", chunk_id);
+      rc = SQLITE_ERROR;
+      goto cleanup;
+    }
 
     for (int i = 0; i < p->chunk_size; i++) {
       if (!bitmap_get(b, i)) {
