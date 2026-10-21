@@ -6009,6 +6009,23 @@ typedef enum {
   VEC0_DISTANCE_CONSTRAINT_LE = 'd',
 } vec0_distance_constraint_operator;
 
+/**
+ * Whether constraint i is an argument of a KNN query: a MATCH on a vector
+ * column, or `k` or a hidden parameter column declared after it. Filters on
+ * rowid, partition key, metadata and distance columns are not;
+ * ARCHITECTURE.md's idxStr section says why they are left to the plan.
+ */
+static int vec0_constraint_is_knn_argument(vec0_vtab *p,
+                                           sqlite3_index_info *pIdxInfo,
+                                           int i) {
+  int iColumn = pIdxInfo->aConstraint[i].iColumn;
+  int op = pIdxInfo->aConstraint[i].op;
+  if (op == SQLITE_INDEX_CONSTRAINT_MATCH) {
+    return vec0_column_idx_is_vector(p, iColumn);
+  }
+  return op == SQLITE_INDEX_CONSTRAINT_EQ && iColumn >= vec0_column_k_idx(p);
+}
+
 static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
   vec0_vtab *p = (vec0_vtab *)pVTab;
   /**
@@ -6034,6 +6051,23 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
 #ifdef SQLITE_VEC_DEBUG
   printf("pIdxInfo->nOrderBy=%d, pIdxInfo->nConstraint=%d\n", pIdxInfo->nOrderBy, pIdxInfo->nConstraint);
 #endif
+
+  // When a KNN argument reads another table of the query, SQLite also weighs
+  // plans that scan vec0 before that table, in which the argument is unusable.
+  // Such a plan is refused, the way json_each refuses a plan that cannot supply
+  // its argument, so the planner takes one that gives vec0 every argument.
+  for (int i = 0; i < pIdxInfo->nConstraint; i++) {
+    if (pIdxInfo->aConstraint[i].op == SQLITE_INDEX_CONSTRAINT_MATCH &&
+        vec0_column_idx_is_vector(p, pIdxInfo->aConstraint[i].iColumn)) {
+      for (int j = 0; j < pIdxInfo->nConstraint; j++) {
+        if (!pIdxInfo->aConstraint[j].usable &&
+            vec0_constraint_is_knn_argument(p, pIdxInfo, j)) {
+          return SQLITE_CONSTRAINT;
+        }
+      }
+      break;
+    }
+  }
 
   for (int i = 0; i < pIdxInfo->nConstraint; i++) {
     u8 vtabIn = 0;

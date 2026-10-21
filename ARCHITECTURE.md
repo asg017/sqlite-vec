@@ -66,6 +66,33 @@ is associated with `argv[1]`. The 2nd block at byte offset `5-8` (inclusive) is
 associated with `argv[2]` and so on. Each block describes what kind of value or
 filter the given `argv[i]` value is.
 
+A KNN plan needs its arguments: the MATCH on a vector column, `k`, and any
+hidden parameter column declared after `k`. When one of them reads another table
+of the query, SQLite also weighs plans that scan `vec0` before that table, in
+which the argument is unusable. `xBestIndex` returns `SQLITE_CONSTRAINT` for
+such a plan (`vec0_constraint_is_knn_argument`), so the planner takes one that
+gives `vec0` every argument.
+
+Filters on rowid, partition key, metadata and distance columns are left to the
+plan. A filter whose value comes from another table is unusable in a plan that
+scans `vec0` first, and SQLite takes such a plan whenever the query allows it,
+in either FROM order, applying the filter to the k rows `vec0` returns. That
+keeps a lookup join at k rows, and `vec0` cannot tell a lookup join from a
+filter join: in
+
+```sql
+select v.rowid, c.name from v join categories c on c.id = v.category
+where v.embedding match ? and k = 10
+```
+
+refusing the plan without `v.category = c.id` would run one KNN per
+`categories` row and return 10 rows per category. A query that reads the other
+table first, because that table supplies a KNN argument, a `CROSS JOIN` names it
+first, or `vec0` is on the right of a `LEFT JOIN` with the filter in `ON`, has
+the filter usable in every plan, so `vec0` runs once per row of that table and
+applies the filter before the k. So does a correlated subquery, whose outer
+columns are constants to `vec0`.
+
 #### `VEC0_IDXSTR_KIND_KNN_MATCH` (`'{'`)
 
 `argv[i]` is the query vector of the KNN query.
