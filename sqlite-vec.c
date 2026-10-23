@@ -523,20 +523,26 @@ static f32 cosine_int8(const void *pA, const void *pB, const void *pD) {
 }
 
 #ifdef SQLITE_VEC_ENABLE_NEON
+// Products of int8 elements are summed exactly: a 32-bit lane holds one pass's
+// products, but 131,072 squares of -128 overflow a 32-bit sum, so each pass's
+// lanes are added into 64-bit lanes.
 static f32 cosine_int8_neon(const void *pA, const void *pB, const void *pD) {
   const i8 *a = (const i8 *)pA;
   const i8 *b = (const i8 *)pB;
   size_t d = *((const size_t *)pD);
   const i8 *aEnd = a + d;
 
-  int32x4_t dot_acc1 = vdupq_n_s32(0);
-  int32x4_t dot_acc2 = vdupq_n_s32(0);
-  int32x4_t aMag_acc1 = vdupq_n_s32(0);
-  int32x4_t aMag_acc2 = vdupq_n_s32(0);
-  int32x4_t bMag_acc1 = vdupq_n_s32(0);
-  int32x4_t bMag_acc2 = vdupq_n_s32(0);
+  int64x2_t dot_acc = vdupq_n_s64(0);
+  int64x2_t aMag_acc = vdupq_n_s64(0);
+  int64x2_t bMag_acc = vdupq_n_s64(0);
 
   while (a < aEnd - 31) {
+    int32x4_t dot_acc1 = vdupq_n_s32(0);
+    int32x4_t dot_acc2 = vdupq_n_s32(0);
+    int32x4_t aMag_acc1 = vdupq_n_s32(0);
+    int32x4_t aMag_acc2 = vdupq_n_s32(0);
+    int32x4_t bMag_acc1 = vdupq_n_s32(0);
+    int32x4_t bMag_acc2 = vdupq_n_s32(0);
     int8x16_t va1 = vld1q_s8(a);
     int8x16_t vb1 = vld1q_s8(b);
     int16x8_t a1_lo = vmovl_s8(vget_low_s8(va1));
@@ -581,11 +587,17 @@ static f32 cosine_int8_neon(const void *pA, const void *pB, const void *pD) {
     bMag_acc2 = vmlal_s16(bMag_acc2, vget_low_s16(b2_hi), vget_low_s16(b2_hi));
     bMag_acc2 = vmlal_s16(bMag_acc2, vget_high_s16(b2_hi), vget_high_s16(b2_hi));
 
+    dot_acc = vpadalq_s32(dot_acc, vaddq_s32(dot_acc1, dot_acc2));
+    aMag_acc = vpadalq_s32(aMag_acc, vaddq_s32(aMag_acc1, aMag_acc2));
+    bMag_acc = vpadalq_s32(bMag_acc, vaddq_s32(bMag_acc1, bMag_acc2));
     a += 32;
     b += 32;
   }
 
   while (a < aEnd - 15) {
+    int32x4_t dot_acc1 = vdupq_n_s32(0);
+    int32x4_t aMag_acc1 = vdupq_n_s32(0);
+    int32x4_t bMag_acc1 = vdupq_n_s32(0);
     int8x16_t va = vld1q_s8(a);
     int8x16_t vb = vld1q_s8(b);
     int16x8_t a_lo = vmovl_s8(vget_low_s8(va));
@@ -608,17 +620,16 @@ static f32 cosine_int8_neon(const void *pA, const void *pB, const void *pD) {
     bMag_acc1 = vmlal_s16(bMag_acc1, vget_low_s16(b_hi), vget_low_s16(b_hi));
     bMag_acc1 = vmlal_s16(bMag_acc1, vget_high_s16(b_hi), vget_high_s16(b_hi));
 
+    dot_acc = vpadalq_s32(dot_acc, dot_acc1);
+    aMag_acc = vpadalq_s32(aMag_acc, aMag_acc1);
+    bMag_acc = vpadalq_s32(bMag_acc, bMag_acc1);
     a += 16;
     b += 16;
   }
 
-  int32x4_t dot_sum = vaddq_s32(dot_acc1, dot_acc2);
-  int32x4_t aMag_sum = vaddq_s32(aMag_acc1, aMag_acc2);
-  int32x4_t bMag_sum = vaddq_s32(bMag_acc1, bMag_acc2);
-
-  i32 dot = vaddvq_s32(dot_sum);
-  i32 aMag = vaddvq_s32(aMag_sum);
-  i32 bMag = vaddvq_s32(bMag_sum);
+  i64 dot = vaddvq_s64(dot_acc);
+  i64 aMag = vaddvq_s64(aMag_acc);
+  i64 bMag = vaddvq_s64(bMag_acc);
 
   while (a < aEnd) {
     dot += (i32)*a * (i32)*b;

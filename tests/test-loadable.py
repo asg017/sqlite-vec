@@ -259,6 +259,29 @@ def npy_l2(a, b):
     return np.linalg.norm(a - b)
 
 
+def test_vec_distance_cosine_int8_overflow():
+    vec_distance_cosine = lambda a, b: db.execute(
+        "select vec_distance_cosine(vec_int8(?), vec_int8(?))", [a, b]
+    ).fetchone()[0]
+
+    def check(a, b):
+        a = np.array(a, dtype=np.int8)
+        b = np.array(b, dtype=np.int8)
+        # the reference in float64: numpy sums int8 products in int8
+        y = npy_cosine(a.astype(np.float64), b.astype(np.float64))
+        assert isclose(vec_distance_cosine(a, b), y, abs_tol=1e-6)
+
+    # check overflow of 32-bit sums. Squares of 128 (2^14) and 64 (2^12) keep
+    # every partial sum exact in f32, so the scalar build matches too.
+    # 131,072 squares of 128 sum to 2^31, past INT32_MAX:
+    check([-128] * 131072, [-128] * 131072)
+    # 2^32 in total, which wraps a 32-bit sum to 0:
+    check([64] * 1048576, [-64] * 1048576)
+    # 32-bit partial sums of every 8th square reach 2^31, so widening only the
+    # final sum to 64 bits is not enough:
+    check([-128] * 1048576, [-128] * 1048576)
+
+
 def test_vec_distance_cosine():
     vec_distance_cosine = lambda *args, a="?", b="?": db.execute(
         f"select vec_distance_cosine({a}, {b})", args
