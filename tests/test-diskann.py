@@ -1,7 +1,7 @@
 import sqlite3
 import struct
 import pytest
-from helpers import _f32, exec
+from helpers import _f32, _int8, exec
 
 
 def test_diskann_create_basic(db):
@@ -777,6 +777,68 @@ def test_diskann_insert_int8_quantizer_knn(db):
     distances = [r[1] for r in rows]
     for i in range(len(distances) - 1):
         assert distances[i] <= distances[i + 1]
+
+
+def test_diskann_int8_column_knn_matches_exact(db):
+    """An int8 column under the int8 quantizer: a search whose list holds every
+    row returns the exact nearest rows."""
+    db.execute("""
+        CREATE VIRTUAL TABLE t USING vec0(
+            emb int8[64] INDEXED BY diskann(neighbor_quantizer=int8, search_list_size=128)
+        )
+    """)
+    import random
+    random.seed(9)
+    for i in range(1, 101):
+        vec = [random.randint(-128, 127) for _ in range(64)]
+        db.execute("INSERT INTO t(rowid, emb) VALUES (?, vec_int8(?))", [i, _int8(vec)])
+
+    for _ in range(10):
+        query = _int8([random.randint(-128, 127) for _ in range(64)])
+        rows = db.execute(
+            "SELECT rowid FROM t WHERE emb MATCH vec_int8(?) AND k = 10", [query]
+        ).fetchall()
+        exact = db.execute(
+            "SELECT rowid FROM t ORDER BY vec_distance_l2(emb, vec_int8(?)) LIMIT 10",
+            [query],
+        ).fetchall()
+        assert [r[0] for r in rows] == [r[0] for r in exact]
+
+
+def test_diskann_int8_column_binary_neighbors_are_sign_bits(db):
+    """An int8 column under the binary quantizer keeps each neighbor's sign bits:
+    an element above 0 sets its bit."""
+    db.execute("""
+        CREATE VIRTUAL TABLE t USING vec0(
+            emb int8[16] INDEXED BY diskann(neighbor_quantizer=binary, n_neighbors=8)
+        )
+    """)
+    import random
+    random.seed(5)
+    vectors = {}
+    for i in range(1, 13):
+        vectors[i] = [random.randint(-128, 127) for _ in range(16)]
+        db.execute(
+            "INSERT INTO t(rowid, emb) VALUES (?, vec_int8(?))",
+            [i, _int8(vectors[i])],
+        )
+
+    checked = 0
+    for validity, ids, qvecs in db.execute(
+        "SELECT neighbors_validity, neighbor_ids, neighbor_quantized_vectors "
+        "FROM t_diskann_nodes00"
+    ):
+        for slot in range(8):
+            if not (validity[slot // 8] >> (slot % 8)) & 1:
+                continue
+            neighbor = struct.unpack_from("<q", ids, slot * 8)[0]
+            bits = bytearray(2)
+            for j, x in enumerate(vectors[neighbor]):
+                if x > 0:
+                    bits[j // 8] |= 1 << (j % 8)
+            assert qvecs[slot * 2 : slot * 2 + 2] == bytes(bits)
+            checked += 1
+    assert checked > 0
 
 
 # ======================================================================
