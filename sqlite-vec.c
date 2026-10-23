@@ -3151,6 +3151,9 @@ int vec0_parse_vector_column(const char *source, int source_length,
       else if (sqlite3_strnicmp(token.start, "ivf", indexNameLen) == 0) {
 #if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
         indexType = VEC0_INDEX_TYPE_IVF;
+        if (elementType != SQLITE_VEC_ELEMENT_TYPE_FLOAT32) {
+          return SQLITE_ERROR;
+        }
         memset(&ivfConfig, 0, sizeof(ivfConfig));
         rc = vec0_parse_ivf_options(&scanner, &ivfConfig);
         if (rc != SQLITE_OK) {

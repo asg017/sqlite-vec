@@ -100,6 +100,16 @@ def test_ivf_create_error_nprobe_gt_nlist(db):
     assert "error" in result
 
 
+@pytest.mark.parametrize("column", ["v int8[8]", "v bit[8]"])
+def test_ivf_create_error_non_float32_column(db, column):
+    """IVF cells, centroids and quantizers hold float32 vectors."""
+    result = exec(
+        db,
+        f"CREATE VIRTUAL TABLE t USING vec0({column} indexed by ivf(nlist=2))",
+    )
+    assert "error" in result
+
+
 # ============================================================================
 # Shadow table tests
 # ============================================================================
