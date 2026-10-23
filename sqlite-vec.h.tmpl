@@ -7,13 +7,19 @@
 #include "sqlite3.h"
 #endif
 
+// The Makefile compiles with -fvisibility=hidden, so the entry point is the
+// one symbol a shared library built from sqlite-vec exports.
 #ifdef SQLITE_VEC_STATIC
-  #define SQLITE_VEC_API
+  #if defined(__GNUC__) && !defined(_WIN32)
+    #define SQLITE_VEC_API __attribute__((visibility("default")))
+  #else
+    #define SQLITE_VEC_API
+  #endif
 #else
   #ifdef _WIN32
     #define SQLITE_VEC_API __declspec(dllexport)
   #else
-    #define SQLITE_VEC_API
+    #define SQLITE_VEC_API __attribute__((visibility("default")))
   #endif
 #endif
 

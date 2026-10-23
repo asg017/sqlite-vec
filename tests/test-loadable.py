@@ -1,6 +1,9 @@
 # ruff: noqa: E731
 
+import ctypes
+import os
 import re
+import sys
 from typing import List
 import sqlite3
 import unittest
@@ -151,6 +154,17 @@ def test_modules():
         map(lambda a: a[0], db.execute("select name from loaded_modules").fetchall())
     )
     assert modules == MODULES
+
+
+def test_exports_only_entry_point():
+    # SQLite opens an extension with RTLD_GLOBAL, so calls inside one library
+    # can bind to another library's exported function of the same name, as they
+    # do between two builds of sqlite-vec loaded into one process.
+    suffix = {"darwin": ".dylib", "win32": ".dll"}.get(sys.platform, ".so")
+    lib = ctypes.CDLL(os.path.abspath(EXT_PATH + suffix))
+    assert hasattr(lib, "sqlite3_vec_init")
+    for name in ["sqlite3_api", "bitmap_new", "vec0Filter_fullscan"]:
+        assert not hasattr(lib, name), name
 
 
 def test_vec_version():

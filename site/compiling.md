@@ -37,10 +37,10 @@ There will now be `sqlite-vec.c` and `sqlite-vec.h` available in your current di
 
 ```bash
 # Linux 
-gcc -g -fPIC -shared sqlite-vec.c -o vec0.so
+gcc -g -fPIC -fvisibility=hidden -shared sqlite-vec.c -o vec0.so
 
 # MacOS
-gcc -g -fPIC -dynamiclib sqlite-vec.c -o vec0.dylib
+gcc -g -fPIC -fvisibility=hidden -dynamiclib sqlite-vec.c -o vec0.dylib
 
 # Windows, MSVC compiler
 cl sqlite-vec.c -link -dll -out:sqlite-vec.dll
@@ -48,6 +48,8 @@ cl sqlite-vec.c -link -dll -out:sqlite-vec.dll
 # Windows, MinGW
 gcc -g -shared sqlite-vec.c -o vec0.dll
 ```
+
+`-fvisibility=hidden` keeps the library from exporting any symbol but its entry point, `sqlite3_vec_init`. SQLite loads extensions with `RTLD_GLOBAL`, so an exported internal function can otherwise be called in place of a same-named function of another library in the process, another build of `sqlite-vec` included.
 
 Different platforms, compiler, or architectures may require different compilation flags.
 
