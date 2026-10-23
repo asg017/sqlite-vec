@@ -185,6 +185,9 @@ static f32 l2_sqr_float_neon(const void *pVect1v, const void *pVect2v,
   return sqrt(sum_scalar);
 }
 
+// Sums are kept in double, as distance_cosine_float() keeps them: each
+// float32x4 load is widened to two float64x2 halves before it is multiplied
+// and added.
 static f32 cosine_float_neon(const void *pVect1v, const void *pVect2v,
                               const void *qty_ptr) {
   f32 *pVect1 = (f32 *)pVect1v;
@@ -193,53 +196,83 @@ static f32 cosine_float_neon(const void *pVect1v, const void *pVect2v,
   size_t qty16 = qty >> 4;
   const f32 *pEnd1 = pVect1 + (qty16 << 4);
 
-  float32x4_t dot0 = vdupq_n_f32(0), dot1 = vdupq_n_f32(0);
-  float32x4_t dot2 = vdupq_n_f32(0), dot3 = vdupq_n_f32(0);
-  float32x4_t amag0 = vdupq_n_f32(0), amag1 = vdupq_n_f32(0);
-  float32x4_t amag2 = vdupq_n_f32(0), amag3 = vdupq_n_f32(0);
-  float32x4_t bmag0 = vdupq_n_f32(0), bmag1 = vdupq_n_f32(0);
-  float32x4_t bmag2 = vdupq_n_f32(0), bmag3 = vdupq_n_f32(0);
+  float64x2_t dot0 = vdupq_n_f64(0), dot1 = vdupq_n_f64(0);
+  float64x2_t dot2 = vdupq_n_f64(0), dot3 = vdupq_n_f64(0);
+  float64x2_t amag0 = vdupq_n_f64(0), amag1 = vdupq_n_f64(0);
+  float64x2_t amag2 = vdupq_n_f64(0), amag3 = vdupq_n_f64(0);
+  float64x2_t bmag0 = vdupq_n_f64(0), bmag1 = vdupq_n_f64(0);
+  float64x2_t bmag2 = vdupq_n_f64(0), bmag3 = vdupq_n_f64(0);
 
   while (pVect1 < pEnd1) {
     float32x4_t v1, v2;
-    v1 = vld1q_f32(pVect1); pVect1 += 4;
-    v2 = vld1q_f32(pVect2); pVect2 += 4;
-    dot0 = vfmaq_f32(dot0, v1, v2);
-    amag0 = vfmaq_f32(amag0, v1, v1);
-    bmag0 = vfmaq_f32(bmag0, v2, v2);
+    float64x2_t a, b;
 
     v1 = vld1q_f32(pVect1); pVect1 += 4;
     v2 = vld1q_f32(pVect2); pVect2 += 4;
-    dot1 = vfmaq_f32(dot1, v1, v2);
-    amag1 = vfmaq_f32(amag1, v1, v1);
-    bmag1 = vfmaq_f32(bmag1, v2, v2);
+    a = vcvt_f64_f32(vget_low_f32(v1));
+    b = vcvt_f64_f32(vget_low_f32(v2));
+    dot0 = vfmaq_f64(dot0, a, b);
+    amag0 = vfmaq_f64(amag0, a, a);
+    bmag0 = vfmaq_f64(bmag0, b, b);
+    a = vcvt_high_f64_f32(v1);
+    b = vcvt_high_f64_f32(v2);
+    dot0 = vfmaq_f64(dot0, a, b);
+    amag0 = vfmaq_f64(amag0, a, a);
+    bmag0 = vfmaq_f64(bmag0, b, b);
 
     v1 = vld1q_f32(pVect1); pVect1 += 4;
     v2 = vld1q_f32(pVect2); pVect2 += 4;
-    dot2 = vfmaq_f32(dot2, v1, v2);
-    amag2 = vfmaq_f32(amag2, v1, v1);
-    bmag2 = vfmaq_f32(bmag2, v2, v2);
+    a = vcvt_f64_f32(vget_low_f32(v1));
+    b = vcvt_f64_f32(vget_low_f32(v2));
+    dot1 = vfmaq_f64(dot1, a, b);
+    amag1 = vfmaq_f64(amag1, a, a);
+    bmag1 = vfmaq_f64(bmag1, b, b);
+    a = vcvt_high_f64_f32(v1);
+    b = vcvt_high_f64_f32(v2);
+    dot1 = vfmaq_f64(dot1, a, b);
+    amag1 = vfmaq_f64(amag1, a, a);
+    bmag1 = vfmaq_f64(bmag1, b, b);
 
     v1 = vld1q_f32(pVect1); pVect1 += 4;
     v2 = vld1q_f32(pVect2); pVect2 += 4;
-    dot3 = vfmaq_f32(dot3, v1, v2);
-    amag3 = vfmaq_f32(amag3, v1, v1);
-    bmag3 = vfmaq_f32(bmag3, v2, v2);
+    a = vcvt_f64_f32(vget_low_f32(v1));
+    b = vcvt_f64_f32(vget_low_f32(v2));
+    dot2 = vfmaq_f64(dot2, a, b);
+    amag2 = vfmaq_f64(amag2, a, a);
+    bmag2 = vfmaq_f64(bmag2, b, b);
+    a = vcvt_high_f64_f32(v1);
+    b = vcvt_high_f64_f32(v2);
+    dot2 = vfmaq_f64(dot2, a, b);
+    amag2 = vfmaq_f64(amag2, a, a);
+    bmag2 = vfmaq_f64(bmag2, b, b);
+
+    v1 = vld1q_f32(pVect1); pVect1 += 4;
+    v2 = vld1q_f32(pVect2); pVect2 += 4;
+    a = vcvt_f64_f32(vget_low_f32(v1));
+    b = vcvt_f64_f32(vget_low_f32(v2));
+    dot3 = vfmaq_f64(dot3, a, b);
+    amag3 = vfmaq_f64(amag3, a, a);
+    bmag3 = vfmaq_f64(bmag3, b, b);
+    a = vcvt_high_f64_f32(v1);
+    b = vcvt_high_f64_f32(v2);
+    dot3 = vfmaq_f64(dot3, a, b);
+    amag3 = vfmaq_f64(amag3, a, a);
+    bmag3 = vfmaq_f64(bmag3, b, b);
   }
 
-  f32 dot_s = vaddvq_f32(vaddq_f32(vaddq_f32(dot0, dot1), vaddq_f32(dot2, dot3)));
-  f32 amag_s = vaddvq_f32(vaddq_f32(vaddq_f32(amag0, amag1), vaddq_f32(amag2, amag3)));
-  f32 bmag_s = vaddvq_f32(vaddq_f32(vaddq_f32(bmag0, bmag1), vaddq_f32(bmag2, bmag3)));
+  double dot_s = vaddvq_f64(vaddq_f64(vaddq_f64(dot0, dot1), vaddq_f64(dot2, dot3)));
+  double amag_s = vaddvq_f64(vaddq_f64(vaddq_f64(amag0, amag1), vaddq_f64(amag2, amag3)));
+  double bmag_s = vaddvq_f64(vaddq_f64(vaddq_f64(bmag0, bmag1), vaddq_f64(bmag2, bmag3)));
 
   const f32 *pEnd2 = pVect1 + (qty - (qty16 << 4));
   while (pVect1 < pEnd2) {
-    dot_s += *pVect1 * *pVect2;
-    amag_s += *pVect1 * *pVect1;
-    bmag_s += *pVect2 * *pVect2;
+    dot_s += (double)*pVect1 * (double)*pVect2;
+    amag_s += (double)*pVect1 * (double)*pVect1;
+    bmag_s += (double)*pVect2 * (double)*pVect2;
     pVect1++; pVect2++;
   }
 
-  return 1.0f - (dot_s / (sqrtf(amag_s) * sqrtf(bmag_s)));
+  return 1 - (dot_s / (sqrt(amag_s) * sqrt(bmag_s)));
 }
 
 static f32 l2_sqr_int8_neon(const void *pVect1v, const void *pVect2v,
@@ -492,13 +525,17 @@ static f32 distance_cosine_float(const void *pVect1v, const void *pVect2v,
   f32 *pVect2 = (f32 *)pVect2v;
   size_t qty = *((size_t *)qty_ptr);
 
-  f32 dot = 0;
-  f32 aMag = 0;
-  f32 bMag = 0;
+  // Accumulate in double: the square of a small (or large) f32 element
+  // underflows (or overflows) f32, which made the magnitude 0 (or Inf) and
+  // the distance +-Inf, NaN or plain wrong for nonzero finite vectors. Every
+  // f32 product is representable in double.
+  double dot = 0;
+  double aMag = 0;
+  double bMag = 0;
   for (size_t i = 0; i < qty; i++) {
-    dot += *pVect1 * *pVect2;
-    aMag += *pVect1 * *pVect1;
-    bMag += *pVect2 * *pVect2;
+    dot += (double)*pVect1 * (double)*pVect2;
+    aMag += (double)*pVect1 * (double)*pVect1;
+    bMag += (double)*pVect2 * (double)*pVect2;
     pVect1++;
     pVect2++;
   }
@@ -2047,9 +2084,11 @@ static void vec_normalize(sqlite3_context *context, int argc,
 
   f32 *v = (f32 *)vector;
 
-  f32 norm = 0;
+  // Accumulate in double so that squaring small or large f32 elements does
+  // not underflow or overflow, see distance_cosine_float().
+  double norm = 0;
   for (size_t i = 0; i < dimensions; i++) {
-    norm += v[i] * v[i];
+    norm += (double)v[i] * (double)v[i];
   }
   norm = sqrt(norm);
   for (size_t i = 0; i < dimensions; i++) {
