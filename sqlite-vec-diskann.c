@@ -614,6 +614,38 @@ static int diskann_candidate_list_insert(
 }
 
 /**
+ * Give a visited candidate its exact distance and confirm it (its vector
+ * exists). The exact distance replaces the quantized one whether it is larger
+ * or smaller, and the candidate moves to its place in the order. A candidate
+ * the list dropped after it was visited comes back, still visited, when its
+ * exact distance ranks inside the list.
+ */
+static void diskann_candidate_list_confirm(
+    struct DiskannCandidateList *list, i64 rowid, f32 distance) {
+  int i = 0;
+  while (i < list->count && list->items[i].rowid != rowid) i++;
+  if (i == list->count) {
+    if (!diskann_candidate_list_insert(list, rowid, distance)) return;
+    i = 0;
+    while (list->items[i].rowid != rowid) i++;
+    list->items[i].visited = 1;
+  }
+
+  struct Vec0DiskannCandidate item = list->items[i];
+  item.distance = distance;
+  item.confirmed = 1;
+  while (i > 0 && list->items[i - 1].distance > distance) {
+    list->items[i] = list->items[i - 1];
+    i--;
+  }
+  while (i + 1 < list->count && list->items[i + 1].distance < distance) {
+    list->items[i] = list->items[i + 1];
+    i++;
+  }
+  list->items[i] = item;
+}
+
+/**
  * Find the closest unvisited candidate. Returns its index, or -1 if none.
  */
 static int diskann_candidate_list_next_unvisited(
@@ -815,15 +847,7 @@ static int diskann_search(
                                              dimensions, elementType,
                                              col->distance_metric);
       sqlite3_free(fullVec);
-      // Update distance in candidate list and re-sort
-      diskann_candidate_list_insert(&candidates, currentRowid, exactDist);
-      // Mark as confirmed (vector exists, distance is exact)
-      for (int ci = 0; ci < candidates.count; ci++) {
-        if (candidates.items[ci].rowid == currentRowid) {
-          candidates.items[ci].confirmed = 1;
-          break;
-        }
-      }
+      diskann_candidate_list_confirm(&candidates, currentRowid, exactDist);
     }
     // If vector read failed, candidate stays unconfirmed (stale edge to deleted node)
   }

@@ -1091,6 +1091,34 @@ def test_diskann_knn_wrong_query_dimensions(db):
     assert "error" in result
 
 
+def test_diskann_result_distances_are_exact(db):
+    """Every result carries its exact distance, in order, including the rows
+    whose exact distance is larger than their quantized one."""
+    db.execute("""
+        CREATE VIRTUAL TABLE t USING vec0(
+            emb float[32] distance_metric=cosine INDEXED BY diskann(neighbor_quantizer=int8)
+        )
+    """)
+    import random
+    random.seed(3)
+    for i in range(1, 301):
+        vec = [random.gauss(0, 1) for _ in range(32)]
+        db.execute("INSERT INTO t(rowid, emb) VALUES (?, ?)", [i, _f32(vec)])
+
+    for _ in range(30):
+        query = _f32([random.gauss(0, 1) for _ in range(32)])
+        rows = db.execute(
+            "SELECT rowid, distance, vec_distance_cosine(emb, ?) "
+            "FROM t WHERE emb MATCH ? AND k = 10",
+            [query, query],
+        ).fetchall()
+        assert len(rows) == 10
+        for rowid, distance, exact in rows:
+            assert distance == pytest.approx(exact, abs=1e-6)
+        distances = [r[1] for r in rows]
+        assert distances == sorted(distances)
+
+
 def test_diskann_graph_connectivity_after_many_deletes(db):
     """After many deletes, the graph should still be connected enough for search."""
     db.execute("""
