@@ -255,6 +255,32 @@ def test_ivf_quantized_delete(db):
     assert db.execute("SELECT count(*) FROM t_ivf_vectors00").fetchone()[0] == 9
 
 
+@pytest.mark.parametrize("quantizer", ["int8", "binary"])
+def test_ivf_quantized_vectors_read_back(db, quantizer):
+    """A quantized column returns the vectors it was given from a point
+    query, a full scan and a KNN query, before and after training."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0("
+        f"v float[16] indexed by ivf(nlist=2, quantizer={quantizer}))"
+    )
+    vecs = {
+        i: _f32([((i * 7 + j * 3) % 11) / 10 - 0.5 for j in range(16)])
+        for i in range(1, 11)
+    }
+    for rowid, v in vecs.items():
+        db.execute("INSERT INTO t(rowid, v) VALUES (?, ?)", [rowid, v])
+
+    for trained in [False, True]:
+        if trained:
+            db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
+        assert db.execute("SELECT v FROM t WHERE rowid = 3").fetchone()[0] == vecs[3]
+        assert {r[0]: r[1] for r in db.execute("SELECT rowid, v FROM t")} == vecs
+        knn = db.execute(
+            "SELECT rowid, v FROM t WHERE v MATCH ? AND k = 10", [vecs[3]]
+        ).fetchall()
+        assert {r[0]: r[1] for r in knn} == vecs
+
+
 def test_ivf_binary_rejects_non_multiple_of_8_dims(db):
     """Binary quantizer requires dimensions divisible by 8."""
     with pytest.raises(sqlite3.OperationalError):

@@ -670,12 +670,53 @@ static int ivf_delete(vec0_vtab *p, int col_idx, i64 rowid) {
 // Point query
 // ============================================================================
 
+/**
+ * Read a quantized column's full-precision vector from _ivf_vectors.
+ */
+static int ivf_full_vector_read(vec0_vtab *p, i64 rowid, int col_idx,
+                                 void **outVector, int *outVectorSize) {
+  int vecSize = ivf_full_vec_size(p, col_idx);
+  int rc = ivf_ensure_stmt(p, &p->stmtIvfVectorsRead[col_idx],
+      "SELECT vector FROM " VEC0_SHADOW_IVF_VECTORS_NAME " WHERE rowid = ?",
+      col_idx);
+  if (rc != SQLITE_OK) return rc;
+  sqlite3_stmt *s = p->stmtIvfVectorsRead[col_idx];
+  sqlite3_reset(s);
+  sqlite3_bind_int64(s, 1, rowid);
+  rc = sqlite3_step(s);
+  if (rc == SQLITE_ROW) {
+    void *buf = NULL;
+    if (sqlite3_column_bytes(s, 0) != vecSize) {
+      rc = SQLITE_CORRUPT;
+    } else if (!(buf = sqlite3_malloc(vecSize))) {
+      rc = SQLITE_NOMEM;
+    } else {
+      memcpy(buf, sqlite3_column_blob(s, 0), vecSize);
+      *outVector = buf;
+      if (outVectorSize) *outVectorSize = vecSize;
+      rc = SQLITE_OK;
+    }
+  } else if (rc == SQLITE_DONE) {
+    rc = SQLITE_EMPTY;
+  }
+  // A cached statement left on a row stays in progress until the next commit,
+  // and a connection with a statement in progress refuses VACUUM.
+  sqlite3_reset(s);
+  return rc;
+}
+
 static int ivf_get_vector_data(vec0_vtab *p, i64 rowid, int col_idx,
                                 void **outVector, int *outVectorSize) {
   int rc;
   int vecSize = ivf_vec_size(p, col_idx);
   i64 cell_id = 0;
   int slot = -1;
+
+  // A quantized column's cells hold its quantized vectors, which are not the
+  // vectors it was given.
+  if (p->vector_columns[col_idx].ivf.quantizer != VEC0_IVF_QUANTIZER_NONE) {
+    return ivf_full_vector_read(p, rowid, col_idx, outVector, outVectorSize);
+  }
 
   rc = ivf_ensure_stmt(p, &p->stmtIvfRowidMapLookup[col_idx],
       "SELECT cell_id, slot FROM " VEC0_SHADOW_IVF_ROWID_MAP_NAME
@@ -1222,8 +1263,38 @@ static int ivf_scan_cells_from_stmt(vec0_vtab *p, int col_idx,
   return SQLITE_OK;
 }
 
+/**
+ * Rank the rows a `rowid in (...)` constraint names by their exact distances
+ * to the query. A rowid the table does not have is skipped.
+ */
+static int ivf_rank_rowids(vec0_vtab *p, int col_idx, const void *queryVector,
+                            struct Array *rowidsIn,
+                            struct IvfCandidate **candidates,
+                            int *nCandidates, int *cap) {
+  for (size_t i = 0; i < rowidsIn->length; i++) {
+    i64 rowid = ((const i64 *)rowidsIn->z)[i];
+    void *vec = NULL;
+    int rc = ivf_get_vector_data(p, rowid, col_idx, &vec, NULL);
+    if (rc == SQLITE_EMPTY) continue;
+    if (rc != SQLITE_OK) return rc;
+    if (*nCandidates >= *cap) {
+      *cap *= 2;
+      struct IvfCandidate *tmp = sqlite3_realloc64(*candidates, (i64)*cap * sizeof(struct IvfCandidate));
+      if (!tmp) { sqlite3_free(vec); return SQLITE_NOMEM; }
+      *candidates = tmp;
+    }
+    (*candidates)[*nCandidates].rowid = rowid;
+    (*candidates)[*nCandidates].distance = ivf_distance_float(p, col_idx,
+        (const float *)queryVector, (const float *)vec);
+    (*nCandidates)++;
+    sqlite3_free(vec);
+  }
+  return SQLITE_OK;
+}
+
 static int ivf_query_knn(vec0_vtab *p, int col_idx,
                           const void *queryVector, int queryVectorSize,
+                          struct Array *arrayRowidsIn,
                           i64 k, struct vec0_query_knn_data *knn_data) {
   UNUSED_PARAMETER(queryVectorSize);
   int rc;
@@ -1246,7 +1317,14 @@ static int ivf_query_knn(vec0_vtab *p, int col_idx,
   struct IvfCandidate *candidates = sqlite3_malloc64((i64)cap * sizeof(struct IvfCandidate));
   if (!candidates) { sqlite3_free(queryQ); return SQLITE_NOMEM; }
 
-  if (trained) {
+  if (arrayRowidsIn) {
+    // A rowid filter names its candidates, so each is ranked by its exact
+    // distance; the probed cells hold only the rows near the query, which
+    // the filter may not name.
+    rc = ivf_rank_rowids(p, col_idx, queryVector, arrayRowidsIn,
+                         &candidates, &nCandidates, &cap);
+    if (rc != SQLITE_OK) { sqlite3_free(queryQ); sqlite3_free(candidates); return rc; }
+  } else if (trained) {
     // Find top nprobe centroids using quantized distance
     int nlist = 0;
     rc = ivf_ensure_stmt(p, &p->stmtIvfCentroidsAll[col_idx],
@@ -1333,7 +1411,8 @@ static int ivf_query_knn(vec0_vtab *p, int col_idx,
   qsort(candidates, nCandidates, sizeof(struct IvfCandidate), ivf_candidate_cmp);
 
   // Oversample re-ranking: re-score top (oversample*k) with full-precision vectors
-  if (oversample > 1 && quantizer != VEC0_IVF_QUANTIZER_NONE && nCandidates > 0) {
+  if (oversample > 1 && quantizer != VEC0_IVF_QUANTIZER_NONE && nCandidates > 0 &&
+      !arrayRowidsIn) {
     i64 rescore_n = collect_k < nCandidates ? collect_k : nCandidates;
     sqlite3_stmt *stmtVec = NULL;
     char *zSql = sqlite3_mprintf(

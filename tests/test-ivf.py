@@ -2,6 +2,7 @@ import pytest
 import sqlite3
 import struct
 import math
+import random
 from helpers import _f32, exec
 
 
@@ -317,6 +318,35 @@ def test_ivf_knn_k_larger_than_n(db):
         [_f32([0, 0, 0, 0])],
     ).fetchall()
     assert len(rows) == 5
+
+
+@pytest.mark.parametrize("quantizer", ["none", "int8", "binary"])
+def test_ivf_knn_rowid_in(db, quantizer):
+    """A rowid filter returns the k nearest of the rows it names, as a flat
+    column does, whether or not their cells are probed."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0("
+        f"v float[8] indexed by ivf(nlist=4, nprobe=1, quantizer={quantizer}))"
+    )
+    db.execute("CREATE VIRTUAL TABLE flat USING vec0(v float[8])")
+    rng = random.Random(7)
+    for i in range(40):
+        v = _f32([rng.uniform(-1, 1) for _ in range(8)])
+        db.execute("INSERT INTO t(rowid, v) VALUES (?, ?)", [i, v])
+        db.execute("INSERT INTO flat(rowid, v) VALUES (?, ?)", [i, v])
+    query = db.execute("SELECT v FROM flat WHERE rowid = 3").fetchone()[0]
+
+    for trained in [False, True]:
+        if trained:
+            db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
+        for rowids in ["1, 2", "0, 20, 39", "5, 17, 30, 38, 99"]:
+            sql = (
+                "SELECT rowid, distance FROM {} WHERE v MATCH ? AND k = 3"
+                f" AND rowid IN ({rowids})"
+            )
+            got = [tuple(r) for r in db.execute(sql.format("t"), [query])]
+            want = [tuple(r) for r in db.execute(sql.format("flat"), [query])]
+            assert got == want
 
 
 # ============================================================================

@@ -3581,6 +3581,7 @@ struct vec0_vtab {
   sqlite3_stmt *stmtIvfRowidMapLookup[VEC0_MAX_VECTOR_COLUMNS]; // SELECT cell_id,slot FROM rowid_map WHERE rowid=?
   sqlite3_stmt *stmtIvfRowidMapDelete[VEC0_MAX_VECTOR_COLUMNS]; // DELETE FROM rowid_map WHERE rowid=?
   sqlite3_stmt *stmtIvfCentroidsAll[VEC0_MAX_VECTOR_COLUMNS];   // SELECT centroid_id,centroid FROM centroids
+  sqlite3_stmt *stmtIvfVectorsRead[VEC0_MAX_VECTOR_COLUMNS];    // SELECT vector FROM ivf_vectors WHERE rowid=?
 #endif
 
   // select latest chunk from _chunks, getting chunk_id
@@ -3695,6 +3696,7 @@ void vec0_free_resources(vec0_vtab *p) {
     sqlite3_finalize(p->stmtIvfRowidMapLookup[i]); p->stmtIvfRowidMapLookup[i] = NULL;
     sqlite3_finalize(p->stmtIvfRowidMapDelete[i]); p->stmtIvfRowidMapDelete[i] = NULL;
     sqlite3_finalize(p->stmtIvfCentroidsAll[i]); p->stmtIvfCentroidsAll[i] = NULL;
+    sqlite3_finalize(p->stmtIvfVectorsRead[i]); p->stmtIvfVectorsRead[i] = NULL;
   }
 #endif
 #if SQLITE_VEC_ENABLE_DISKANN
@@ -8067,7 +8069,8 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
   // IVF dispatch: if vector column has IVF, use IVF query instead of chunk scan
   if (vector_column->index_type == VEC0_INDEX_TYPE_IVF) {
     rc = ivf_query_knn(p, vectorColumnIdx, queryVector,
-                       (int)vector_column_byte_size(*vector_column), k, knn_data);
+                       (int)vector_column_byte_size(*vector_column),
+                       arrayRowidsIn, k, knn_data);
     if (rc != SQLITE_OK) {
       goto cleanup;
     }
