@@ -1329,3 +1329,57 @@ def test_diskann_delete_scrubs_all_references(db):
                 f"Node {node_rowid} slot {j // 8} still references "
                 f"deleted rowid {target}"
             )
+
+
+# ======================================================================
+# KNN with a rowid filter
+# ======================================================================
+
+
+def _rowid_filter_rows(db, table_options):
+    db.execute(f"CREATE VIRTUAL TABLE t USING vec0(emb float[8]{table_options})")
+    db.execute("CREATE VIRTUAL TABLE flat USING vec0(emb float[8])")
+    for i in range(1, 21):
+        vec = _f32([((i * 7 + j * 3) % 11) / 10 - 0.5 for j in range(8)])
+        db.execute("INSERT INTO t(rowid, emb) VALUES (?, ?)", [i, vec])
+        db.execute("INSERT INTO flat(rowid, emb) VALUES (?, ?)", [i, vec])
+    return db.execute("SELECT emb FROM flat WHERE rowid = 3").fetchone()[0]
+
+
+@pytest.mark.parametrize(
+    "table_options",
+    [
+        " INDEXED BY diskann(neighbor_quantizer=binary, n_neighbors=8)",
+        " INDEXED BY diskann(neighbor_quantizer=binary, n_neighbors=8, buffer_threshold=16)",
+    ],
+    ids=["graph", "buffered"],
+)
+def test_diskann_knn_rowid_in(db, table_options):
+    """A rowid filter returns the k nearest of the rows it names, as a flat
+    column does, whether those rows are in the graph or the buffer."""
+    query = _rowid_filter_rows(db, table_options)
+    for rowids in ["1, 2", "2, 19, 20", "4, 5, 6, 7, 8, 9", "3, 3, 999"]:
+        sql = f"SELECT rowid, distance FROM {{}} WHERE emb MATCH ? AND k = 3 AND rowid IN ({rowids})"
+        got = [tuple(r) for r in db.execute(sql.format("t"), [query])]
+        want = [tuple(r) for r in db.execute(sql.format("flat"), [query])]
+        assert got == want
+
+
+def test_diskann_knn_id_in_text_primary_key(db):
+    """A filter on a text primary key returns the nearest of the rows it names
+    and skips an id the table does not have."""
+    db.execute("""
+        CREATE VIRTUAL TABLE t USING vec0(
+            id text primary key,
+            emb float[8] INDEXED BY diskann(neighbor_quantizer=binary, n_neighbors=8)
+        )
+    """)
+    for i in range(1, 21):
+        vec = _f32([((i * 7 + j * 3) % 11) / 10 - 0.5 for j in range(8)])
+        db.execute("INSERT INTO t(id, emb) VALUES (?, ?)", [f"row{i}", vec])
+    query = db.execute("SELECT emb FROM t WHERE id = 'row3'").fetchone()[0]
+    rows = db.execute(
+        "SELECT id FROM t WHERE emb MATCH ? AND k = 3 AND id IN ('row1', 'row2', 'missing')",
+        [query],
+    ).fetchall()
+    assert [r[0] for r in rows] == ["row1", "row2"]

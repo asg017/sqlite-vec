@@ -7645,6 +7645,74 @@ cleanup:
 #endif
 
 #if SQLITE_VEC_ENABLE_DISKANN
+#if COMPILER_SUPPORTS_VTAB_IN
+/**
+ * Rank the rows a `rowid in (...)` constraint names by their exact distances
+ * to the query, keeping the k nearest in ascending order of distance. A rowid
+ * or id the table does not have is skipped. The vectors are read from
+ * _vectorsNN, which holds the buffered rows as well as the graph's.
+ */
+static int diskann_knn_rowids_in(vec0_vtab *p, int vec_col_idx,
+                                 sqlite3_value *rowidsIn,
+                                 const void *queryVector, size_t dimensions,
+                                 enum VectorElementType elementType, i64 k,
+                                 i64 *outRowids, f32 *outDistances,
+                                 int *outCount) {
+  struct VectorColumnDefinition *col = &p->vector_columns[vec_col_idx];
+  int vectorSize = (int)vector_column_byte_size(*col);
+  sqlite3_stmt *stmt = NULL;
+  sqlite3_value *item;
+  int count = 0;
+  int rc;
+  char *zSql = sqlite3_mprintf(
+      "SELECT vector FROM " VEC0_SHADOW_VECTORS_N_NAME " WHERE rowid = ?",
+      p->schemaName, p->tableName, vec_col_idx);
+  if (!zSql) return SQLITE_NOMEM;
+  rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
+  sqlite3_free(zSql);
+  if (rc != SQLITE_OK) return rc;
+
+  for (rc = sqlite3_vtab_in_first(rowidsIn, &item); rc == SQLITE_OK && item;
+       rc = sqlite3_vtab_in_next(rowidsIn, &item)) {
+    i64 rowid;
+    if (p->pkIsText) {
+      rc = vec0_rowid_from_id(p, item, &rowid);
+      if (rc == SQLITE_EMPTY) continue;
+      if (rc != SQLITE_OK) break;
+    } else {
+      rowid = sqlite3_value_int64(item);
+    }
+
+    sqlite3_reset(stmt);
+    sqlite3_bind_int64(stmt, 1, rowid);
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_DONE) continue;
+    if (rc != SQLITE_ROW) break;
+    if (sqlite3_column_bytes(stmt, 0) != vectorSize) {
+      rc = SQLITE_CORRUPT;
+      break;
+    }
+    f32 distance = vec0_distance_full(queryVector, sqlite3_column_blob(stmt, 0),
+                                      dimensions, elementType,
+                                      col->distance_metric);
+
+    if (count == k && distance >= outDistances[count - 1]) continue;
+    int i = count < k ? count++ : count - 1;
+    while (i > 0 && outDistances[i - 1] > distance) {
+      outRowids[i] = outRowids[i - 1];
+      outDistances[i] = outDistances[i - 1];
+      i--;
+    }
+    outRowids[i] = rowid;
+    outDistances[i] = distance;
+  }
+  sqlite3_finalize(stmt);
+  if (rc != SQLITE_DONE) return rc;
+  *outCount = count;
+  return SQLITE_OK;
+}
+#endif
+
 /**
  * Handle a KNN query using the DiskANN graph search.
  */
@@ -7661,15 +7729,19 @@ static int vec0Filter_knn_diskann(
   if (!knn_data) return SQLITE_NOMEM;
   memset(knn_data, 0, sizeof(*knn_data));
 
-  // Parse query_idx and k_idx from idxStr
+  // Parse query_idx, k_idx and rowid_in_idx from idxStr
   int query_idx = -1;
   int k_idx = -1;
+  int rowid_in_idx = -1;
   for (int i = 0; i < argc; i++) {
     if (idxStr[1 + (i * 4)] == VEC0_IDXSTR_KIND_KNN_MATCH) {
       query_idx = i;
     }
     if (idxStr[1 + (i * 4)] == VEC0_IDXSTR_KIND_KNN_K) {
       k_idx = i;
+    }
+    if (idxStr[1 + (i * 4)] == VEC0_IDXSTR_KIND_KNN_ROWID_IN) {
+      rowid_in_idx = i;
     }
   }
   assert(query_idx >= 0);
@@ -7719,7 +7791,17 @@ static int vec0Filter_knn_diskann(
     return SQLITE_NOMEM;
   }
 
-  int resultCount;
+  int resultCount = 0;
+#if COMPILER_SUPPORTS_VTAB_IN
+  // A rowid filter names its candidates, so each is ranked by its exact
+  // distance; the graph search reaches only the rows near the query, which
+  // the filter may not name.
+  if (rowid_in_idx >= 0) {
+    rc = diskann_knn_rowids_in(p, vectorColumnIdx, argv[rowid_in_idx],
+                               queryVector, dimensions, elementType, k,
+                               resultRowids, resultDistances, &resultCount);
+  } else
+#endif
   rc = diskann_search(p, vectorColumnIdx, queryVector, dimensions,
                        elementType, (int)k, 0,
                        resultRowids, resultDistances, &resultCount);
@@ -7734,7 +7816,8 @@ static int vec0Filter_knn_diskann(
 
   // Scan _diskann_buffer for any buffered (unflushed) vectors and merge
   // with graph results. This ensures no recall loss for buffered vectors.
-  {
+  // A rowid filter has already ranked the buffered rows it names.
+  if (rowid_in_idx < 0) {
     sqlite3_stmt *bufStmt = NULL;
     char *zSql = sqlite3_mprintf(
         "SELECT rowid, vector FROM " VEC0_SHADOW_DISKANN_BUFFER_N_NAME,
