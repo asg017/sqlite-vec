@@ -4801,8 +4801,16 @@ int vec0_new_chunk(vec0_vtab *p, sqlite3_value ** partitionKeyValues, i64 *chunk
 }
 
 struct vec0_query_fullscan_data {
+  // Every rowid, in storage order as of the scan's start.
   sqlite3_stmt *rowids_stmt;
   i8 done;
+  // Per flat vector column, a handle on the vectors blob of the chunk the scan
+  // last read from. A chunk's blob holds chunk_size vectors, and the first read
+  // through a newly opened handle walks the blob's overflow pages up to the
+  // row's offset, so a scan keeps it open across the chunk's rows instead of
+  // opening it once per row.
+  sqlite3_blob *vectorBlobs[VEC0_MAX_VECTOR_COLUMNS];
+  i64 vectorBlobChunkIds[VEC0_MAX_VECTOR_COLUMNS];
 };
 void vec0_query_fullscan_data_clear(
     struct vec0_query_fullscan_data *fullscan_data) {
@@ -4812,6 +4820,10 @@ void vec0_query_fullscan_data_clear(
   if (fullscan_data->rowids_stmt) {
     sqlite3_finalize(fullscan_data->rowids_stmt);
     fullscan_data->rowids_stmt = NULL;
+  }
+  for (int i = 0; i < VEC0_MAX_VECTOR_COLUMNS; i++) {
+    sqlite3_blob_close(fullscan_data->vectorBlobs[i]);
+    fullscan_data->vectorBlobs[i] = NULL;
   }
 }
 
@@ -8352,6 +8364,99 @@ static int vec0Eof(sqlite3_vtab_cursor *cur) {
   return 1;
 }
 
+/**
+ * @brief Read the vector of the full scan's current row from a flat column,
+ * through the handle the scan keeps on the row's chunk.
+ *
+ * The scan visits rows in (chunk_id, chunk_offset) order, so the handle moves
+ * to the next chunk with sqlite3_blob_reopen() once per chunk. A write that
+ * replaces the chunk's row expires the handle, and sqlite3_blob_read() answers
+ * SQLITE_ABORT (https://sqlite.org/c3ref/blob_open.html). A rollback of a
+ * transaction that changed the schema invalidates it, and both
+ * sqlite3_blob_read() and sqlite3_blob_reopen() answer SQLITE_ABORT_ROLLBACK
+ * when the connection has extended result codes on. Either way the read is
+ * retried once on a newly opened handle.
+ *
+ * The row's position is looked up here rather than taken from the scan's
+ * statement: that statement sorts every row when the scan starts, so its
+ * positions miss a delete, insert or optimize the same connection runs during
+ * the scan.
+ *
+ * @param outVector set to a buffer the caller frees with sqlite3_free()
+ */
+static int vec0_fullscan_read_vector(vec0_vtab *p,
+                                     struct vec0_query_fullscan_data *f,
+                                     int vector_idx, void **outVector,
+                                     int *outVectorSize) {
+  i64 rowid = sqlite3_column_int64(f->rowids_stmt, 0);
+  i64 chunk_id;
+  i64 chunk_offset;
+  int rc = vec0_get_chunk_position(p, rowid, NULL, &chunk_id, &chunk_offset);
+  if (rc == SQLITE_EMPTY) {
+    vtab_set_error(&p->base, "Could not find a row with rowid %lld", rowid);
+    return SQLITE_ERROR;
+  }
+  if (rc != SQLITE_OK) {
+    return rc;
+  }
+  int size = vector_column_byte_size(p->vector_columns[vector_idx]);
+  void *buf = sqlite3_malloc(size);
+  if (!buf) {
+    return SQLITE_NOMEM;
+  }
+
+  sqlite3_blob **blob = &f->vectorBlobs[vector_idx];
+  rc = SQLITE_ABORT;
+  for (int attempt = 0; attempt < 2 && (rc & 0xff) == SQLITE_ABORT; attempt++) {
+    if (*blob && f->vectorBlobChunkIds[vector_idx] != chunk_id) {
+      rc = sqlite3_blob_reopen(*blob, chunk_id);
+      if (rc != SQLITE_OK) {
+        sqlite3_blob_close(*blob);
+        *blob = NULL;
+      }
+      // An invalidated handle is replaced below; any other failure, such as
+      // SQLITE_INTERRUPT, fails the read.
+      if (rc != SQLITE_OK && (rc & 0xff) != SQLITE_ABORT) {
+        sqlite3_free(buf);
+        vtab_set_error(
+            &p->base,
+            "Could not fetch vector data for %lld, opening blob failed", rowid);
+        return SQLITE_ERROR;
+      }
+    }
+    if (!*blob) {
+      rc = sqlite3_blob_open(p->db, p->schemaName,
+                             p->shadowVectorChunksNames[vector_idx], "vectors",
+                             chunk_id, 0, blob);
+      if (rc != SQLITE_OK) {
+        *blob = NULL;
+        sqlite3_free(buf);
+        vtab_set_error(
+            &p->base,
+            "Could not fetch vector data for %lld, opening blob failed", rowid);
+        return SQLITE_ERROR;
+      }
+    }
+    f->vectorBlobChunkIds[vector_idx] = chunk_id;
+    rc = sqlite3_blob_read(*blob, buf, size, chunk_offset * size);
+    if ((rc & 0xff) == SQLITE_ABORT) {
+      sqlite3_blob_close(*blob);
+      *blob = NULL;
+    }
+  }
+  if (rc != SQLITE_OK) {
+    sqlite3_free(buf);
+    vtab_set_error(
+        &p->base,
+        "Could not fetch vector data for %lld, reading from blob failed",
+        rowid);
+    return SQLITE_ERROR;
+  }
+  *outVector = buf;
+  *outVectorSize = size;
+  return SQLITE_OK;
+}
+
 static int vec0Column_fullscan(vec0_vtab *pVtab, vec0_cursor *pCur,
                                sqlite3_context *context, int i) {
   if (!pCur->fullscan_data) {
@@ -8367,7 +8472,13 @@ static int vec0Column_fullscan(vec0_vtab *pVtab, vec0_cursor *pCur,
     void *v;
     int sz;
     int vector_idx = vec0_column_idx_to_vector_idx(pVtab, i);
-    int rc = vec0_get_vector_data(pVtab, rowid, vector_idx, &v, &sz);
+    // Only a flat column keeps its vectors in _vector_chunks; the other index
+    // types keep them in tables of their own, read per row.
+    int rc =
+        pVtab->vector_columns[vector_idx].index_type == VEC0_INDEX_TYPE_FLAT
+            ? vec0_fullscan_read_vector(pVtab, pCur->fullscan_data, vector_idx,
+                                        &v, &sz)
+            : vec0_get_vector_data(pVtab, rowid, vector_idx, &v, &sz);
     if (rc != SQLITE_OK) {
       return rc;
     }

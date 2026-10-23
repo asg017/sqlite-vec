@@ -2075,6 +2075,58 @@ void test_diskann_prune_select_max_neighbors_1() {
   printf("  All diskann_prune_select_max_neighbors_1 tests passed.\n");
 }
 
+// Runs a full scan of a 16-row, two-chunk vec0 table and, after `stopAt` rows,
+// rolls back a transaction that changed the schema on the same connection. That
+// rollback invalidates the scan's blob handle, which then answers
+// SQLITE_ABORT_ROLLBACK when the connection has extended result codes on; the
+// scan must replace the handle and return every row, as with them off.
+static void fullscan_across_schema_rollback(int extendedCodes, int stopAt) {
+  sqlite3 *db;
+  sqlite3_stmt *stmt;
+  int rc = sqlite3_open(":memory:", &db);
+  assert(rc == SQLITE_OK);
+  rc = sqlite3_vec_init(db, NULL, NULL);
+  assert(rc == SQLITE_OK);
+  sqlite3_extended_result_codes(db, extendedCodes);
+  rc = sqlite3_exec(
+      db, "create virtual table v using vec0(a float[2], chunk_size=8)", 0, 0,
+      0);
+  assert(rc == SQLITE_OK);
+  for (int i = 1; i <= 16; i++) {
+    char sql[64];
+    snprintf(sql, sizeof sql, "insert into v(rowid, a) values (%d, '[%d, 0]')",
+             i, i);
+    rc = sqlite3_exec(db, sql, 0, 0, 0);
+    assert(rc == SQLITE_OK);
+  }
+  rc = sqlite3_prepare_v2(db, "select rowid, a from v", -1, &stmt, 0);
+  assert(rc == SQLITE_OK);
+  int rows = 0;
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+    rows++;
+    assert(sqlite3_column_int64(stmt, 0) == rows);
+    assert(((const float *)sqlite3_column_blob(stmt, 1))[0] == rows);
+    if (rows == stopAt) {
+      int rrc =
+          sqlite3_exec(db, "begin; create table u(y); rollback;", 0, 0, 0);
+      assert(rrc == SQLITE_OK);
+    }
+  }
+  assert(rc == SQLITE_DONE);
+  assert(rows == 16);
+  sqlite3_finalize(stmt);
+  sqlite3_close(db);
+}
+
+void test_vec0_fullscan_schema_rollback() {
+  printf("Starting %s...\n", __func__);
+  for (int extendedCodes = 0; extendedCodes <= 1; extendedCodes++) {
+    // Mid-chunk the read fails; at a chunk's last row the next reopen does.
+    fullscan_across_schema_rollback(extendedCodes, 3);
+    fullscan_across_schema_rollback(extendedCodes, 8);
+  }
+}
+
 int main() {
   printf("Starting unit tests...\n");
 #ifdef SQLITE_VEC_ENABLE_AVX
@@ -2124,5 +2176,6 @@ int main() {
   test_diskann_prune_select_single_candidate();
   test_diskann_prune_select_all_identical_distances();
   test_diskann_prune_select_max_neighbors_1();
+  test_vec0_fullscan_schema_rollback();
   printf("All unit tests passed.\n");
 }
