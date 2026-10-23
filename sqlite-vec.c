@@ -3403,6 +3403,7 @@ static sqlite3_module vec_eachModule = {
 #define VEC0_COLUMN_OFFSET_COMMAND 1
 #define VEC0_COLUMN_OFFSET_DISTANCE 2
 #define VEC0_COLUMN_OFFSET_K 3
+#define VEC0_COLUMN_OFFSET_MMR_LAMBDA 4
 
 #define VEC0_SHADOW_INFO_NAME "\"%w\".\"%w_info\""
 
@@ -3798,6 +3799,14 @@ int vec0_column_distance_idx(vec0_vtab *p) {
 int vec0_column_k_idx(vec0_vtab *p) {
   int base = VEC0_COLUMN_USERN_START + vec0_num_defined_user_columns(p);
   return base + (p->hasCommandColumn ? 2 : 1);
+}
+
+/**
+ * Returns the column index for the hidden "mmr_lambda" column.
+ */
+int vec0_column_mmr_lambda_idx(vec0_vtab *p) {
+  int base = VEC0_COLUMN_USERN_START + vec0_num_defined_user_columns(p);
+  return base + (p->hasCommandColumn ? 3 : 2);
 }
 
 /**
@@ -5322,9 +5331,9 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
 
   }
   if (hasCommandColumn) {
-    sqlite3_str_appendf(createStr, " \"%w\" hidden, distance hidden, k hidden) ", argv[2]);
+    sqlite3_str_appendf(createStr, " \"%w\" hidden, distance hidden, k hidden, mmr_lambda hidden) ", argv[2]);
   } else {
-    sqlite3_str_appendall(createStr, " distance hidden, k hidden) ");
+    sqlite3_str_appendall(createStr, " distance hidden, k hidden, mmr_lambda hidden) ");
   }
   if (pkColumnName) {
     sqlite3_str_appendall(createStr, "without rowid ");
@@ -5965,6 +5974,7 @@ typedef enum  {
 
   // ~~~ ??? ~~~ //
   VEC0_IDXSTR_KIND_METADATA_CONSTRAINT = '&',
+  VEC0_IDXSTR_KIND_KNN_MMR_LAMBDA = '#',
 } vec0_idxstr_kind;
 
 // The different SQLITE_INDEX_CONSTRAINT values that vec0 partition key columns
@@ -6028,6 +6038,7 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
   int iLimitTerm = -1;
   int iRowidTerm = -1;
   int iKTerm = -1;
+  int iMmrLambdaTerm = -1;
   int iRowidInTerm = -1;
   int hasAuxConstraint = 0;
 
@@ -6083,6 +6094,9 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
     }
     if (op == SQLITE_INDEX_CONSTRAINT_EQ && iColumn == vec0_column_k_idx(p)) {
       iKTerm = i;
+    }
+    if (op == SQLITE_INDEX_CONSTRAINT_EQ && iColumn == vec0_column_mmr_lambda_idx(p)) {
+      iMmrLambdaTerm = i;
     }
     if(
       (op != SQLITE_INDEX_CONSTRAINT_LIMIT && op != SQLITE_INDEX_CONSTRAINT_OFFSET)
@@ -6372,7 +6386,12 @@ static int vec0BestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
       sqlite3_str_appendchar(idxStr, 1, '_');
     }
 
-
+    if (iMmrLambdaTerm >= 0) {
+      pIdxInfo->aConstraintUsage[iMmrLambdaTerm].argvIndex = argvIndex++;
+      pIdxInfo->aConstraintUsage[iMmrLambdaTerm].omit = 1;
+      sqlite3_str_appendchar(idxStr, 1, VEC0_IDXSTR_KIND_KNN_MMR_LAMBDA);
+      sqlite3_str_appendchar(idxStr, 3, '_');
+    }
 
     pIdxInfo->idxNum = iMatchVectorTerm;
     pIdxInfo->estimatedCost = 30.0;
@@ -7809,6 +7828,168 @@ static int vec0Filter_knn_diskann(
 }
 #endif /* SQLITE_VEC_ENABLE_DISKANN */
 
+/**
+ * Compute pairwise distance between two vectors stored in the vec0 table's
+ * native format.  Handles float32, int8, and bit element types with the
+ * appropriate metric (L2, cosine, L1, hamming).
+ */
+static f32 vec0_compute_distance(struct VectorColumnDefinition *vector_column,
+                                 const void *a, const void *b) {
+  size_t dims = vector_column->dimensions;
+  switch (vector_column->element_type) {
+  case SQLITE_VEC_ELEMENT_TYPE_FLOAT32:
+    switch (vector_column->distance_metric) {
+    case VEC0_DISTANCE_METRIC_L2:
+      return distance_l2_sqr_float(a, b, &dims);
+    case VEC0_DISTANCE_METRIC_L1:
+      return (f32)distance_l1_f32(a, b, &dims);
+    case VEC0_DISTANCE_METRIC_COSINE:
+      return distance_cosine_float(a, b, &dims);
+    }
+    break;
+  case SQLITE_VEC_ELEMENT_TYPE_INT8:
+    switch (vector_column->distance_metric) {
+    case VEC0_DISTANCE_METRIC_L2:
+      return distance_l2_sqr_int8(a, b, &dims);
+    case VEC0_DISTANCE_METRIC_L1:
+      return (f32)distance_l1_int8(a, b, &dims);
+    case VEC0_DISTANCE_METRIC_COSINE:
+      return distance_cosine_int8(a, b, &dims);
+    }
+    break;
+  case SQLITE_VEC_ELEMENT_TYPE_BIT:
+    return distance_hamming(a, b, &dims);
+  }
+  return 0.0f;
+}
+
+/**
+ * MMR greedy reranking of KNN results.
+ *
+ * Loads vectors for top-k candidates, then iteratively selects the
+ * candidate with the best MMR score:
+ *   MMR(d) = lambda * relevance(d) - (1-lambda) * max_sim(d, S)
+ *
+ * where relevance = 1 - normalized_distance, and max_sim is the maximum
+ * cosine similarity between d and any already-selected result.
+ *
+ * Reorders topk_rowids and topk_distances in place.
+ * After return, the first *out_n_selected entries are the MMR-selected results.
+ * out_n_selected may be less than k_target if the greedy selection exhausts
+ * candidates early.
+ */
+static int vec0_mmr_rerank(
+    vec0_vtab *p,
+    int vectorColumnIdx,
+    struct VectorColumnDefinition *vector_column,
+    i64 *topk_rowids,
+    f32 *topk_distances,
+    i64 k_used,
+    i64 k_target,
+    f32 mmr_lambda,
+    i64 *out_n_selected
+) {
+    int rc = SQLITE_OK;
+
+    // 1. Allocate vector storage for all candidates
+    void **vectors = sqlite3_malloc64(k_used * sizeof(void *));
+    if (!vectors) return SQLITE_NOMEM;
+    memset(vectors, 0, k_used * sizeof(void *));
+
+    f32 *relevance = NULL;
+    i64 *out_rowids = NULL;
+    f32 *out_distances = NULL;
+    f32 *max_sim = NULL;
+    u8 *selected = NULL;
+
+    // 2. Load vectors from shadow tables
+    for (i64 i = 0; i < k_used; i++) {
+        rc = vec0_get_vector_data(p, topk_rowids[i], vectorColumnIdx,
+                                  &vectors[i], NULL);
+        if (rc != SQLITE_OK) goto cleanup;
+    }
+
+    // 3. Normalize distances to [0, 1] for relevance scoring
+    f32 max_dist = 0.0f;
+    for (i64 i = 0; i < k_used; i++) {
+        if (topk_distances[i] > max_dist) max_dist = topk_distances[i];
+    }
+    if (max_dist < 1e-9f) max_dist = 1.0f;
+
+    relevance = sqlite3_malloc64(k_used * sizeof(f32));
+    if (!relevance) { rc = SQLITE_NOMEM; goto cleanup; }
+    for (i64 i = 0; i < k_used; i++) {
+        relevance[i] = 1.0f - (topk_distances[i] / max_dist);
+    }
+
+    // 4. Greedy MMR selection. max_sim[i] is candidate i's highest similarity
+    // to the results selected so far, raised against each new selection
+    // alone, so a step measures each remaining candidate once.
+    out_rowids = sqlite3_malloc64(k_target * sizeof(i64));
+    out_distances = sqlite3_malloc64(k_target * sizeof(f32));
+    max_sim = sqlite3_malloc64(k_used * sizeof(f32));
+    selected = sqlite3_malloc64(k_used);
+    if (!out_rowids || !out_distances || !max_sim || !selected) {
+        rc = SQLITE_NOMEM; goto cleanup;
+    }
+    memset(selected, 0, k_used);
+    for (i64 i = 0; i < k_used; i++) {
+        max_sim[i] = 0.0f;
+    }
+
+    i64 n_selected = 0;
+    for (i64 step = 0; step < k_target && step < k_used; step++) {
+        f32 best_mmr = -FLT_MAX;
+        i64 best_idx = -1;
+
+        for (i64 i = 0; i < k_used; i++) {
+            if (selected[i]) continue;
+
+            f32 mmr_score = mmr_lambda * relevance[i]
+                          - (1.0f - mmr_lambda) * max_sim[i];
+            if (mmr_score > best_mmr) {
+                best_mmr = mmr_score;
+                best_idx = i;
+            }
+        }
+
+        if (best_idx < 0) break;
+        selected[best_idx] = 1;
+        out_rowids[step] = topk_rowids[best_idx];
+        out_distances[step] = topk_distances[best_idx];
+        n_selected++;
+
+        for (i64 i = 0; i < k_used; i++) {
+            if (selected[i]) continue;
+            f32 d = vec0_compute_distance(vector_column,
+                                          vectors[i], vectors[best_idx]);
+            f32 sim = 1.0f - (d / max_dist);
+            if (sim > max_sim[i]) max_sim[i] = sim;
+        }
+    }
+
+    // 5. Copy only the actually-selected entries back to input arrays
+    for (i64 i = 0; i < n_selected; i++) {
+        topk_rowids[i] = out_rowids[i];
+        topk_distances[i] = out_distances[i];
+    }
+    *out_n_selected = n_selected;
+
+cleanup:
+    if (vectors) {
+        for (i64 i = 0; i < k_used; i++) {
+            sqlite3_free(vectors[i]);
+        }
+        sqlite3_free(vectors);
+    }
+    sqlite3_free(relevance);
+    sqlite3_free(out_rowids);
+    sqlite3_free(out_distances);
+    sqlite3_free(max_sim);
+    sqlite3_free(selected);
+    return rc;
+}
+
 int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
                    const char *idxStr, int argc, sqlite3_value **argv) {
   assert(argc == (strlen(idxStr)-1) / 4);
@@ -7844,6 +8025,7 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
   int query_idx =-1;
   int k_idx = -1;
   int rowid_in_idx = -1;
+  int mmr_lambda_idx = -1;
   for(int i = 0; i < argc; i++) {
     if(idxStr[1 + (i*4)] == VEC0_IDXSTR_KIND_KNN_MATCH) {
       query_idx = i;
@@ -7853,6 +8035,9 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
     }
     if(idxStr[1 + (i*4)] == VEC0_IDXSTR_KIND_KNN_ROWID_IN) {
       rowid_in_idx = i;
+    }
+    if(idxStr[1 + (i*4)] == VEC0_IDXSTR_KIND_KNN_MMR_LAMBDA) {
+      mmr_lambda_idx = i;
     }
   }
   assert(query_idx >= 0);
@@ -7914,6 +8099,29 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
     pCur->query_plan = VEC0_QUERY_PLAN_KNN;
     rc = SQLITE_OK;
     goto cleanup;
+  }
+
+  // MMR: validate lambda and over-fetch candidates
+#define SQLITE_VEC_MMR_OVERFETCH_FACTOR 5
+  f32 mmr_lambda = -1.0f;
+  i64 k_original = k;
+  if (mmr_lambda_idx >= 0) {
+    mmr_lambda = (f32)sqlite3_value_double(argv[mmr_lambda_idx]);
+    if (mmr_lambda < 0.0f || mmr_lambda > 1.0f) {
+      vtab_set_error(
+          &p->base,
+          "mmr_lambda value in knn query must be between 0.0 and 1.0, "
+          "provided %f",
+          (double)mmr_lambda);
+      rc = SQLITE_ERROR;
+      goto cleanup;
+    }
+    if (mmr_lambda < 1.0f) {
+      i64 k_internal = k * SQLITE_VEC_MMR_OVERFETCH_FACTOR;
+      if (k_internal > SQLITE_VEC_VEC0_K_MAX) k_internal = SQLITE_VEC_VEC0_K_MAX;
+      if (k_internal < k) k_internal = k;  // overflow guard
+      k = k_internal;
+    }
   }
 
 // handle when a `rowid in (...)` operation was provided
@@ -8094,6 +8302,17 @@ int vec0Filter_knn(vec0_cursor *pCur, vec0_vtab *p, int idxNum,
                                   &topk_distances, &k_used);
   if (rc != SQLITE_OK) {
     goto cleanup;
+  }
+
+  // MMR reranking: select diverse subset from over-fetched candidates
+  if (mmr_lambda >= 0.0f && mmr_lambda < 1.0f && k_used > k_original) {
+    i64 n_selected = 0;
+    rc = vec0_mmr_rerank(p, vectorColumnIdx, vector_column,
+                         topk_rowids, topk_distances, k_used, k_original,
+                         mmr_lambda, &n_selected);
+    if (rc != SQLITE_OK) goto cleanup;
+    k_used = n_selected;
+    k = k_original;
   }
 
   knn_data->current_idx = 0;
@@ -9282,6 +9501,12 @@ int vec0Update_Insert(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
   if (sqlite3_value_type(argv[2 + vec0_column_k_idx(p)]) != SQLITE_NULL) {
     // IMP: V11875_28713
     vtab_set_error(pVTab, "A value was provided for the hidden \"k\" column.");
+    rc = SQLITE_ERROR;
+    goto cleanup;
+  }
+  // Cannot insert a value in the hidden "mmr_lambda" column
+  if (sqlite3_value_type(argv[2 + vec0_column_mmr_lambda_idx(p)]) != SQLITE_NULL) {
+    vtab_set_error(pVTab, "A value was provided for the hidden \"mmr_lambda\" column.");
     rc = SQLITE_ERROR;
     goto cleanup;
   }
