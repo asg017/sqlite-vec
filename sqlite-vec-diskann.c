@@ -314,7 +314,9 @@ static int diskann_medoid_set(vec0_vtab *p, int vec_col_idx,
 
 /**
  * Called when deleting a vector. If the deleted vector was the medoid,
- * pick a new one (the first available vector, or set to empty if none remain).
+ * pick a new one: the first remaining node of the graph, or set to empty if
+ * none remain. A vector still in the buffer has no node, so it cannot be the
+ * entry point of a search.
  */
 static int diskann_medoid_handle_delete(vec0_vtab *p, int vec_col_idx,
                                           i64 deletedRowid) {
@@ -326,7 +328,7 @@ static int diskann_medoid_handle_delete(vec0_vtab *p, int vec_col_idx,
   if (!isEmpty && currentMedoid == deletedRowid) {
     sqlite3_stmt *stmt = NULL;
     char *zSql = sqlite3_mprintf(
-        "SELECT rowid FROM " VEC0_SHADOW_VECTORS_N_NAME " WHERE rowid != ?1 LIMIT 1",
+        "SELECT rowid FROM " VEC0_SHADOW_DISKANN_NODES_N_NAME " WHERE rowid != ?1 LIMIT 1",
         p->schemaName, p->tableName, vec_col_idx);
     if (!zSql) return SQLITE_NOMEM;
 
@@ -340,10 +342,10 @@ static int diskann_medoid_handle_delete(vec0_vtab *p, int vec_col_idx,
       i64 newMedoid = sqlite3_column_int64(stmt, 0);
       sqlite3_finalize(stmt);
       return diskann_medoid_set(p, vec_col_idx, newMedoid, 0);
-    } else {
-      sqlite3_finalize(stmt);
-      return diskann_medoid_set(p, vec_col_idx, -1, 1);
     }
+    sqlite3_finalize(stmt);
+    if (rc != SQLITE_DONE) return rc;
+    return diskann_medoid_set(p, vec_col_idx, -1, 1);
   }
   return SQLITE_OK;
 }

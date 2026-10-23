@@ -889,6 +889,41 @@ def test_diskann_delete_preserves_graph_connectivity(db):
         f"Only {len(reachable)}/{len(all_rowids)} nodes reachable"
 
 
+def test_diskann_delete_medoid_with_rows_in_buffer(db):
+    """Deleting the medoid while rows wait in the buffer makes another node
+    of the graph the medoid, so every node is still found by its own vector."""
+    db.execute("""
+        CREATE VIRTUAL TABLE t USING vec0(
+            emb float[8] INDEXED BY diskann(
+                neighbor_quantizer=int8, n_neighbors=8, buffer_threshold=10
+            )
+        )
+    """)
+    import random
+    random.seed(11)
+    vectors = {}
+    for rowid in [*range(100, 110), 1, 2, 3]:
+        vectors[rowid] = _f32([random.uniform(-1, 1) for _ in range(8)])
+        db.execute("INSERT INTO t(rowid, emb) VALUES (?, ?)", [rowid, vectors[rowid]])
+    assert db.execute("SELECT count(*) FROM t_diskann_buffer00").fetchone()[0] == 3
+
+    medoid = db.execute(
+        "SELECT value FROM t_info WHERE key = 'diskann_medoid_00'"
+    ).fetchone()[0]
+    db.execute("DELETE FROM t WHERE rowid = ?", [medoid])
+
+    new_medoid = db.execute(
+        "SELECT value FROM t_info WHERE key = 'diskann_medoid_00'"
+    ).fetchone()[0]
+    nodes = [r[0] for r in db.execute("SELECT rowid FROM t_diskann_nodes00")]
+    assert new_medoid in nodes
+    for rowid in nodes:
+        rows = db.execute(
+            "SELECT rowid FROM t WHERE emb MATCH ? AND k = 1", [vectors[rowid]]
+        ).fetchall()
+        assert [r[0] for r in rows] == [rowid]
+
+
 # ======================================================================
 # Update scenarios
 # ======================================================================
