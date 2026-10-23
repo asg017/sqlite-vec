@@ -4042,6 +4042,21 @@ int vec0_get_vector_data(vec0_vtab *pVtab, i64 rowid, int vector_column_idx,
                          void **outVector, int *outVectorSize) {
   vec0_vtab *p = pVtab;
   int rc, brc;
+  i64 chunk_id;
+  i64 chunk_offset;
+  assert((vector_column_idx >= 0) &&
+         (vector_column_idx < pVtab->numVectorColumns));
+
+  // Every index type registers its rows in _rowids, so a rowid with no
+  // position there is no row, whichever table holds the column's vectors.
+  rc = vec0_get_chunk_position(pVtab, rowid, NULL, &chunk_id, &chunk_offset);
+  if (rc == SQLITE_EMPTY) {
+    vtab_set_error(&pVtab->base, "Could not find a row with rowid %lld", rowid);
+    return rc;
+  }
+  if (rc != SQLITE_OK) {
+    return rc;
+  }
 
 #if SQLITE_VEC_ENABLE_DISKANN
   // DiskANN fast path: read from _vectors table
@@ -4061,9 +4076,6 @@ int vec0_get_vector_data(vec0_vtab *pVtab, i64 rowid, int vector_column_idx,
   }
 #endif
 
-  i64 chunk_id;
-  i64 chunk_offset;
-
 #if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
   // IVF-indexed columns store vectors in _ivf_cells, not _vector_chunks
   if (p->vector_columns[vector_column_idx].index_type == VEC0_INDEX_TYPE_IVF) {
@@ -4074,8 +4086,6 @@ int vec0_get_vector_data(vec0_vtab *pVtab, i64 rowid, int vector_column_idx,
   void *buf = NULL;
   int blobOffset;
   sqlite3_blob *vectorBlob = NULL;
-  assert((vector_column_idx >= 0) &&
-         (vector_column_idx < pVtab->numVectorColumns));
 
 #if SQLITE_VEC_ENABLE_RESCORE
   // Rescore columns store float vectors in _rescore_vectors (rowid-keyed)
@@ -4111,15 +4121,6 @@ int vec0_get_vector_data(vec0_vtab *pVtab, i64 rowid, int vector_column_idx,
     goto cleanup;
   }
 #endif /* SQLITE_VEC_ENABLE_RESCORE */
-
-  rc = vec0_get_chunk_position(pVtab, rowid, NULL, &chunk_id, &chunk_offset);
-  if (rc == SQLITE_EMPTY) {
-    vtab_set_error(&pVtab->base, "Could not find a row with rowid %lld", rowid);
-    goto cleanup;
-  }
-  if (rc != SQLITE_OK) {
-    goto cleanup;
-  }
 
   rc = sqlite3_blob_open(p->db, p->schemaName,
                          p->shadowVectorChunksNames[vector_column_idx],

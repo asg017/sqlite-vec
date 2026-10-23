@@ -167,6 +167,21 @@ def test_ivf_delete_flat_mode(db):
     assert db.execute("SELECT count(*) FROM t_ivf_rowid_map00").fetchone()[0] == 1
 
 
+def test_ivf_point_query_missing_rowid(db):
+    """SELECT by a rowid the table does not hold returns no rows."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0(v float[4] indexed by ivf(nlist=4))"
+    )
+    db.execute("INSERT INTO t(rowid, v) VALUES (1, ?)", [_f32([1, 2, 3, 4])])
+    db.execute("INSERT INTO t(rowid, v) VALUES (2, ?)", [_f32([5, 6, 7, 8])])
+    db.execute("DELETE FROM t WHERE rowid = 2")
+
+    rows = db.execute("SELECT rowid FROM t WHERE rowid = 1").fetchall()
+    assert [r[0] for r in rows] == [1]
+    assert db.execute("SELECT rowid FROM t WHERE rowid = 2").fetchall() == []
+    assert db.execute("SELECT rowid FROM t WHERE rowid = 999").fetchall() == []
+
+
 # ============================================================================
 # KNN flat mode tests
 # ============================================================================

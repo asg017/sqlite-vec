@@ -261,6 +261,26 @@ def test_point_query_returns_float(db):
         assert abs(a - b) < 1e-6
 
 
+@pytest.mark.parametrize("quantizer", ["bit", "int8"])
+def test_point_query_missing_rowid(db, quantizer):
+    """SELECT by a rowid the table does not hold returns no rows."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0("
+        f"  embedding float[8] indexed by rescore(quantizer={quantizer})"
+        ")"
+    )
+    for rowid in (1, 2):
+        db.execute(
+            "INSERT INTO t(rowid, embedding) VALUES (?, ?)",
+            [rowid, float_vec([0.1 * rowid] * 8)],
+        )
+    db.execute("DELETE FROM t WHERE rowid = 2")
+    rows = db.execute("SELECT rowid FROM t WHERE rowid = 1").fetchall()
+    assert [r["rowid"] for r in rows] == [1]
+    assert db.execute("SELECT rowid FROM t WHERE rowid = 2").fetchall() == []
+    assert db.execute("SELECT rowid FROM t WHERE rowid = 999").fetchall() == []
+
+
 # ============================================================================
 # KNN tests
 # ============================================================================

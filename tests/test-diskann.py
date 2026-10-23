@@ -324,6 +324,26 @@ def test_diskann_delete_single(db):
     assert db.execute("SELECT count(*) FROM t_diskann_nodes00").fetchone()[0] == 2
 
 
+def test_diskann_point_query_missing_rowid(db):
+    """SELECT by a rowid the table does not hold returns no rows."""
+    db.execute("""
+        CREATE VIRTUAL TABLE t USING vec0(
+            emb float[8] INDEXED BY diskann(neighbor_quantizer=binary, n_neighbors=8)
+        )
+    """)
+    for i in range(1, 3):
+        db.execute(
+            "INSERT INTO t(rowid, emb) VALUES (?, ?)",
+            [i, _f32([float(i)] * 8)],
+        )
+    db.execute("DELETE FROM t WHERE rowid = 2")
+
+    rows = db.execute("SELECT rowid FROM t WHERE rowid = 1").fetchall()
+    assert [r[0] for r in rows] == [1]
+    assert db.execute("SELECT rowid FROM t WHERE rowid = 2").fetchall() == []
+    assert db.execute("SELECT rowid FROM t WHERE rowid = 999").fetchall() == []
+
+
 def test_diskann_delete_no_stale_references(db):
     """After delete, no node should reference the deleted rowid."""
     db.execute("""
