@@ -282,7 +282,6 @@ static int ivf_exec(vec0_vtab *p, const char *fmt, int col_idx) {
 }
 
 static int ivf_is_trained(vec0_vtab *p, int col_idx) {
-  if (p->ivfTrainedCache[col_idx] >= 0) return p->ivfTrainedCache[col_idx];
   sqlite3_stmt *stmt = NULL;
   int trained = 0;
   char *zSql = sqlite3_mprintf(
@@ -295,7 +294,6 @@ static int ivf_is_trained(vec0_vtab *p, int col_idx) {
   }
   sqlite3_free(zSql);
   sqlite3_finalize(stmt);
-  p->ivfTrainedCache[col_idx] = trained;
   return trained;
 }
 
@@ -1005,7 +1003,6 @@ static int ivf_cmd_compute_centroids(vec0_vtab *p, int col_idx, int nlist_overri
     if (zSql) { sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
       sqlite3_step(stmt); sqlite3_finalize(stmt); }
   }
-  p->ivfTrainedCache[col_idx] = 1;
 
   sqlite3_exec(p->db, "RELEASE ivf_train", NULL, NULL, NULL);
   sqlite3_free(vectors); sqlite3_free(rowids); sqlite3_free(centroids); sqlite3_free(assignments);
@@ -1041,7 +1038,6 @@ static int ivf_cmd_set_centroid(vec0_vtab *p, int col_idx, int centroid_id,
       p->schemaName, p->tableName, col_idx);
   if (zSql) { sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
     sqlite3_step(stmt); sqlite3_finalize(stmt); }
-  p->ivfTrainedCache[col_idx] = 1;
   sqlite3_finalize(p->stmtIvfCentroidsAll[col_idx]); p->stmtIvfCentroidsAll[col_idx] = NULL;
   return SQLITE_OK;
 }
@@ -1157,7 +1153,6 @@ static int ivf_cmd_clear_centroids(vec0_vtab *p, int col_idx) {
       p->schemaName, p->tableName, col_idx);
   if (zSql) { sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
     sqlite3_step(stmt); sqlite3_finalize(stmt); }
-  p->ivfTrainedCache[col_idx] = 0;
 
   sqlite3_free(vectors); sqlite3_free(rowids);
   return SQLITE_OK;

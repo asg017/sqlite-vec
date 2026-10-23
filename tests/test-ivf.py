@@ -377,6 +377,70 @@ def test_clear_centroids(db):
 
 
 # ============================================================================
+# Trained state across connections and rollbacks
+# ============================================================================
+
+
+def ivf_connect(path):
+    db = sqlite3.connect(path, isolation_level=None)
+    db.enable_load_extension(True)
+    db.load_extension("dist/vec0")
+    db.enable_load_extension(False)
+    return db
+
+
+def ivf_create_rows(db):
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0(v float[4] indexed by ivf(nlist=2, nprobe=2))"
+    )
+    for i in range(20):
+        db.execute("INSERT INTO t(rowid, v) VALUES (?, ?)", [i, _f32([i, 0, 0, 0])])
+
+
+IVF_KNN = "SELECT rowid FROM t WHERE v MATCH ? AND k = 3"
+
+
+def test_ivf_knn_after_another_connection_trains(tmp_path):
+    """A connection that queried before another ran compute-centroids still
+    finds the rows, which have moved into the trained cells."""
+    path = str(tmp_path / "ivf.db")
+    a = ivf_connect(path)
+    ivf_create_rows(a)
+    assert len(a.execute(IVF_KNN, [_f32([10, 0, 0, 0])]).fetchall()) == 3
+
+    ivf_connect(path).execute("INSERT INTO t(t) VALUES ('compute-centroids')")
+    assert len(a.execute(IVF_KNN, [_f32([10, 0, 0, 0])]).fetchall()) == 3
+
+
+def test_ivf_insert_after_another_connection_clears(tmp_path):
+    """A connection that trained the index can insert after another
+    connection ran clear-centroids."""
+    path = str(tmp_path / "ivf.db")
+    a = ivf_connect(path)
+    ivf_create_rows(a)
+    a.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
+
+    ivf_connect(path).execute("INSERT INTO t(t) VALUES ('clear-centroids')")
+    a.execute("INSERT INTO t(rowid, v) VALUES (20, ?)", [_f32([20, 0, 0, 0])])
+    rows = a.execute(IVF_KNN, [_f32([20, 0, 0, 0])]).fetchall()
+    assert rows[0][0] == 20
+
+
+def test_ivf_trained_state_after_rollback(db):
+    """A rolled-back compute-centroids leaves the index untrained, so inserts
+    and queries work as before it."""
+    db.isolation_level = None
+    ivf_create_rows(db)
+    db.execute("BEGIN")
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
+    db.execute("ROLLBACK")
+
+    db.execute("INSERT INTO t(rowid, v) VALUES (20, ?)", [_f32([20, 0, 0, 0])])
+    rows = db.execute(IVF_KNN, [_f32([20, 0, 0, 0])]).fetchall()
+    assert rows[0][0] == 20
+
+
+# ============================================================================
 # Delete after training
 # ============================================================================
 
