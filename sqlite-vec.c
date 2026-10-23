@@ -3574,7 +3574,6 @@ struct vec0_vtab {
 #if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE
   // IVF cached state per vector column
   char *shadowIvfCellsNames[VEC0_MAX_VECTOR_COLUMNS];   // table name for blob_open
-  int ivfTrainedCache[VEC0_MAX_VECTOR_COLUMNS];          // -1=unknown, 0=no, 1=yes
   sqlite3_stmt *stmtIvfCellMeta[VEC0_MAX_VECTOR_COLUMNS];      // SELECT n_vectors, length(validity)*8 FROM cells WHERE cell_id=?
   sqlite3_stmt *stmtIvfCellUpdateN[VEC0_MAX_VECTOR_COLUMNS];   // UPDATE cells SET n_vectors=n_vectors+? WHERE cell_id=?
   sqlite3_stmt *stmtIvfRowidMapInsert[VEC0_MAX_VECTOR_COLUMNS]; // INSERT INTO rowid_map(rowid,cell_id,slot) VALUES(?,?,?)
@@ -5409,7 +5408,6 @@ static int vec0_init(sqlite3 *db, void *pAux, int argc, const char *const *argv,
     pNew->shadowIvfCellsNames[i] =
         sqlite3_mprintf("%s_ivf_cells%02d", tableName, i);
     if (!pNew->shadowIvfCellsNames[i]) goto error;
-    pNew->ivfTrainedCache[i] = -1; // unknown
   }
 #endif
   for (int i = 0; i < pNew->numMetadataColumns; i++) {

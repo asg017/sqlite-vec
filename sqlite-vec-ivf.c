@@ -277,26 +277,26 @@ static int ivf_exec(vec0_vtab *p, const char *fmt, int col_idx) {
   if (!zSql) return SQLITE_NOMEM;
   int rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
   sqlite3_free(zSql);
-  if (rc == SQLITE_OK) { sqlite3_step(stmt); sqlite3_finalize(stmt); }
-  return SQLITE_OK;
+  if (rc != SQLITE_OK) return rc;
+  rc = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+  return rc == SQLITE_DONE ? SQLITE_OK : rc;
 }
 
-static int ivf_is_trained(vec0_vtab *p, int col_idx) {
-  if (p->ivfTrainedCache[col_idx] >= 0) return p->ivfTrainedCache[col_idx];
+static int ivf_is_trained(vec0_vtab *p, int col_idx, int *trained) {
   sqlite3_stmt *stmt = NULL;
-  int trained = 0;
+  *trained = 0;
   char *zSql = sqlite3_mprintf(
       "SELECT value FROM " VEC0_SHADOW_INFO_NAME " WHERE key = 'ivf_trained_%d'",
       p->schemaName, p->tableName, col_idx);
-  if (!zSql) return 0;
-  if (sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL) == SQLITE_OK) {
-    if (sqlite3_step(stmt) == SQLITE_ROW)
-      trained = (sqlite3_column_int(stmt, 0) == 1);
-  }
+  if (!zSql) return SQLITE_NOMEM;
+  int rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL);
   sqlite3_free(zSql);
+  if (rc != SQLITE_OK) return rc;
+  rc = sqlite3_step(stmt);
+  if (rc == SQLITE_ROW) *trained = (sqlite3_column_int(stmt, 0) == 1);
   sqlite3_finalize(stmt);
-  p->ivfTrainedCache[col_idx] = trained;
-  return trained;
+  return (rc == SQLITE_ROW || rc == SQLITE_DONE) ? SQLITE_OK : rc;
 }
 
 // ============================================================================
@@ -310,6 +310,7 @@ static int ivf_cell_create(vec0_vtab *p, int col_idx, i64 centroid_id,
                             i64 *out_cell_id) {
   sqlite3_stmt *stmt = NULL;
   int rc;
+  if (out_cell_id) *out_cell_id = 0;
   int cap = VEC0_IVF_CELL_MAX_VECTORS;
   int vecSize = ivf_vec_size(p, col_idx);
   char *zSql = sqlite3_mprintf(
@@ -326,7 +327,7 @@ static int ivf_cell_create(vec0_vtab *p, int col_idx, i64 centroid_id,
   sqlite3_bind_zeroblob(stmt, 4, cap * vecSize);
   rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
-  if (rc != SQLITE_DONE) return SQLITE_ERROR;
+  if (rc != SQLITE_DONE) return rc;
   if (out_cell_id) *out_cell_id = sqlite3_last_insert_rowid(p->db);
   return SQLITE_OK;
 }
@@ -400,50 +401,53 @@ static int ivf_cell_insert(vec0_vtab *p, int col_idx, i64 centroid_id,
                           cell_id, 1, &blob);
   if (rc != SQLITE_OK) return rc;
   unsigned char bx;
-  sqlite3_blob_read(blob, &bx, 1, slot / 8);
-  bx |= (1 << (slot % 8));
-  sqlite3_blob_write(blob, &bx, 1, slot / 8);
+  rc = sqlite3_blob_read(blob, &bx, 1, slot / 8);
+  if (rc == SQLITE_OK) {
+    bx |= (1 << (slot % 8));
+    rc = sqlite3_blob_write(blob, &bx, 1, slot / 8);
+  }
   sqlite3_blob_close(blob);
+  if (rc != SQLITE_OK) return rc;
 
   // Write rowid
   rc = sqlite3_blob_open(p->db, p->schemaName, cellsTable, "rowids",
                           cell_id, 1, &blob);
-  if (rc == SQLITE_OK) {
-    sqlite3_blob_write(blob, &rowid, sizeof(i64), slot * (int)sizeof(i64));
-    sqlite3_blob_close(blob);
-  }
+  if (rc != SQLITE_OK) return rc;
+  rc = sqlite3_blob_write(blob, &rowid, sizeof(i64), slot * (int)sizeof(i64));
+  sqlite3_blob_close(blob);
+  if (rc != SQLITE_OK) return rc;
 
   // Write vector
   rc = sqlite3_blob_open(p->db, p->schemaName, cellsTable, "vectors",
                           cell_id, 1, &blob);
-  if (rc == SQLITE_OK) {
-    sqlite3_blob_write(blob, vectorData, vectorSize, slot * vectorSize);
-    sqlite3_blob_close(blob);
-  }
+  if (rc != SQLITE_OK) return rc;
+  rc = sqlite3_blob_write(blob, vectorData, vectorSize, slot * vectorSize);
+  sqlite3_blob_close(blob);
+  if (rc != SQLITE_OK) return rc;
 
   // Increment n_vectors (cached)
-  ivf_ensure_stmt(p, &p->stmtIvfCellUpdateN[col_idx],
+  rc = ivf_ensure_stmt(p, &p->stmtIvfCellUpdateN[col_idx],
       "UPDATE " VEC0_SHADOW_IVF_CELLS_NAME
       " SET n_vectors = n_vectors + 1 WHERE rowid = ?", col_idx);
-  if (p->stmtIvfCellUpdateN[col_idx]) {
-    sqlite3_stmt *s = p->stmtIvfCellUpdateN[col_idx];
-    sqlite3_reset(s);
-    sqlite3_bind_int64(s, 1, cell_id);
-    sqlite3_step(s);
-  }
+  if (rc != SQLITE_OK) return rc;
+  sqlite3_stmt *s = p->stmtIvfCellUpdateN[col_idx];
+  sqlite3_reset(s);
+  sqlite3_bind_int64(s, 1, cell_id);
+  rc = sqlite3_step(s);
+  if (rc != SQLITE_DONE) return rc;
 
   // Insert rowid_map (cached)
-  ivf_ensure_stmt(p, &p->stmtIvfRowidMapInsert[col_idx],
+  rc = ivf_ensure_stmt(p, &p->stmtIvfRowidMapInsert[col_idx],
       "INSERT INTO " VEC0_SHADOW_IVF_ROWID_MAP_NAME
       " (rowid, cell_id, slot) VALUES (?, ?, ?)", col_idx);
-  if (p->stmtIvfRowidMapInsert[col_idx]) {
-    sqlite3_stmt *s = p->stmtIvfRowidMapInsert[col_idx];
-    sqlite3_reset(s);
-    sqlite3_bind_int64(s, 1, rowid);
-    sqlite3_bind_int64(s, 2, cell_id);
-    sqlite3_bind_int(s, 3, slot);
-    sqlite3_step(s);
-  }
+  if (rc != SQLITE_OK) return rc;
+  s = p->stmtIvfRowidMapInsert[col_idx];
+  sqlite3_reset(s);
+  sqlite3_bind_int64(s, 1, rowid);
+  sqlite3_bind_int64(s, 2, cell_id);
+  sqlite3_bind_int(s, 3, slot);
+  rc = sqlite3_step(s);
+  if (rc != SQLITE_DONE) return rc;
 
   return SQLITE_OK;
 }
@@ -545,7 +549,10 @@ static int ivf_insert(vec0_vtab *p, int col_idx, i64 rowid,
   if (!qvec) return SQLITE_NOMEM;
   ivf_quantize(p, col_idx, (const float *)vectorData, qvec);
 
-  if (!ivf_is_trained(p, col_idx)) {
+  int trained;
+  rc = ivf_is_trained(p, col_idx, &trained);
+  if (rc != SQLITE_OK) { sqlite3_free(qvec); return rc; }
+  if (!trained) {
     rc = ivf_cell_insert(p, col_idx, VEC0_IVF_UNASSIGNED_CENTROID_ID,
                           rowid, qvec, qvecSize);
   } else {
@@ -724,8 +731,11 @@ static int ivf_load_all_vectors(vec0_vtab *p, int col_idx,
         p->schemaName, p->tableName, col_idx);
     if (!zSql) return SQLITE_NOMEM;
     rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
-    if (rc == SQLITE_OK && sqlite3_step(stmt) == SQLITE_ROW) total = sqlite3_column_int(stmt, 0);
+    if (rc != SQLITE_OK) return rc;
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW) total = sqlite3_column_int(stmt, 0);
     sqlite3_finalize(stmt);
+    if (rc != SQLITE_ROW) return rc;
     if (total == 0) { *out_vectors = NULL; *out_rowids = NULL; *out_N = 0; return SQLITE_OK; }
 
     float *vectors = sqlite3_malloc64((i64)total * D * sizeof(float));
@@ -738,18 +748,21 @@ static int ivf_load_all_vectors(vec0_vtab *p, int col_idx,
         p->schemaName, p->tableName, col_idx);
     if (!zSql) { sqlite3_free(vectors); sqlite3_free(rowids); return SQLITE_NOMEM; }
     rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
-    if (rc == SQLITE_OK) {
-      while (sqlite3_step(stmt) == SQLITE_ROW && idx < total) {
-        rowids[idx] = sqlite3_column_int64(stmt, 0);
-        const void *blob = sqlite3_column_blob(stmt, 1);
-        int blobBytes = sqlite3_column_bytes(stmt, 1);
-        if (blob && blobBytes == vecSize) {
-          memcpy(&vectors[idx * D], blob, vecSize);
-          idx++;
-        }
+    if (rc != SQLITE_OK) { sqlite3_free(vectors); sqlite3_free(rowids); return rc; }
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && idx < total) {
+      rowids[idx] = sqlite3_column_int64(stmt, 0);
+      const void *blob = sqlite3_column_blob(stmt, 1);
+      int blobBytes = sqlite3_column_bytes(stmt, 1);
+      if (blob && blobBytes == vecSize) {
+        memcpy(&vectors[idx * D], blob, vecSize);
+        idx++;
       }
     }
     sqlite3_finalize(stmt);
+    if (rc != SQLITE_ROW && rc != SQLITE_DONE) {
+      sqlite3_free(vectors); sqlite3_free(rowids);
+      return rc;
+    }
     *out_vectors = vectors; *out_rowids = rowids; *out_N = idx;
     return SQLITE_OK;
   }
@@ -763,8 +776,11 @@ static int ivf_load_all_vectors(vec0_vtab *p, int col_idx,
       p->schemaName, p->tableName, col_idx);
   if (!zSql) return SQLITE_NOMEM;
   rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
-  if (rc == SQLITE_OK && sqlite3_step(stmt) == SQLITE_ROW) total = sqlite3_column_int(stmt, 0);
+  if (rc != SQLITE_OK) return rc;
+  rc = sqlite3_step(stmt);
+  if (rc == SQLITE_ROW) total = sqlite3_column_int(stmt, 0);
   sqlite3_finalize(stmt);
+  if (rc != SQLITE_ROW) return rc;
 
   if (total == 0) { *out_vectors = NULL; *out_rowids = NULL; *out_N = 0; return SQLITE_OK; }
 
@@ -780,7 +796,7 @@ static int ivf_load_all_vectors(vec0_vtab *p, int col_idx,
   rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
   if (rc != SQLITE_OK) { sqlite3_free(vectors); sqlite3_free(rowids); return rc; }
 
-  while (sqlite3_step(stmt) == SQLITE_ROW) {
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
     int n = sqlite3_column_int(stmt, 0);
     if (n == 0) continue;
     const unsigned char *val = (const unsigned char *)sqlite3_column_blob(stmt, 1);
@@ -803,6 +819,10 @@ static int ivf_load_all_vectors(vec0_vtab *p, int col_idx,
     }
   }
   sqlite3_finalize(stmt);
+  if (rc != SQLITE_DONE) {
+    sqlite3_free(vectors); sqlite3_free(rowids);
+    return rc;
+  }
   *out_vectors = vectors; *out_rowids = rowids; *out_N = idx;
   return SQLITE_OK;
 }
@@ -812,6 +832,37 @@ static void ivf_invalidate_cached(vec0_vtab *p, int col_idx) {
   sqlite3_finalize(p->stmtIvfCentroidsAll[col_idx]); p->stmtIvfCentroidsAll[col_idx] = NULL;
   sqlite3_finalize(p->stmtIvfCellUpdateN[col_idx]); p->stmtIvfCellUpdateN[col_idx] = NULL;
   sqlite3_finalize(p->stmtIvfRowidMapInsert[col_idx]); p->stmtIvfRowidMapInsert[col_idx] = NULL;
+}
+
+/**
+ * Write one cell of a centroid's vectors with compute-centroids' INSERT into
+ * _ivf_cells, then map each of its rowids to its slot with the INSERT into
+ * _ivf_rowid_map.
+ */
+static int ivf_train_write_cell(vec0_vtab *p, sqlite3_stmt *stmtCell,
+                                 sqlite3_stmt *stmtMap, int centroid_id,
+                                 int n, const unsigned char *val,
+                                 const i64 *rids, const unsigned char *vecs,
+                                 int cap, int qvecSize) {
+  sqlite3_reset(stmtCell);
+  sqlite3_bind_int(stmtCell, 1, centroid_id);
+  sqlite3_bind_int(stmtCell, 2, n);
+  sqlite3_bind_blob(stmtCell, 3, val, cap / 8, SQLITE_TRANSIENT);
+  sqlite3_bind_blob(stmtCell, 4, rids, cap * (int)sizeof(i64), SQLITE_TRANSIENT);
+  sqlite3_bind_blob(stmtCell, 5, vecs, cap * qvecSize, SQLITE_TRANSIENT);
+  int rc = sqlite3_step(stmtCell);
+  if (rc != SQLITE_DONE) return rc;
+  i64 cell_id = sqlite3_last_insert_rowid(p->db);
+
+  for (int s = 0; s < n; s++) {
+    sqlite3_reset(stmtMap);
+    sqlite3_bind_int64(stmtMap, 1, rids[s]);
+    sqlite3_bind_int64(stmtMap, 2, cell_id);
+    sqlite3_bind_int(stmtMap, 3, s);
+    rc = sqlite3_step(stmtMap);
+    if (rc != SQLITE_DONE) return rc;
+  }
+  return SQLITE_OK;
 }
 
 static int ivf_cmd_compute_centroids(vec0_vtab *p, int col_idx, int nlist_override,
@@ -852,14 +903,20 @@ static int ivf_cmd_compute_centroids(vec0_vtab *p, int col_idx, int nlist_overri
   // Invalidate all cached stmts before dropping/recreating tables
   ivf_invalidate_cached(p, col_idx);
 
-  sqlite3_exec(p->db, "SAVEPOINT ivf_train", NULL, NULL, NULL);
+  // The INSERT running this command is a write statement in progress, so no
+  // savepoint can open here ("cannot open savepoint - SQL statements in
+  // progress"). An error returned to it rolls back every write below with the
+  // transaction, in autocommit mode or when the error is an interrupt or a
+  // memory, I/O or full-disk error; any other error inside BEGIN leaves them,
+  // as it leaves the writes of any vec0 statement.
   sqlite3_stmt *stmt = NULL;
   char *zSql;
 
   // Clear all data
-  ivf_exec(p, "DELETE FROM " VEC0_SHADOW_IVF_CENTROIDS_NAME, col_idx);
-  ivf_exec(p, "DELETE FROM " VEC0_SHADOW_IVF_CELLS_NAME, col_idx);
-  ivf_exec(p, "DELETE FROM " VEC0_SHADOW_IVF_ROWID_MAP_NAME, col_idx);
+  rc = ivf_exec(p, "DELETE FROM " VEC0_SHADOW_IVF_CENTROIDS_NAME, col_idx);
+  if (rc == SQLITE_OK) rc = ivf_exec(p, "DELETE FROM " VEC0_SHADOW_IVF_CELLS_NAME, col_idx);
+  if (rc == SQLITE_OK) rc = ivf_exec(p, "DELETE FROM " VEC0_SHADOW_IVF_ROWID_MAP_NAME, col_idx);
+  if (rc != SQLITE_OK) goto train_error;
 
   // Write centroids (quantized if quantizer is set)
   int qvecSize = ivf_vec_size(p, col_idx);
@@ -877,7 +934,8 @@ static int ivf_cmd_compute_centroids(vec0_vtab *p, int col_idx, int nlist_overri
     sqlite3_reset(stmt);
     sqlite3_bind_int(stmt, 1, i);
     sqlite3_bind_blob(stmt, 2, qbuf, qvecSize, SQLITE_TRANSIENT);
-    if (sqlite3_step(stmt) != SQLITE_DONE) { sqlite3_finalize(stmt); sqlite3_free(qbuf); rc = SQLITE_ERROR; goto train_error; }
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE) { sqlite3_finalize(stmt); sqlite3_free(qbuf); goto train_error; }
   }
   sqlite3_finalize(stmt);
 
@@ -913,7 +971,7 @@ static int ivf_cmd_compute_centroids(vec0_vtab *p, int col_idx, int nlist_overri
     }
 
     // Process one centroid at a time
-    for (int c = 0; c < nlist; c++) {
+    for (int c = 0; c < nlist && rc == SQLITE_OK; c++) {
       int slot = 0;
       memset(val, 0, cap / 8);
       memset(rids, 0, cap * sizeof(i64));
@@ -923,23 +981,9 @@ static int ivf_cmd_compute_centroids(vec0_vtab *p, int col_idx, int nlist_overri
 
         if (slot >= cap) {
           // Flush current cell
-          sqlite3_reset(stmtCell);
-          sqlite3_bind_int(stmtCell, 1, c);
-          sqlite3_bind_int(stmtCell, 2, slot);
-          sqlite3_bind_blob(stmtCell, 3, val, cap / 8, SQLITE_TRANSIENT);
-          sqlite3_bind_blob(stmtCell, 4, rids, cap * (int)sizeof(i64), SQLITE_TRANSIENT);
-          sqlite3_bind_blob(stmtCell, 5, vecs, cap * qvecSize, SQLITE_TRANSIENT);
-          sqlite3_step(stmtCell);
-          i64 flushed_cell_id = sqlite3_last_insert_rowid(p->db);
-
-          for (int s = 0; s < slot; s++) {
-            sqlite3_reset(stmtMap);
-            sqlite3_bind_int64(stmtMap, 1, rids[s]);
-            sqlite3_bind_int64(stmtMap, 2, flushed_cell_id);
-            sqlite3_bind_int(stmtMap, 3, s);
-            sqlite3_step(stmtMap);
-          }
-
+          rc = ivf_train_write_cell(p, stmtCell, stmtMap, c, slot, val, rids,
+                                    vecs, cap, qvecSize);
+          if (rc != SQLITE_OK) break;
           slot = 0;
           memset(val, 0, cap / 8);
           memset(rids, 0, cap * sizeof(i64));
@@ -953,35 +997,23 @@ static int ivf_cmd_compute_centroids(vec0_vtab *p, int col_idx, int nlist_overri
       }
 
       // Flush remaining
-      if (slot > 0) {
-        sqlite3_reset(stmtCell);
-        sqlite3_bind_int(stmtCell, 1, c);
-        sqlite3_bind_int(stmtCell, 2, slot);
-        sqlite3_bind_blob(stmtCell, 3, val, cap / 8, SQLITE_TRANSIENT);
-        sqlite3_bind_blob(stmtCell, 4, rids, cap * (int)sizeof(i64), SQLITE_TRANSIENT);
-        sqlite3_bind_blob(stmtCell, 5, vecs, cap * qvecSize, SQLITE_TRANSIENT);
-        sqlite3_step(stmtCell);
-        i64 flushed_cell_id = sqlite3_last_insert_rowid(p->db);
-
-        for (int s = 0; s < slot; s++) {
-          sqlite3_reset(stmtMap);
-          sqlite3_bind_int64(stmtMap, 1, rids[s]);
-          sqlite3_bind_int64(stmtMap, 2, flushed_cell_id);
-          sqlite3_bind_int(stmtMap, 3, s);
-          sqlite3_step(stmtMap);
-        }
+      if (slot > 0 && rc == SQLITE_OK) {
+        rc = ivf_train_write_cell(p, stmtCell, stmtMap, c, slot, val, rids,
+                                  vecs, cap, qvecSize);
       }
     }
 
     sqlite3_free(val); sqlite3_free(rids); sqlite3_free(vecs);
     sqlite3_finalize(stmtCell); sqlite3_finalize(stmtMap);
+    if (rc != SQLITE_OK) { sqlite3_free(qbuf); goto train_error; }
   }
 
   sqlite3_free(qbuf);
 
   // Store full-precision vectors in _ivf_vectors when quantized
   if (quantizer != VEC0_IVF_QUANTIZER_NONE) {
-    ivf_exec(p, "DELETE FROM " VEC0_SHADOW_IVF_VECTORS_NAME, col_idx);
+    rc = ivf_exec(p, "DELETE FROM " VEC0_SHADOW_IVF_VECTORS_NAME, col_idx);
+    if (rc != SQLITE_OK) goto train_error;
     zSql = sqlite3_mprintf(
         "INSERT INTO " VEC0_SHADOW_IVF_VECTORS_NAME " (rowid, vector) VALUES (?, ?)",
         p->schemaName, p->tableName, col_idx);
@@ -992,28 +1024,23 @@ static int ivf_cmd_compute_centroids(vec0_vtab *p, int col_idx, int nlist_overri
       sqlite3_reset(stmt);
       sqlite3_bind_int64(stmt, 1, rowids[i]);
       sqlite3_bind_blob(stmt, 2, &vectors[i * D], vecSize, SQLITE_STATIC);
-      sqlite3_step(stmt);
+      rc = sqlite3_step(stmt);
+      if (rc != SQLITE_DONE) break;
     }
     sqlite3_finalize(stmt);
+    if (rc != SQLITE_DONE) goto train_error;
   }
 
   // Set trained = 1
-  {
-    zSql = sqlite3_mprintf(
-        "INSERT OR REPLACE INTO " VEC0_SHADOW_INFO_NAME " (key, value) VALUES ('ivf_trained_%d', '1')",
-        p->schemaName, p->tableName, col_idx);
-    if (zSql) { sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
-      sqlite3_step(stmt); sqlite3_finalize(stmt); }
-  }
-  p->ivfTrainedCache[col_idx] = 1;
+  rc = ivf_exec(p,
+      "INSERT OR REPLACE INTO " VEC0_SHADOW_INFO_NAME " (key, value) VALUES ('ivf_trained_%d', '1')",
+      col_idx);
+  if (rc != SQLITE_OK) goto train_error;
 
-  sqlite3_exec(p->db, "RELEASE ivf_train", NULL, NULL, NULL);
   sqlite3_free(vectors); sqlite3_free(rowids); sqlite3_free(centroids); sqlite3_free(assignments);
   return SQLITE_OK;
 
 train_error:
-  sqlite3_exec(p->db, "ROLLBACK TO ivf_train", NULL, NULL, NULL);
-  sqlite3_exec(p->db, "RELEASE ivf_train", NULL, NULL, NULL);
   sqlite3_free(vectors); sqlite3_free(rowids); sqlite3_free(centroids); sqlite3_free(assignments);
   return rc;
 }
@@ -1034,24 +1061,23 @@ static int ivf_cmd_set_centroid(vec0_vtab *p, int col_idx, int centroid_id,
   sqlite3_bind_int(stmt, 1, centroid_id);
   sqlite3_bind_blob(stmt, 2, vectorData, vectorSize, SQLITE_STATIC);
   rc = sqlite3_step(stmt); sqlite3_finalize(stmt);
-  if (rc != SQLITE_DONE) return SQLITE_ERROR;
+  if (rc != SQLITE_DONE) return rc;
 
-  zSql = sqlite3_mprintf(
+  rc = ivf_exec(p,
       "INSERT OR REPLACE INTO " VEC0_SHADOW_INFO_NAME " (key, value) VALUES ('ivf_trained_%d', '1')",
-      p->schemaName, p->tableName, col_idx);
-  if (zSql) { sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
-    sqlite3_step(stmt); sqlite3_finalize(stmt); }
-  p->ivfTrainedCache[col_idx] = 1;
+      col_idx);
   sqlite3_finalize(p->stmtIvfCentroidsAll[col_idx]); p->stmtIvfCentroidsAll[col_idx] = NULL;
-  return SQLITE_OK;
+  return rc;
 }
 
 static int ivf_cmd_assign_vectors(vec0_vtab *p, int col_idx) {
-  if (!ivf_is_trained(p, col_idx)) { vtab_set_error(&p->base, "No centroids"); return SQLITE_ERROR; }
+  int trained;
+  int rc = ivf_is_trained(p, col_idx, &trained);
+  if (rc != SQLITE_OK) return rc;
+  if (!trained) { vtab_set_error(&p->base, "No centroids"); return SQLITE_ERROR; }
 
   int D = (int)p->vector_columns[col_idx].dimensions;
   int vecSize = D * (int)sizeof(float);
-  int rc;
   sqlite3_stmt *stmt = NULL;
   char *zSql;
 
@@ -1060,35 +1086,44 @@ static int ivf_cmd_assign_vectors(vec0_vtab *p, int col_idx) {
   float *centroids = NULL;
   zSql = sqlite3_mprintf("SELECT count(*) FROM " VEC0_SHADOW_IVF_CENTROIDS_NAME,
       p->schemaName, p->tableName, col_idx);
+  if (!zSql) return SQLITE_NOMEM;
   rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
-  if (rc == SQLITE_OK && sqlite3_step(stmt) == SQLITE_ROW) nlist = sqlite3_column_int(stmt, 0);
+  if (rc != SQLITE_OK) return rc;
+  rc = sqlite3_step(stmt);
+  if (rc == SQLITE_ROW) nlist = sqlite3_column_int(stmt, 0);
   sqlite3_finalize(stmt);
+  if (rc != SQLITE_ROW) return rc;
   if (nlist == 0) { vtab_set_error(&p->base, "No centroids"); return SQLITE_ERROR; }
 
   centroids = sqlite3_malloc64((i64)nlist * D * sizeof(float));
   if (!centroids) return SQLITE_NOMEM;
   zSql = sqlite3_mprintf("SELECT centroid_id, centroid FROM " VEC0_SHADOW_IVF_CENTROIDS_NAME " ORDER BY centroid_id",
       p->schemaName, p->tableName, col_idx);
+  if (!zSql) { sqlite3_free(centroids); return SQLITE_NOMEM; }
   rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
-  { int ci = 0; while (sqlite3_step(stmt) == SQLITE_ROW && ci < nlist) {
+  if (rc != SQLITE_OK) { sqlite3_free(centroids); return rc; }
+  { int ci = 0; while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && ci < nlist) {
       const void *b = sqlite3_column_blob(stmt, 1);
       int bBytes = sqlite3_column_bytes(stmt, 1);
       if (b && bBytes == vecSize) memcpy(&centroids[ci * D], b, vecSize);
       ci++;
   }}
   sqlite3_finalize(stmt);
+  if (rc != SQLITE_ROW && rc != SQLITE_DONE) { sqlite3_free(centroids); return rc; }
 
   // Read unassigned cells, re-insert into trained cells
   zSql = sqlite3_mprintf(
       "SELECT rowid, n_vectors, validity, rowids, vectors FROM " VEC0_SHADOW_IVF_CELLS_NAME
       " WHERE centroid_id = %d",
       p->schemaName, p->tableName, col_idx, VEC0_IVF_UNASSIGNED_CENTROID_ID);
+  if (!zSql) { sqlite3_free(centroids); return SQLITE_NOMEM; }
   rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
+  if (rc != SQLITE_OK) { sqlite3_free(centroids); return rc; }
 
   // Invalidate cached stmts since we'll be modifying cells
   ivf_invalidate_cached(p, col_idx);
 
-  while (sqlite3_step(stmt) == SQLITE_ROW) {
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
     int n = sqlite3_column_int(stmt, 1);
     const unsigned char *val = (const unsigned char *)sqlite3_column_blob(stmt, 2);
     const i64 *rids = (const i64 *)sqlite3_column_blob(stmt, 3);
@@ -1101,7 +1136,7 @@ static int ivf_cmd_assign_vectors(vec0_vtab *p, int col_idx) {
     if (ridsBytes / (int)sizeof(i64) < cap) cap = ridsBytes / (int)sizeof(i64);
     if (vecsBytes / vecSize < cap) cap = vecsBytes / vecSize;
 
-    for (int i = 0; i < cap && n > 0; i++) {
+    for (int i = 0; i < cap && n > 0 && rc == SQLITE_ROW; i++) {
       if (!(val[i / 8] & (1 << (i % 8)))) continue;
       n--;
       int cid = ivf_find_nearest_centroid(p, col_idx, &vecs[i * D], centroids, D, nlist);
@@ -1110,23 +1145,37 @@ static int ivf_cmd_assign_vectors(vec0_vtab *p, int col_idx) {
       sqlite3_stmt *sd = NULL;
       char *zd = sqlite3_mprintf("DELETE FROM " VEC0_SHADOW_IVF_ROWID_MAP_NAME " WHERE rowid = ?",
           p->schemaName, p->tableName, col_idx);
-      if (zd) { sqlite3_prepare_v2(p->db, zd, -1, &sd, NULL); sqlite3_free(zd);
-        sqlite3_bind_int64(sd, 1, rids[i]); sqlite3_step(sd); sqlite3_finalize(sd); }
+      if (!zd) { rc = SQLITE_NOMEM; break; }
+      int drc = sqlite3_prepare_v2(p->db, zd, -1, &sd, NULL); sqlite3_free(zd);
+      if (drc == SQLITE_OK) {
+        sqlite3_bind_int64(sd, 1, rids[i]);
+        drc = sqlite3_step(sd);
+        if (drc == SQLITE_DONE) drc = SQLITE_OK;
+      }
+      sqlite3_finalize(sd);
 
-      ivf_cell_insert(p, col_idx, cid, rids[i], &vecs[i * D], vecSize);
+      if (drc == SQLITE_OK) drc = ivf_cell_insert(p, col_idx, cid, rids[i], &vecs[i * D], vecSize);
+      if (drc != SQLITE_OK) rc = drc;
     }
+    if (rc != SQLITE_ROW) break;
   }
   sqlite3_finalize(stmt);
+  if (rc != SQLITE_DONE) { sqlite3_free(centroids); return rc; }
 
   // Delete unassigned cells
   zSql = sqlite3_mprintf(
       "DELETE FROM " VEC0_SHADOW_IVF_CELLS_NAME " WHERE centroid_id = %d",
       p->schemaName, p->tableName, col_idx, VEC0_IVF_UNASSIGNED_CENTROID_ID);
-  if (zSql) { sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
-    sqlite3_step(stmt); sqlite3_finalize(stmt); }
+  if (!zSql) { sqlite3_free(centroids); return SQLITE_NOMEM; }
+  rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
+  if (rc == SQLITE_OK) {
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_DONE) rc = SQLITE_OK;
+  }
+  sqlite3_finalize(stmt);
 
   sqlite3_free(centroids);
-  return SQLITE_OK;
+  return rc;
 }
 
 static int ivf_cmd_clear_centroids(vec0_vtab *p, int col_idx) {
@@ -1134,33 +1183,30 @@ static int ivf_cmd_clear_centroids(vec0_vtab *p, int col_idx) {
   int vecSize = ivf_vec_size(p, col_idx);
   int D = (int)p->vector_columns[col_idx].dimensions;
   int rc;
-  sqlite3_stmt *stmt = NULL;
-  char *zSql;
 
   rc = ivf_load_all_vectors(p, col_idx, &vectors, &rowids, &N);
   if (rc != SQLITE_OK) return rc;
 
   ivf_invalidate_cached(p, col_idx);
 
-  ivf_exec(p, "DELETE FROM " VEC0_SHADOW_IVF_CENTROIDS_NAME, col_idx);
-  ivf_exec(p, "DELETE FROM " VEC0_SHADOW_IVF_CELLS_NAME, col_idx);
-  ivf_exec(p, "DELETE FROM " VEC0_SHADOW_IVF_ROWID_MAP_NAME, col_idx);
+  rc = ivf_exec(p, "DELETE FROM " VEC0_SHADOW_IVF_CENTROIDS_NAME, col_idx);
+  if (rc == SQLITE_OK) rc = ivf_exec(p, "DELETE FROM " VEC0_SHADOW_IVF_CELLS_NAME, col_idx);
+  if (rc == SQLITE_OK) rc = ivf_exec(p, "DELETE FROM " VEC0_SHADOW_IVF_ROWID_MAP_NAME, col_idx);
 
   // Re-insert all vectors into unassigned cells
-  for (int i = 0; i < N; i++) {
-    ivf_cell_insert(p, col_idx, VEC0_IVF_UNASSIGNED_CENTROID_ID,
-                     rowids[i], &vectors[i * D], vecSize);
+  for (int i = 0; i < N && rc == SQLITE_OK; i++) {
+    rc = ivf_cell_insert(p, col_idx, VEC0_IVF_UNASSIGNED_CENTROID_ID,
+                         rowids[i], &vectors[i * D], vecSize);
   }
 
-  zSql = sqlite3_mprintf(
-      "INSERT OR REPLACE INTO " VEC0_SHADOW_INFO_NAME " (key, value) VALUES ('ivf_trained_%d', '0')",
-      p->schemaName, p->tableName, col_idx);
-  if (zSql) { sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
-    sqlite3_step(stmt); sqlite3_finalize(stmt); }
-  p->ivfTrainedCache[col_idx] = 0;
+  if (rc == SQLITE_OK) {
+    rc = ivf_exec(p,
+        "INSERT OR REPLACE INTO " VEC0_SHADOW_INFO_NAME " (key, value) VALUES ('ivf_trained_%d', '0')",
+        col_idx);
+  }
 
   sqlite3_free(vectors); sqlite3_free(rowids);
-  return SQLITE_OK;
+  return rc;
 }
 
 // ============================================================================
@@ -1228,7 +1274,9 @@ static int ivf_query_knn(vec0_vtab *p, int col_idx,
   UNUSED_PARAMETER(queryVectorSize);
   int rc;
   int nprobe = p->vector_columns[col_idx].ivf.nprobe;
-  int trained = ivf_is_trained(p, col_idx);
+  int trained;
+  rc = ivf_is_trained(p, col_idx, &trained);
+  if (rc != SQLITE_OK) return rc;
   int quantizer = p->vector_columns[col_idx].ivf.quantizer;
   int oversample = p->vector_columns[col_idx].ivf.oversample;
   int qvecSize = ivf_vec_size(p, col_idx);
