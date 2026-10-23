@@ -670,12 +670,53 @@ static int ivf_delete(vec0_vtab *p, int col_idx, i64 rowid) {
 // Point query
 // ============================================================================
 
+/**
+ * Read a quantized column's full-precision vector from _ivf_vectors.
+ */
+static int ivf_full_vector_read(vec0_vtab *p, i64 rowid, int col_idx,
+                                 void **outVector, int *outVectorSize) {
+  int vecSize = ivf_full_vec_size(p, col_idx);
+  int rc = ivf_ensure_stmt(p, &p->stmtIvfVectorsRead[col_idx],
+      "SELECT vector FROM " VEC0_SHADOW_IVF_VECTORS_NAME " WHERE rowid = ?",
+      col_idx);
+  if (rc != SQLITE_OK) return rc;
+  sqlite3_stmt *s = p->stmtIvfVectorsRead[col_idx];
+  sqlite3_reset(s);
+  sqlite3_bind_int64(s, 1, rowid);
+  rc = sqlite3_step(s);
+  if (rc == SQLITE_ROW) {
+    void *buf = NULL;
+    if (sqlite3_column_bytes(s, 0) != vecSize) {
+      rc = SQLITE_CORRUPT;
+    } else if (!(buf = sqlite3_malloc(vecSize))) {
+      rc = SQLITE_NOMEM;
+    } else {
+      memcpy(buf, sqlite3_column_blob(s, 0), vecSize);
+      *outVector = buf;
+      if (outVectorSize) *outVectorSize = vecSize;
+      rc = SQLITE_OK;
+    }
+  } else if (rc == SQLITE_DONE) {
+    rc = SQLITE_EMPTY;
+  }
+  // A cached statement left on a row stays in progress until the next commit,
+  // and a connection with a statement in progress refuses VACUUM.
+  sqlite3_reset(s);
+  return rc;
+}
+
 static int ivf_get_vector_data(vec0_vtab *p, i64 rowid, int col_idx,
                                 void **outVector, int *outVectorSize) {
   int rc;
   int vecSize = ivf_vec_size(p, col_idx);
   i64 cell_id = 0;
   int slot = -1;
+
+  // A quantized column's cells hold its quantized vectors, which are not the
+  // vectors it was given.
+  if (p->vector_columns[col_idx].ivf.quantizer != VEC0_IVF_QUANTIZER_NONE) {
+    return ivf_full_vector_read(p, rowid, col_idx, outVector, outVectorSize);
+  }
 
   rc = ivf_ensure_stmt(p, &p->stmtIvfRowidMapLookup[col_idx],
       "SELECT cell_id, slot FROM " VEC0_SHADOW_IVF_ROWID_MAP_NAME
