@@ -10633,6 +10633,8 @@ SQLITE_VEC_API int sqlite3_vec_init(sqlite3 *db, char **pzErrMsg,
                                     const sqlite3_api_routines *pApi) {
 #ifndef SQLITE_CORE
   SQLITE_EXTENSION_INIT2(pApi);
+#else
+  UNUSED_PARAMETER(pApi);
 #endif
   int rc = SQLITE_OK;
 
