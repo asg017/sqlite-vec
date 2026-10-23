@@ -393,12 +393,11 @@ static int rescore_knn(vec0_vtab *p, vec0_cursor *pCur,
   f32 *chunk_distances = sqlite3_malloc(p->chunk_size * sizeof(f32));
   i32 *chunk_topk_idxs = sqlite3_malloc(k_oversample * sizeof(i32));
   u8 *b = sqlite3_malloc(p->chunk_size / CHAR_BIT);
-  u8 *bTaken = sqlite3_malloc(p->chunk_size / CHAR_BIT);
   u8 *bmRowids = NULL;
   void *baseVectors = sqlite3_malloc((i64)p->chunk_size * (i64)qsize);
 
   if (!cand_rowids || !cand_distances || !tmp_rowids || !tmp_distances ||
-      !chunk_distances || !chunk_topk_idxs || !b || !bTaken || !baseVectors) {
+      !chunk_distances || !chunk_topk_idxs || !b || !baseVectors) {
     rc = SQLITE_NOMEM;
     goto cleanup;
   }
@@ -503,7 +502,7 @@ static int rescore_knn(vec0_vtab *p, vec0_cursor *pCur,
 
     int used1;
     min_idx(chunk_distances, p->chunk_size, b, chunk_topk_idxs,
-            min(k_oversample, p->chunk_size), bTaken, &used1);
+            min(k_oversample, p->chunk_size), &used1);
 
     i64 merged_used;
     merge_sorted_lists(cand_distances, cand_rowids, cand_used, chunk_distances,
@@ -636,7 +635,6 @@ cleanup:
   sqlite3_free(chunk_distances);
   sqlite3_free(chunk_topk_idxs);
   sqlite3_free(b);
-  sqlite3_free(bTaken);
   sqlite3_free(bmRowids);
   sqlite3_free(baseVectors);
   return rc;

@@ -15,7 +15,6 @@ int min_idx(
   uint8_t *candidates,
   int32_t *out,
   int32_t k,
-  uint8_t *bTaken,
   int32_t *k_used
 );
 

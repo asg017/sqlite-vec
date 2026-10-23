@@ -10,7 +10,6 @@ fn _min_idx(distances: Vec<f32>, k: i32) -> Vec<i32> {
     let mut out: Vec<i32> = vec![0; k as usize];
     let bitmap_bytes = n / 8;
     let mut candidates: Vec<u8> = vec![0xFF; bitmap_bytes];
-    let mut b_taken: Vec<u8> = vec![0; bitmap_bytes];
     let mut k_used: i32 = 0;
 
     unsafe {
@@ -20,7 +19,6 @@ fn _min_idx(distances: Vec<f32>, k: i32) -> Vec<i32> {
             candidates.as_mut_ptr(),
             out.as_mut_ptr(),
             k,
-            b_taken.as_mut_ptr(),
             &mut k_used,
         );
     }
@@ -68,7 +66,6 @@ extern "C" {
         candidates: *mut u8,
         out: *mut i32,
         k: i32,
-        b_taken: *mut u8,
         k_used: *mut i32,
     ) -> i32;
 

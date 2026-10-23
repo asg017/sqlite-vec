@@ -6432,7 +6432,8 @@ void merge_sorted_lists(f32 *a, i64 *a_rowids, i64 a_length, f32 *b,
       out_rowids[i] = a_rowids[ptrA];
       ptrA++;
     } else {
-      if (a[ptrA] <= b[b_top_idxs[ptrB]]) {
+      // A NaN ranks after every number, as in min_idx()
+      if (a[ptrA] <= b[b_top_idxs[ptrB]] || isnan(b[b_top_idxs[ptrB]])) {
         out[i] = a[ptrA];
         out_rowids[i] = a_rowids[ptrA];
         ptrA++;
@@ -6499,32 +6500,49 @@ void bitmap_fill(u8 *bitmap, i32 n) {
 }
 
 /**
- * @brief Finds the minimum k items in distances, and writes the indicies to
- * out.
+ * @brief Whether the candidate at index a ranks after the one at index b in
+ * min_idx()'s order: by distance, a NaN distance after every number, and
+ * between equal distances the smaller index after the larger.
+ */
+static int min_idx_after(const f32 *distances, i32 a, i32 b) {
+  int a_nan = isnan(distances[a]), b_nan = isnan(distances[b]);
+  if (a_nan != b_nan) {
+    return a_nan;
+  }
+  if (!a_nan && distances[a] != distances[b]) {
+    return distances[a] > distances[b];
+  }
+  return a < b;
+}
+
+/**
+ * @brief Finds the k candidates with the smallest distances, and writes their
+ * indices to out, nearest first. Equal distances keep the larger index first,
+ * and a NaN distance ranks after every number.
  *
  * @param distances input f32 array of size n, the items to consider.
  * @param n: size of distances array.
+ * @param candidates: bitmap of size n, the indices that may be chosen.
  * @param out: Output array of size k, will contain at most k element indicies
  * @param k: Size of output array
+ * @param k_used: set to the number of indices written to out
  * @return int
  */
 int min_idx(const f32 *distances, i32 n, u8 *candidates, i32 *out, i32 k,
-            u8 *bTaken, i32 *k_used) {
+            i32 *k_used) {
   assert(k > 0);
   assert(k <= n);
 
-#ifdef SQLITE_VEC_EXPERIMENTAL_MIN_IDX
-  // Max-heap variant: O(n log k) single-pass.
-  // out[0..heap_size-1] stores indices; heap ordered by distances descending
-  // so out[0] is always the index of the LARGEST distance in the top-k.
-  (void)bTaken;
+  // Max-heap: O(n log k) in a single pass.
+  // out[0..heap_size-1] stores indices; heap ordered by min_idx_after()
+  // so out[0] is always the index that ranks LAST in the top-k.
   int heap_size = 0;
 
   #define HEAP_SIFT_UP(pos) do {                          \
     int _c = (pos);                                       \
     while (_c > 0) {                                      \
       int _p = (_c - 1) / 2;                              \
-      if (distances[out[_p]] < distances[out[_c]]) {      \
+      if (min_idx_after(distances, out[_c], out[_p])) {   \
         i32 _tmp = out[_p]; out[_p] = out[_c]; out[_c] = _tmp; \
         _c = _p;                                          \
       } else break;                                       \
@@ -6535,9 +6553,9 @@ int min_idx(const f32 *distances, i32 n, u8 *candidates, i32 *out, i32 k,
     int _p = (pos);                                       \
     for (;;) {                                            \
       int _l = 2*_p + 1, _r = 2*_p + 2, _largest = _p;  \
-      if (_l < (sz) && distances[out[_l]] > distances[out[_largest]]) \
+      if (_l < (sz) && min_idx_after(distances, out[_l], out[_largest])) \
         _largest = _l;                                    \
-      if (_r < (sz) && distances[out[_r]] > distances[out[_largest]]) \
+      if (_r < (sz) && min_idx_after(distances, out[_r], out[_largest])) \
         _largest = _r;                                    \
       if (_largest == _p) break;                          \
       i32 _tmp = out[_p]; out[_p] = out[_largest]; out[_largest] = _tmp; \
@@ -6552,7 +6570,7 @@ int min_idx(const f32 *distances, i32 n, u8 *candidates, i32 *out, i32 k,
       out[heap_size] = i;
       heap_size++;
       HEAP_SIFT_UP(heap_size - 1);
-    } else if (distances[i] < distances[out[0]]) {
+    } else if (min_idx_after(distances, out[0], i)) {
       out[0] = i;
       HEAP_SIFT_DOWN(0, heap_size);
     }
@@ -6569,35 +6587,6 @@ int min_idx(const f32 *distances, i32 n, u8 *candidates, i32 *out, i32 k,
 
   *k_used = heap_size;
   return SQLITE_OK;
-
-#else
-  // Original: O(n*k) repeated linear scan with bitmap.
-  bitmap_clear(bTaken, n);
-
-  for (int ik = 0; ik < k; ik++) {
-    int min_idx = 0;
-    while (min_idx < n &&
-           (bitmap_get(bTaken, min_idx) || !bitmap_get(candidates, min_idx))) {
-      min_idx++;
-    }
-    if (min_idx >= n) {
-      *k_used = ik;
-      return SQLITE_OK;
-    }
-
-    for (int i = 0; i < n; i++) {
-      if (distances[i] <= distances[min_idx] && !bitmap_get(bTaken, i) &&
-          (bitmap_get(candidates, i))) {
-        min_idx = i;
-      }
-    }
-
-    out[ik] = min_idx;
-    bitmap_set(bTaken, min_idx, 1);
-  }
-  *k_used = k;
-  return SQLITE_OK;
-#endif
 }
 
 int vec0_get_metadata_text_long_value(
@@ -7260,7 +7249,6 @@ int vec0Filter_knn_chunks_iter(vec0_vtab *p, sqlite3_stmt *stmtChunks,
   f32 *tmp_topk_distances = NULL; // memory: k * 4
   f32 *chunk_distances = NULL;    // memory: chunk_size * 4
   u8 *b = NULL;                   // memory: chunk_size / 8
-  u8 *bTaken = NULL;              // memory: chunk_size / 8
   i32 *chunk_topk_idxs = NULL;    // memory: k * 4
   u8 *bmRowids = NULL;            // memory: chunk_size / 8
   u8 *bmMetadata = NULL;            // memory: chunk_size / 8
@@ -7312,12 +7300,6 @@ int vec0Filter_knn_chunks_iter(vec0_vtab *p, sqlite3_stmt *stmtChunks,
 
   b = bitmap_new(p->chunk_size);
   if (!b) {
-    rc = SQLITE_NOMEM;
-    goto cleanup;
-  }
-
-  bTaken = bitmap_new(p->chunk_size);
-  if (!bTaken) {
     rc = SQLITE_NOMEM;
     goto cleanup;
   }
@@ -7593,7 +7575,7 @@ int vec0Filter_knn_chunks_iter(vec0_vtab *p, sqlite3_stmt *stmtChunks,
 
     int used1;
     min_idx(chunk_distances, p->chunk_size, b, chunk_topk_idxs,
-            min(k, p->chunk_size), bTaken, &used1);
+            min(k, p->chunk_size), &used1);
 
     i64 used;
     merge_sorted_lists(topk_distances, topk_rowids, k_used, chunk_distances,
@@ -7626,7 +7608,6 @@ cleanup:
   sqlite3_free(tmp_topk_rowids);
   sqlite3_free(tmp_topk_distances);
   sqlite3_free(b);
-  sqlite3_free(bTaken);
   sqlite3_free(bmRowids);
   sqlite3_free(baseVectors);
   sqlite3_free(chunk_distances);
