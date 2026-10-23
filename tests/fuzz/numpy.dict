@@ -1,7 +1,0 @@
-magic="\x93NUMPY"
-lparen="("
-rparen=")"
-lbrace="{"
-rbrace="}"
-sq1="\""
-sq2="'"

@@ -44,9 +44,6 @@ $(TARGET_DIR)/exec: exec.c $(FUZZ_SRCS) | $(TARGET_DIR)
 $(TARGET_DIR)/json: json.c $(FUZZ_SRCS) | $(TARGET_DIR)
 	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
 
-$(TARGET_DIR)/numpy: numpy.c $(FUZZ_SRCS) | $(TARGET_DIR)
-	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
-
 # New targets
 $(TARGET_DIR)/shadow_corrupt: shadow-corrupt.c $(FUZZ_SRCS) | $(TARGET_DIR)
 	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
@@ -115,6 +112,8 @@ $(TARGET_DIR)/ivf_cell_overflow: ivf-cell-overflow.c $(FUZZ_SRCS) | $(TARGET_DIR
 	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
 
 $(TARGET_DIR)/ivf_rescore: ivf-rescore.c $(FUZZ_SRCS) | $(TARGET_DIR)
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
+
 $(TARGET_DIR)/diskann_operations: diskann-operations.c $(FUZZ_SRCS) | $(TARGET_DIR)
 	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
 
@@ -145,7 +144,7 @@ $(TARGET_DIR)/diskann_prune_direct: diskann-prune-direct.c $(FUZZ_SRCS) | $(TARG
 $(TARGET_DIR)/diskann_command_inject: diskann-command-inject.c $(FUZZ_SRCS) | $(TARGET_DIR)
 	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SRCS) $< -o $@
 
-FUZZ_TARGETS = vec0_create exec json numpy \
+FUZZ_TARGETS = vec0_create exec json \
                shadow_corrupt vec0_operations scalar_functions \
                vec0_create_full metadata_columns vec_each vec_mismatch \
                vec0_delete_completeness \
@@ -154,7 +153,7 @@ FUZZ_TARGETS = vec0_create exec json numpy \
                rescore_quantize_edge rescore_interleave \
                ivf_create ivf_operations \
                ivf_quantize ivf_kmeans ivf_shadow_corrupt \
-               ivf_knn_deep ivf_cell_overflow ivf_rescore
+               ivf_knn_deep ivf_cell_overflow ivf_rescore \
                diskann_operations diskann_create diskann_graph_corrupt \
                diskann_deep_search diskann_blob_truncate \
                diskann_delete_stress diskann_buffer_flush \

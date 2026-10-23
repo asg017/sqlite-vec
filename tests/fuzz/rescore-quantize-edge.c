@@ -23,9 +23,11 @@ extern size_t _test_rescore_quantized_byte_size_int8(size_t dimensions);
  * - Tests rescore_quantized_byte_size with arbitrary dimension values
  *   (including 0, 1, 7, MAX values -- looking for integer division issues)
  * - Passes raw float reinterpretation of fuzz bytes (NaN, Inf, denormals,
- *   negative zero -- these are the values that break min/max/range logic)
- * - Tests the int8 quantizer with all-identical values (range=0 branch)
- * - Tests the int8 quantizer with extreme ranges (overflow in scale calc)
+ *   negative zero: the values that must reach the int8 quantizer's clamps
+ *   before its conversion to int8)
+ * - Tests the int8 quantizer with all-identical values (each element is
+ *   quantized on its own, so all get the same code)
+ * - Tests the int8 quantizer with values far outside [-1, 1]
  * - Tests bit quantizer with exact float threshold (0.0f boundary)
  */
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -63,10 +65,13 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
       size_t dim = (num_floats / 8) * 8;
       if (dim == 0) return 0;
 
-      const float *src = (const float *)data;
+      /* The fuzz bytes start one byte past the mode byte, so they are copied
+         out to be read as floats at float alignment. */
+      float *src = (float *)malloc(dim * sizeof(float));
       size_t bit_bytes = dim / 8;
       uint8_t *dst = (uint8_t *)malloc(bit_bytes);
-      if (!dst) return 0;
+      if (!src || !dst) { free(src); free(dst); return 0; }
+      memcpy(src, data, dim * sizeof(float));
 
       _test_rescore_quantize_float_to_bit(src, dst, dim);
 
@@ -82,23 +87,25 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         /* NaN: comparison is false, so bit_set should be 0 */
       }
 
+      free(src);
       free(dst);
       break;
     }
 
     case 2: {
-      /* Int8 quantize with raw reinterpreted floats.
-         The dangerous paths:
-         - All values identical (range == 0) -> memset path
-         - vmin/vmax with NaN (NaN < anything is false, NaN > anything is false)
-         - Extreme range causing scale = 255/range to be Inf or 0
-         - denormals near the clamping boundaries */
+      /* Int8 quantize with raw reinterpreted floats. The quantizer maps
+         [-1, 1] onto [-128, 127] and clamps before converting to int8, so
+         NaN, Inf and values far outside [-1, 1] must each reach a clamp:
+         converting a float outside int8's range to int8 is undefined
+         behavior, which UBSan reports. */
       size_t num_floats = size / sizeof(float);
       if (num_floats == 0) return 0;
 
-      const float *src = (const float *)data;
+      /* Copied out to float alignment, as in mode 1 */
+      float *src = (float *)malloc(num_floats * sizeof(float));
       int8_t *dst = (int8_t *)malloc(num_floats);
-      if (!dst) return 0;
+      if (!src || !dst) { free(src); free(dst); return 0; }
+      memcpy(src, data, num_floats * sizeof(float));
 
       _test_rescore_quantize_float_to_int8(src, dst, num_floats);
 
@@ -108,12 +115,13 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert(dst[i] >= -128 && dst[i] <= 127);
       }
 
+      free(src);
       free(dst);
       break;
     }
 
     case 3: {
-      /* Int8 quantize stress: all-same values (range=0 branch) */
+      /* Int8 quantize stress: all-same values */
       size_t dim = (size < 64) ? size : 64;
       if (dim == 0) return 0;
 
@@ -128,9 +136,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
       _test_rescore_quantize_float_to_int8(src, dst, dim);
 
-      /* All outputs should be 0 when range == 0 */
-      for (size_t i = 0; i < dim; i++) {
-        assert(dst[i] == 0);
+      /* Each element is quantized on its own, so all get the same code */
+      for (size_t i = 1; i < dim; i++) {
+        assert(dst[i] == dst[0]);
       }
 
       free(src);
@@ -139,9 +147,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     }
 
     case 4: {
-      /* Int8 quantize with extreme range: one huge positive, one huge negative.
-         Tests scale = 255.0f / range overflow to Inf, then v * Inf = Inf,
-         then clamping to [-128, 127]. */
+      /* Int8 quantize with extreme values: one huge positive, one huge
+         negative, and the rest thousands, all far outside [-1, 1] and
+         clamped to [-128, 127]. */
       if (size < 2 * sizeof(float)) return 0;
 
       float extreme[2];
