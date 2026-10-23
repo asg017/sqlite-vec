@@ -326,6 +326,10 @@ def test_vec_distance_l1():
     # check overflow
     check([127] * 20, [-128] * 20, dtype=np.int8)
     check([-128, 127], [127, -128], dtype=np.int8)
+    # Exercise NEON's 16- and 64-element loops, including scalar leftovers.
+    for n in (15, 16, 17, 63, 64, 65, 80, 81):
+        check([127] * n, [-128] * n, dtype=np.int8)
+        check([-128] * n, [127] * n, dtype=np.int8)
     check(
         [1, 2, 3, 4, 5, 6, 7, 8, 1, 1, 2, 3, 4, 5, 6, 7, 8, 1],
         [1, 20, 38, 23, 29, 4, 10, 9, 3, 1, 20, 38, 23, 29, 4, 10, 9, 3],

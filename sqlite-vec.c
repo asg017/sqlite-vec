@@ -292,31 +292,32 @@ static i32 l1_int8_neon(const void *pVect1v, const void *pVect2v,
 
   const int8_t *pEnd1 = pVect1 + qty;
 
-  int32x4_t acc1 = vdupq_n_s32(0);
-  int32x4_t acc2 = vdupq_n_s32(0);
-  int32x4_t acc3 = vdupq_n_s32(0);
-  int32x4_t acc4 = vdupq_n_s32(0);
+  uint32x4_t acc1 = vdupq_n_u32(0);
+  uint32x4_t acc2 = vdupq_n_u32(0);
+  uint32x4_t acc3 = vdupq_n_u32(0);
+  uint32x4_t acc4 = vdupq_n_u32(0);
 
   while (pVect1 < pEnd1 - 63) {
     int8x16_t v1 = vld1q_s8(pVect1);
     int8x16_t v2 = vld1q_s8(pVect2);
-    int8x16_t diff1 = vabdq_s8(v1, v2);
-    acc1 = vaddq_s32(acc1, vpaddlq_u16(vpaddlq_u8(diff1)));
+    // Absolute differences can reach 255, so widen them as unsigned bytes.
+    uint8x16_t diff1 = vreinterpretq_u8_s8(vabdq_s8(v1, v2));
+    acc1 = vaddq_u32(acc1, vpaddlq_u16(vpaddlq_u8(diff1)));
 
     v1 = vld1q_s8(pVect1 + 16);
     v2 = vld1q_s8(pVect2 + 16);
-    int8x16_t diff2 = vabdq_s8(v1, v2);
-    acc2 = vaddq_s32(acc2, vpaddlq_u16(vpaddlq_u8(diff2)));
+    uint8x16_t diff2 = vreinterpretq_u8_s8(vabdq_s8(v1, v2));
+    acc2 = vaddq_u32(acc2, vpaddlq_u16(vpaddlq_u8(diff2)));
 
     v1 = vld1q_s8(pVect1 + 32);
     v2 = vld1q_s8(pVect2 + 32);
-    int8x16_t diff3 = vabdq_s8(v1, v2);
-    acc3 = vaddq_s32(acc3, vpaddlq_u16(vpaddlq_u8(diff3)));
+    uint8x16_t diff3 = vreinterpretq_u8_s8(vabdq_s8(v1, v2));
+    acc3 = vaddq_u32(acc3, vpaddlq_u16(vpaddlq_u8(diff3)));
 
     v1 = vld1q_s8(pVect1 + 48);
     v2 = vld1q_s8(pVect2 + 48);
-    int8x16_t diff4 = vabdq_s8(v1, v2);
-    acc4 = vaddq_s32(acc4, vpaddlq_u16(vpaddlq_u8(diff4)));
+    uint8x16_t diff4 = vreinterpretq_u8_s8(vabdq_s8(v1, v2));
+    acc4 = vaddq_u32(acc4, vpaddlq_u16(vpaddlq_u8(diff4)));
 
     pVect1 += 64;
     pVect2 += 64;
@@ -325,13 +326,13 @@ static i32 l1_int8_neon(const void *pVect1v, const void *pVect2v,
   while (pVect1 < pEnd1 - 15) {
     int8x16_t v1 = vld1q_s8(pVect1);
     int8x16_t v2 = vld1q_s8(pVect2);
-    int8x16_t diff = vabdq_s8(v1, v2);
-    acc1 = vaddq_s32(acc1, vpaddlq_u16(vpaddlq_u8(diff)));
+    uint8x16_t diff = vreinterpretq_u8_s8(vabdq_s8(v1, v2));
+    acc1 = vaddq_u32(acc1, vpaddlq_u16(vpaddlq_u8(diff)));
     pVect1 += 16;
     pVect2 += 16;
   }
 
-  int32x4_t acc = vaddq_s32(vaddq_s32(acc1, acc2), vaddq_s32(acc3, acc4));
+  uint32x4_t acc = vaddq_u32(vaddq_u32(acc1, acc2), vaddq_u32(acc3, acc4));
 
   int32_t sum = 0;
   while (pVect1 < pEnd1) {
@@ -341,7 +342,7 @@ static i32 l1_int8_neon(const void *pVect1v, const void *pVect2v,
     pVect2++;
   }
 
-  return vaddvq_s32(acc) + sum;
+  return vaddvq_u32(acc) + sum;
 }
 
 static double l1_f32_neon(const void *pVect1v, const void *pVect2v,

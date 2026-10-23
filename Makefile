@@ -47,6 +47,14 @@ ifndef OMIT_SIMD
 	ifneq ($(filter avx,$(shell grep -o 'avx[^ ]*' /proc/cpuinfo 2>/dev/null | head -1)),)
 	CFLAGS += -mavx -mavx2 -DSQLITE_VEC_ENABLE_AVX
 	endif
+	# NEON is in the arm64 baseline (GCC and Clang define __ARM_NEON for
+	# aarch64 with no -m flag), so the build needs only the define. It follows
+	# the compiler's target, not uname: 32-bit Raspberry Pi OS runs a 64-bit
+	# kernel, so uname says aarch64 while gcc targets 32-bit ARM, which lacks
+	# the AArch64-only intrinsics the NEON kernels use.
+	ifneq ($(filter aarch64-%,$(shell $(CC) -dumpmachine)),)
+	CFLAGS += -DSQLITE_VEC_ENABLE_NEON
+	endif
 	endif
 	endif
 endif
