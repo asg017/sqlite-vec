@@ -609,6 +609,7 @@ static int ivf_delete(vec0_vtab *p, int col_idx, i64 rowid) {
     cell_id = sqlite3_column_int64(s, 0);
     slot = sqlite3_column_int(s, 1);
   }
+  sqlite3_reset(s);
   if (slot < 0) return SQLITE_OK;
 
   // Clear validity bit
@@ -687,6 +688,9 @@ static int ivf_get_vector_data(vec0_vtab *p, i64 rowid, int col_idx,
   if (sqlite3_step(s) != SQLITE_ROW) return SQLITE_EMPTY;
   cell_id = sqlite3_column_int64(s, 0);
   slot = sqlite3_column_int(s, 1);
+  // A cached statement left on a row stays in progress until the next commit,
+  // and a connection with a statement in progress refuses VACUUM.
+  sqlite3_reset(s);
 
   void *buf = sqlite3_malloc(vecSize);
   if (!buf) return SQLITE_NOMEM;

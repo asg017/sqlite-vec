@@ -12,6 +12,7 @@ A separate latent bug — the DiskANN finalize block in `vec0_free_resources`
 was nested inside `#if SQLITE_VEC_EXPERIMENTAL_IVF_ENABLE`, so even
 xDisconnect/xDestroy didn't finalize DiskANN stmts in the default build.
 """
+import pytest
 from helpers import _f32
 
 
@@ -31,4 +32,29 @@ def test_vacuum_after_flat_inserts(db):
     db.execute("create virtual table v using vec0(a float[2])")
     db.execute("insert into v(rowid, a) values (1, ?)", (_f32([0.1, 0.2]),))
     db.commit()
+    db.execute("VACUUM")
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        ("select rowid from v where a match ? and k = 3", (_f32([0.5] * 8),)),
+        ("select rowid, a from v where rowid = 3", ()),
+        ("select rowid, a from v", ()),
+    ],
+    ids=["knn", "point", "fullscan"],
+)
+def test_vacuum_after_diskann_read(db, read):
+    """A read leaves no cached DiskANN statement in progress, so VACUUM runs
+    without a commit in between."""
+    db.execute(
+        "create virtual table v using vec0("
+        "a float[8] indexed by diskann(neighbor_quantizer=binary))"
+    )
+    for i in range(1, 11):
+        db.execute("insert into v(rowid, a) values (?, ?)",
+                   (i, _f32([0.1 * i] * 8)))
+    db.commit()
+    sql, params = read
+    db.execute(sql, params).fetchall()
     db.execute("VACUUM")

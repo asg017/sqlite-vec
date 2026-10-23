@@ -379,7 +379,8 @@ static int diskann_node_read(vec0_vtab *p, int vec_col_idx, i64 rowid,
 
   rc = sqlite3_step(stmt);
   if (rc != SQLITE_ROW) {
-    return SQLITE_ERROR;
+    rc = SQLITE_ERROR;
+    goto done;
   }
 
   int vs = sqlite3_column_bytes(stmt, 0);
@@ -396,7 +397,8 @@ static int diskann_node_read(vec0_vtab *p, int vec_col_idx, i64 rowid,
     int expectedQs = (int)diskann_neighbor_qvecs_byte_size(
         cfg->n_neighbors, cfg->quantizer_type, col->dimensions);
     if (vs != expectedVs || is != expectedIs || qs != expectedQs) {
-      return SQLITE_CORRUPT;
+      rc = SQLITE_CORRUPT;
+      goto done;
     }
   }
 
@@ -407,7 +409,8 @@ static int diskann_node_read(vec0_vtab *p, int vec_col_idx, i64 rowid,
     sqlite3_free(v);
     sqlite3_free(ids);
     sqlite3_free(qv);
-    return SQLITE_NOMEM;
+    rc = SQLITE_NOMEM;
+    goto done;
   }
 
   const void *blobV = sqlite3_column_blob(stmt, 0);
@@ -417,7 +420,8 @@ static int diskann_node_read(vec0_vtab *p, int vec_col_idx, i64 rowid,
     sqlite3_free(v);
     sqlite3_free(ids);
     sqlite3_free(qv);
-    return SQLITE_ERROR;
+    rc = SQLITE_ERROR;
+    goto done;
   }
   memcpy(v, blobV, vs);
   memcpy(ids, blobIds, is);
@@ -426,7 +430,13 @@ static int diskann_node_read(vec0_vtab *p, int vec_col_idx, i64 rowid,
   *outValidity = v;       *outValiditySize = vs;
   *outNeighborIds = ids;  *outNeighborIdsSize = is;
   *outQvecs = qv;         *outQvecsSize = qs;
-  return SQLITE_OK;
+  rc = SQLITE_OK;
+
+done:
+  // A cached statement left on a row stays in progress until the next
+  // commit, and a connection with a statement in progress refuses VACUUM.
+  sqlite3_reset(stmt);
+  return rc;
 }
 
 /**
@@ -485,19 +495,31 @@ static int diskann_vector_read(vec0_vtab *p, int vec_col_idx, i64 rowid,
 
   rc = sqlite3_step(stmt);
   if (rc != SQLITE_ROW) {
-    return SQLITE_ERROR;
+    rc = SQLITE_ERROR;
+    goto done;
   }
 
   int sz = sqlite3_column_bytes(stmt, 0);
   const void *blob = sqlite3_column_blob(stmt, 0);
-  if (!blob || sz == 0) return SQLITE_ERROR;
+  if (!blob || sz == 0) {
+    rc = SQLITE_ERROR;
+    goto done;
+  }
   void *vec = sqlite3_malloc(sz);
-  if (!vec) return SQLITE_NOMEM;
+  if (!vec) {
+    rc = SQLITE_NOMEM;
+    goto done;
+  }
   memcpy(vec, blob, sz);
 
   *outVector = vec;
   *outVectorSize = sz;
-  return SQLITE_OK;
+  rc = SQLITE_OK;
+
+done:
+  // As in diskann_node_read(): no cached statement stays on a row.
+  sqlite3_reset(stmt);
+  return rc;
 }
 
 /**

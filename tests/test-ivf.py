@@ -424,3 +424,22 @@ def test_ivf_recall_nprobe_equals_nlist(db):
     assert 50 in rowids
     assert len(rowids) == 10
     assert all(45 <= r <= 55 for r in rowids)
+
+
+@pytest.mark.parametrize(
+    "read",
+    ["SELECT rowid, v FROM t WHERE rowid = 3", "SELECT rowid, v FROM t"],
+    ids=["point", "fullscan"],
+)
+def test_ivf_vacuum_after_read(db, read):
+    """A point query or full scan leaves no cached IVF statement in progress,
+    so VACUUM runs without a commit in between."""
+    db.execute(
+        "CREATE VIRTUAL TABLE t USING vec0(v float[4] indexed by ivf(nlist=2))"
+    )
+    for i in range(1, 11):
+        db.execute("INSERT INTO t(rowid, v) VALUES (?, ?)", [i, _f32([i, 0, 0, 0])])
+    db.execute("INSERT INTO t(t) VALUES ('compute-centroids')")
+    db.commit()
+    db.execute(read).fetchall()
+    db.execute("VACUUM")
