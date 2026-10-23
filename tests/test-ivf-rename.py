@@ -96,3 +96,29 @@ def test_rename_ivf_drop_after(db):
 
     assert _shadow_tables(db, "v") == []
     assert _shadow_tables(db, "v2") == []
+
+
+def test_rename_ivf_then_create_under_old_name(db):
+    """A rename leaves no index named for the old table, so a new IVF table
+    can take the old name."""
+    create = """
+        CREATE VIRTUAL TABLE v USING vec0(
+            a float[4] indexed by ivf(nlist=2)
+        )
+    """
+    db.execute(create)
+    db.execute("insert into v(rowid, a) values (1, ?)", [_f32([0.1] * 4)])
+    db.execute("ALTER TABLE v RENAME TO v2")
+
+    indexes = [
+        row[0] for row in db.execute(
+            r"select name from sqlite_master where type='index' and tbl_name like 'v2\_%' escape '\'"
+        ).fetchall()
+    ]
+    assert indexes
+    assert not any(name.startswith("v_") for name in indexes)
+
+    db.execute(create)
+    db.execute("insert into v(rowid, a) values (1, ?)", [_f32([0.9] * 4)])
+    assert db.execute("select a from v where rowid = 1").fetchone()[0] == _f32([0.9] * 4)
+    assert db.execute("select a from v2 where rowid = 1").fetchone()[0] == _f32([0.1] * 4)

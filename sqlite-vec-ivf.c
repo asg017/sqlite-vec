@@ -466,24 +466,20 @@ static int ivf_create_shadow_tables(vec0_vtab *p, int col_idx) {
   if (rc != SQLITE_OK || sqlite3_step(stmt) != SQLITE_DONE) { sqlite3_finalize(stmt); return SQLITE_ERROR; }
   sqlite3_finalize(stmt);
 
-  // cell_id is rowid (auto-increment), centroid_id is indexed
+  // cell_id is the rowid. A centroid's cells are found through the index of
+  // the UNIQUE constraint, which ALTER TABLE RENAME renames with its table; an
+  // index from CREATE INDEX would keep the old table's name, and xRename
+  // cannot drop it ("database table is locked").
   zSql = sqlite3_mprintf(
       "CREATE TABLE " VEC0_SHADOW_IVF_CELLS_NAME
-      " (centroid_id INTEGER NOT NULL,"
+      " (cell_id INTEGER PRIMARY KEY,"
+      "  centroid_id INTEGER NOT NULL,"
       "  n_vectors INTEGER NOT NULL DEFAULT 0,"
       "  validity BLOB NOT NULL,"
       "  rowids BLOB NOT NULL,"
-      "  vectors BLOB NOT NULL)",
+      "  vectors BLOB NOT NULL,"
+      "  UNIQUE (centroid_id, cell_id))",
       p->schemaName, p->tableName, col_idx);
-  if (!zSql) return SQLITE_NOMEM;
-  rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
-  if (rc != SQLITE_OK || sqlite3_step(stmt) != SQLITE_DONE) { sqlite3_finalize(stmt); return SQLITE_ERROR; }
-  sqlite3_finalize(stmt);
-
-  // Index on centroid_id for cell lookup
-  zSql = sqlite3_mprintf(
-      "CREATE INDEX \"%w_ivf_cells%02d_centroid\" ON \"%w_ivf_cells%02d\" (centroid_id)",
-      p->tableName, col_idx, p->tableName, col_idx);
   if (!zSql) return SQLITE_NOMEM;
   rc = sqlite3_prepare_v2(p->db, zSql, -1, &stmt, NULL); sqlite3_free(zSql);
   if (rc != SQLITE_OK || sqlite3_step(stmt) != SQLITE_DONE) { sqlite3_finalize(stmt); return SQLITE_ERROR; }
