@@ -1313,6 +1313,56 @@ def test_vec0_point():
     assert execute_all(db, "select * from t2 where id = 'xxx'") == []
 
 
+def test_vec0_rowid_constraint_values():
+    # vec0 declares the rowid INTEGER and a text primary key TEXT, so the rowid
+    # lookups it makes itself have to keep the rows SQLite keeps for the same
+    # constraint: the rows of `plain`, declared alike, and the rows of SQLite's
+    # own scan of the vec0 table (`or 0` keeps vec0 from handling it).
+    db = connect(EXT_PATH)
+    db.execute("create virtual table v using vec0(a float[1], chunk_size=8)")
+    db.execute("create table plain(id integer primary key)")
+    for rowid in [0, 1, 5, 6]:
+        db.execute("insert into v(rowid, a) values (?, ?)", [rowid, f"[{rowid}]"])
+        db.execute("insert into plain values (?)", [rowid])
+
+    def rowids(sql, parameters=()):
+        return sorted(row[0] for row in db.execute(sql, parameters))
+
+    mismatches = []
+    for value in [None, 5, 5.0, 5.5, "5", " 5 ", "5e0", "abc", "", b"\x05", 2**63 - 1, 1e19]:
+        want_in = rowids("select id from plain where id in (?, 6)", [value])
+        want_eq = rowids("select id from plain where id = ?", [value])
+        for sql, want in [
+            ("select rowid from v where a match '[0]' and k = 10 and rowid in (?, 6)", want_in),
+            ("select rowid from v where rowid = ?", want_eq),
+            ("select rowid from v where (rowid = ? or 0)", want_eq),
+        ]:
+            if rowids(sql, [value]) != want:
+                mismatches.append((sql, value, rowids(sql, [value]), want))
+
+    db.execute("create virtual table t using vec0(id text primary key, a float[1], chunk_size=8)")
+    db.execute("create table plain_t(id text primary key)")
+    for id in ["a", "A", "b", "5", "c  "]:
+        db.execute("insert into t(id, a) values (?, '[1]')", [id])
+        db.execute("insert into plain_t values (?)", [id])
+    for where in [
+        "id in ('a', 'missing', null)",
+        "id in (5, 'b')",
+        "id collate nocase in ('A', 'missing')",
+        "id collate rtrim in ('c', 'b ')",
+        "id = 'A' collate nocase",
+        "id = 5",
+    ]:
+        want = rowids(f"select id from plain_t where {where}")
+        for sql in [
+            f"select id from t where a match '[0]' and k = 10 and {where}",
+            f"select id from t where {where}",
+        ]:
+            if rowids(sql) != want:
+                mismatches.append((sql, None, rowids(sql), want))
+    assert mismatches == []
+
+
 def test_vec0_text_pk():
     db = connect(EXT_PATH)
     db.execute(

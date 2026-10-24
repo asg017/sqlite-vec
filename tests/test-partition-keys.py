@@ -18,6 +18,38 @@ def test_constructor_limit(db, snapshot):
     ) == snapshot(name="max 4 partition keys")
 
 
+def test_constraint_values(db):
+    # vec0 checks partition key constraints in its own query of the chunks it
+    # stores, so it has to keep the rows SQLite keeps for the declared types:
+    # those of `plain`, and those of SQLite's own scan of `v`.
+    db.execute(
+        "create virtual table v using vec0(p integer partition key, s text partition key, a float[1], chunk_size=8)"
+    )
+    db.execute("create table plain(id integer primary key, p integer, s text)")
+    for row in [(1, 5, "a"), (2, 6, "A"), (3, 5, "b  "), (4, 7, "5")]:
+        db.execute("insert into v(rowid, p, s, a) values (?, ?, ?, '[1]')", row)
+        db.execute("insert into plain values (?, ?, ?)", row)
+
+    def rowids(sql, parameters):
+        return sorted(row[0] for row in db.execute(sql, parameters))
+
+    mismatches = []
+    for where in [
+        "p = ?", "p != ?", "p > ?", "p <= ?",
+        "s = ?", "s != ?", "s < ?",
+        "s = ? collate nocase", "s != ? collate nocase", "s >= ? collate nocase", "s = ? collate rtrim",
+    ]:
+        for value in [None, 5, 5.0, 5.5, "5", " 5", "a", "A", "b", b"\x05"]:
+            want = rowids(f"select id from plain where {where}", [value])
+            for sql in [
+                f"select rowid from v where a match '[1]' and k = 10 and {where}",
+                f"select rowid from v where {where}",
+            ]:
+                if rowids(sql, [value]) != want:
+                    mismatches.append((sql, value, rowids(sql, [value]), want))
+    assert mismatches == []
+
+
 def test_normal(db, snapshot):
     db.execute(
         "create virtual table v using vec0(p1 int partition key, a float[1], chunk_size=8)"
