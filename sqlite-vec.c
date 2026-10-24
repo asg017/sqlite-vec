@@ -9496,7 +9496,7 @@ int vec0Update_Delete_ClearValidity(vec0_vtab *p, i64 chunk_id,
         p->schemaName, p->shadowChunksName, chunk_id, validityOffset);
     goto cleanup;
   }
-  if (!(bx >> (chunk_offset % CHAR_BIT))) {
+  if (!((bx >> (chunk_offset % CHAR_BIT)) & 1)) {
     // IMP: V21193_05263
     rc = SQLITE_ERROR;
     vtab_set_error(

@@ -1102,6 +1102,14 @@ def test_vec0_delete_errors():
     ):
         db.execute("delete from t1 where rowid = 1")
     db.rollback()
+    # only the row's own bit counts, not a higher one in the same byte
+    db.execute("begin")
+    db.execute("UPDATE t1_chunks SET validity = x'02'")
+    with _raises(
+        "vec0 deletion error: validity bit is not set for main.t1_chunks.1 at 0"
+    ):
+        db.execute("delete from t1 where rowid = 1")
+    db.rollback()
 
     # EVIDENCE-OF: V21193_05263 vec0 DELETE raises error on validity blob error
     db.commit()
