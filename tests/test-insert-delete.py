@@ -221,6 +221,34 @@ def test_delete_all_rows_deletes_chunk(db):
     assert row[0] == _f32([9.0, 9.0, 9.0, 9.0])
 
 
+def test_delete_keeps_chunk_while_another_validity_byte_has_rows(db):
+    # With chunk_size=16, rows 1-8 fill the first byte of the validity bitmap
+    # and rows 9-16 the second. Clearing either byte leaves the other's rows,
+    # which keep the chunk.
+    def chunks():
+        return db.execute("select count(*) from v_chunks").fetchone()[0]
+
+    def knn():
+        rows = db.execute(
+            "select rowid from v where emb match ? and k = 16", [_f32([0.0])]
+        )
+        return sorted(r[0] for r in rows)
+
+    for first, rest in [("rowid > 8", "rowid <= 8"), ("rowid <= 8", "rowid > 8")]:
+        db.execute("drop table if exists v")
+        db.execute("create virtual table v using vec0(emb float[1], chunk_size=16)")
+        for i in range(1, 17):
+            db.execute("insert into v(rowid, emb) values (?, ?)", [i, _f32([float(i)])])
+
+        db.execute(f"delete from v where {first}")
+        assert chunks() == 1
+        kept = [r[0] for r in db.execute(f"select rowid from v where {rest}")]
+        assert knn() == sorted(kept) and len(kept) == 8
+
+        db.execute(f"delete from v where {rest}")
+        assert chunks() == 0
+
+
 def test_delete_chunk_multiple_chunks(db):
     db.execute("create virtual table v using vec0(emb float[4], chunk_size=8)")
 
