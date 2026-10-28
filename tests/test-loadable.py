@@ -901,6 +901,39 @@ def test_vec0_insert_errors2():
     db.set_authorizer(None)
 
 
+def test_vec0_failed_metadata_insert_is_atomic():
+    db = connect(EXT_PATH)
+    db.execute(
+        "create virtual table demo using vec0(embedding float[2], year integer)"
+    )
+    db.execute("begin")
+    db.execute("insert into demo(rowid, embedding, year) values (1, '[1,0]', 2020)")
+    with _raises("Expected integer for INTEGER metadata column year, received TEXT"):
+        db.execute(
+            "insert into demo(rowid, embedding, year) values (2, '[9,9]', 'oops')"
+        )
+    db.execute("insert into demo(rowid, embedding, year) values (3, '[0,1]', 2021)")
+    db.commit()
+
+    assert execute_all(db, "select rowid, year from demo order by rowid") == [
+        {"rowid": 1, "year": 2020},
+        {"rowid": 3, "year": 2021},
+    ]
+    assert all(
+        row["rowid"] != 2
+        for row in execute_all(
+            db,
+            "select rowid, distance from demo where embedding match '[9,9]' and k = 5",
+        )
+    )
+
+    db.execute("insert into demo(rowid, embedding, year) values (2, '[9,9]', 2022)")
+    assert execute_all(db, "select rowid, year from demo where rowid = 2") == [
+        {"rowid": 2, "year": 2022}
+    ]
+    db.close()
+
+
 def test_vec0_drops():
     db = connect(EXT_PATH)
     db.execute(
