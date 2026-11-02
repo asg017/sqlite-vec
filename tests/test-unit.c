@@ -870,6 +870,29 @@ void test_distance_cosine_float() {
     assert(fabsf(d - 2.0f) < 1e-6f);
   }
 
+  // Lengths around the 16-float SIMD block, including odd tails, against
+  // a scalar reference summed in double.
+  {
+    size_t dims_list[] = {15, 16, 17, 31, 33, 47, 384, 389};
+    float a[389], b[389];
+    for (size_t i = 0; i < countof(a); i++) {
+      a[i] = sinf((float)i * 0.37f + 0.1f);
+      b[i] = cosf((float)i * 0.23f - 0.4f);
+    }
+    for (size_t t = 0; t < countof(dims_list); t++) {
+      size_t n = dims_list[t];
+      double dot = 0, aa = 0, bb = 0;
+      for (size_t i = 0; i < n; i++) {
+        dot += (double)a[i] * b[i];
+        aa += (double)a[i] * a[i];
+        bb += (double)b[i] * b[i];
+      }
+      float expected = (float)(1.0 - dot / (sqrt(aa) * sqrt(bb)));
+      d = _test_distance_cosine_float(a, b, n);
+      assert(fabsf(d - expected) < 1e-5f);
+    }
+  }
+
   printf("  All distance_cosine_float tests passed.\n");
 }
 
