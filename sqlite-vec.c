@@ -433,12 +433,12 @@ static f32 distance_l2_sqr_int8(const void *a, const void *b, const void *d) {
   return l2_sqr_int8(a, b, d);
 }
 
-static i32 l1_int8(const void *pA, const void *pB, const void *pD) {
+static i64 l1_int8(const void *pA, const void *pB, const void *pD) {
   i8 *a = (i8 *)pA;
   i8 *b = (i8 *)pB;
   size_t d = *((size_t *)pD);
 
-  i32 res = 0;
+  i64 res = 0;
   for (size_t i = 0; i < d; i++) {
     res += abs(*a - *b);
     a++;
@@ -448,9 +448,11 @@ static i32 l1_int8(const void *pA, const void *pB, const void *pD) {
   return res;
 }
 
-static i32 distance_l1_int8(const void *a, const void *b, const void *d) {
+static i64 distance_l1_int8(const void *a, const void *b, const void *d) {
 #ifdef SQLITE_VEC_ENABLE_NEON
-  if ((*(const size_t *)d) > 15) {
+  // The NEON kernel accumulates and returns a signed 32-bit distance.
+  // Each int8 pair contributes at most 255, so use it only within that bound.
+  if ((*(const size_t *)d) > 15 && (*(const size_t *)d) <= INT32_MAX / 255) {
     return l1_int8_neon(a, b, d);
   }
 #endif
@@ -1533,7 +1535,7 @@ static void vec_distance_l1(sqlite3_context *context, int argc,
   }
   case SQLITE_VEC_ELEMENT_TYPE_INT8: {
     i64 result = distance_l1_int8(a, b, &dimensions);
-    sqlite3_result_int(context, result);
+    sqlite3_result_int64(context, result);
     goto finish;
   }
   }

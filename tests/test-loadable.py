@@ -303,6 +303,24 @@ def test_vec_distance_hamming():
         db.execute("select vec_distance_hamming(vec_int8(X'FF'), vec_int8(X'FF'))")
 
 
+@pytest.mark.parametrize(
+    "dimensions", [(2**31 - 1) // 255, (2**31 - 1) // 255 + 1, 8_500_001]
+)
+def test_vec_distance_l1_int8_large(dimensions):
+    a = bytes([127]) * dimensions
+    b = bytes([128]) * dimensions
+    distance, reverse, identical = db.execute(
+        "select vec_distance_l1(vec_int8(?), vec_int8(?)), "
+        "vec_distance_l1(vec_int8(?), vec_int8(?)), "
+        "vec_distance_l1(vec_int8(?), vec_int8(?))",
+        (a, b, b, a, a, a),
+    ).fetchone()
+    assert type(distance) is int
+    assert distance == dimensions * 255
+    assert reverse == distance
+    assert identical == 0
+
+
 def test_vec_distance_l1():
     vec_distance_l1 = lambda *args, a="?", b="?": db.execute(
         f"select vec_distance_l1({a}, {b})", args
