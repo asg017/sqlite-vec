@@ -583,6 +583,57 @@ def test_vec_add():
         vec_add(_int8([2]), _f32([1]), a="vec_int8(?)")
 
 
+@pytest.mark.parametrize("position", [0, 1, 2])
+@pytest.mark.parametrize("left,right", [(127, 1), (-128, -1)])
+@pytest.mark.parametrize("input_format", ["json", "blob"])
+def test_vec_add_int8_overflow(position, left, right, input_format):
+    a, b = [0, 0, 0], [0, 0, 0]
+    a[position], b[position] = left, right
+    encode = json.dumps if input_format == "json" else _int8
+    with pytest.raises(sqlite3.OperationalError, match="vec_add.*int8.*overflow"):
+        db.execute(
+            "select vec_add(vec_int8(?), vec_int8(?))", (encode(a), encode(b))
+        ).fetchone()
+    assert db.execute("select vec_to_json(vec_add('[1]', '[2]'))").fetchone()[0] == (
+        "[3.000000]"
+    )
+
+
+@pytest.mark.parametrize("position", [0, 1, 2])
+@pytest.mark.parametrize("sign", [1, -1])
+@pytest.mark.parametrize("input_format", ["json", "blob"])
+def test_vec_add_float32_overflow(position, sign, input_format):
+    values = [0, 0, 0]
+    values[position] = sign * 3e38
+    encode = json.dumps if input_format == "json" else _f32
+    with pytest.raises(sqlite3.OperationalError, match="vec_add.*float32.*overflow"):
+        db.execute("select vec_add(?, ?)", (encode(values), encode(values))).fetchone()
+    assert db.execute("select vec_to_json(vec_add('[1]', '[2]'))").fetchone()[0] == (
+        "[3.000000]"
+    )
+
+
+def test_vec_add_boundaries_and_subtype():
+    row = db.execute(
+        "select vec_type(vec_add(vec_int8(?), vec_int8(?))), "
+        "vec_to_json(vec_add(vec_int8(?), vec_int8(?)))",
+        (_int8([-127, 126]), _int8([-1, 1]), _int8([-127, 126]), _int8([-1, 1])),
+    ).fetchone()
+    assert tuple(row) == ("int8", "[-128,127]")
+
+    max_float = float.fromhex("0x1.fffffep+127")
+    a = _f32([max_float, max_float, 1e-30, -2.0])
+    b = _f32([2**102, -max_float, 1e-30, 2.0])
+    row = db.execute(
+        "select vec_type(vec_add(?, ?)), vec_add(?, ?), "
+        "vec_to_json(vec_add('[1, -1]', '[-1, 1]'))",
+        (a, b, a, b),
+    ).fetchone()
+    assert row[0] == "float32"
+    assert row[1] == _f32([max_float, 0, 2e-30, 0])
+    assert row[2] == "[0.000000,0.000000]"
+
+
 def test_vec_sub():
     vec_sub = lambda *args, a="?", b="?": db.execute(
         f"select vec_sub({a}, {b})", args

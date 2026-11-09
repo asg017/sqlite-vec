@@ -161,6 +161,9 @@ Adds every element in vector `a` with vector `b`, returning a new vector `c`. Bo
 must be of the same type and same length. Only `float32` and `int8` vectors are supported.
 
 An error is raised if either `a` or `b` are invalid, or if they are not the same type or same length.
+An error is also raised if an `int8` sum is outside the range -128 to 127 or a
+`float32` sum is non-finite. This changes the previous behavior, which could return
+wrapped `int8` values or non-finite `float32` values.
 
 See also [`vec_sub()`](#vec_sub).
 
