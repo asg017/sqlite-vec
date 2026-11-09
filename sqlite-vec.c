@@ -1762,6 +1762,11 @@ static void vec_add(sqlite3_context *context, int argc, sqlite3_value **argv) {
     memset(out, 0, outSize);
     for (size_t i = 0; i < dimensions; i++) {
       out[i] = ((f32 *)a)[i] + ((f32 *)b)[i];
+      if (!isfinite(out[i])) {
+        sqlite3_free(out);
+        sqlite3_result_error(context, "vec_add float32 overflow", -1);
+        goto finish;
+      }
     }
     sqlite3_result_blob(context, out, outSize, sqlite3_free);
     sqlite3_result_subtype(context, SQLITE_VEC_ELEMENT_TYPE_FLOAT32);
@@ -1776,7 +1781,13 @@ static void vec_add(sqlite3_context *context, int argc, sqlite3_value **argv) {
     }
     memset(out, 0, outSize);
     for (size_t i = 0; i < dimensions; i++) {
-      out[i] = ((i8 *)a)[i] + ((i8 *)b)[i];
+      int sum = (int)((i8 *)a)[i] + (int)((i8 *)b)[i];
+      if (sum < INT8_MIN || sum > INT8_MAX) {
+        sqlite3_free(out);
+        sqlite3_result_error(context, "vec_add int8 overflow", -1);
+        goto finish;
+      }
+      out[i] = (i8)sum;
     }
     sqlite3_result_blob(context, out, outSize, sqlite3_free);
     sqlite3_result_subtype(context, SQLITE_VEC_ELEMENT_TYPE_INT8);
