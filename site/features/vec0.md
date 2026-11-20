@@ -39,36 +39,50 @@ columns, and allow you to include extra `WHERE` constraints during KNN queries.
 ```sql
 create virtual table vec_movies using vec0(
   movie_id integer primary key,
-  synopsis_embedding float[1024],
+  synopsis_embedding float[2],
   genre text,
   num_reviews int,
   mean_rating float,
   contains_violence boolean
 );
+
+insert into vec_movies
+  (movie_id, synopsis_embedding, genre, num_reviews, mean_rating, contains_violence)
+values
+  (1, '[0, 0]', 'drama', 200, 4.0, false),
+  (2, '[1, 0]', 'scifi', 200, 4.0, false),
+  (3, '[2, 0]', 'scifi', 300, 4.5, false);
 ```
 
 In the `vec0` constructor, the `genre`, `num_reviews`, `mean_rating`, and
 `contains_violence` columns are metadata columns, with their specified types.
 
-A sample KNN query on this table could look like:
+To find the closest movie that satisfies the metadata filters:
 
 ```sql
-select *
+select movie_id, distance
 from vec_movies
-where synopsis_embedding match '[...]'
-  and k = 5
+where synopsis_embedding match '[0, 0]'
+  and k = 1
   and genre = 'scifi'
   and num_reviews between 100 and 500
   and mean_rating > 3.5
-  and contains_violence = false;
+  and contains_violence = false
+order by distance;
 ```
 
 The first two conditions in the `WHERE` clause (`synopsis_embedding match` and
-`k = 5`) denote that the query is a KNN query. The other conditions are metadata
-constraints that `sqlite-vec` will recognize and apply during the KNN
-calculation. In other words, for the above query, a maximum of 5 rows would be
-returned, all of which would match all the `WHERE` constraints for their
-metadata column values.
+`k = 1`) request one nearest neighbor. The remaining conditions filter the
+candidates before choosing that neighbor. Movie 1 is closest but has the wrong
+genre, so the query returns movie 2 at distance 1.
+
+Delete that match by its primary key:
+
+```sql
+delete from vec_movies where movie_id = 2;
+```
+
+Run the same KNN query again. It now returns movie 3 at distance 2.
 
 #### Metadata Column Declaration
 
